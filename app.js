@@ -24,7 +24,7 @@
   const LABN = {"106":2,"123":2,"140":2,"154":1,"166":1,"179":1,"190":1,"201":1,"212":1,"222":2,"235":2,"252":5,"265":4,"275":5,"283":6,"296":6,"308":6,"316":8,"339":16,"365":8,"380":15,"409":2,"417":3,"429":5,"440":13,"468":3,"475":12,"497":11,"526":9,"550":11,"572":7,"580":9,"601":4,"607":4,"614":3,"621":5,"627":15,"657":3,"663":10,"678":7,"696":7,"714":4,"723":10,"759":3,"767":13,"800":2,"807":15,"838":4,"849":6,"867":9,"888":8,"906":7,"913":4,"935":3,"941":4,"953":3,"961":10,"998":7,"1008":4,"1027":6,"1042":3,"1048":3,"1055":6};
   const SIMF = ['engine', 'c', 'x', 'p', 'k', 'e', 'm', 'b'];
   let simsP = null;
-  const loadSims = () => simsP ||= SIMF.reduce((p, f) => p.then(() => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js`; el.onload = ok; el.onerror = () => no(new Error('Could not load the simulator')); document.head.appendChild(el); })), Promise.resolve()).catch(e => { simsP = null; throw e; });
+  const loadSims = () => simsP ||= SIMF.reduce((p, f) => p.then(() => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js?v=${SWV}`; el.onload = ok; el.onerror = () => no(new Error('Could not load the simulator')); document.head.appendChild(el); })), Promise.resolve()).catch(e => { simsP = null; throw e; });
   // the book formula a lab is built on: its own topic first, then its home topic, then anywhere (tests/labref.js)
   function labRef(L) {
     const w = (L.rf || '').toLowerCase(); if (!w || !FA) return '';
@@ -428,7 +428,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031202825';
+  const SWV = 'ae-20261031203415';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
