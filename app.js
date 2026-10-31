@@ -281,7 +281,17 @@
   const qz = $('#qz');
   const mcqQ = x => ({ id: x.id, t: x.t, src: x.src, q: x.q, opts: x.o.map(optOf), r: x.r, ex: explHtml(x) });
   // a Question Book question for a quiz or mock: the printed question as a picture, the options as its letters
-  const solHtml = x => x.sh ? `<div class="usol">${x.sh.map(([k, h]) => `<p class="u-${k}">${h}</p>`).join('')}</div>` : spu(x.ss, 'Answer and worked solution');
+  // a solution as a flow of boxes: [[badge, html, class?], …]
+  const flowHtml = items => `<ol class="flow">${items.map(([b, h, c]) => `<li${c ? ` class="${c}"` : ''}><i>${b}</i><div>${h}</div></li>`).join('')}</ol>`;
+  // concept and formula line of a Question Book question, from the book's past-question appendix (paired by paper + question)
+  const cfHtml = x => x.cf ? `<div class="ucf"><p><b>💡 Concept:</b> ${x.cf[0]}</p>${x.cf[1].length ? `<div><b>📐 Formula used:</b><div class="fx">${x.cf[1].join('<br>')}</div></div>` : ''}<span class="pg">From the book's past-question appendix p ${x.cf[2]}${x.cf[3] ? ` · Study Notes p ${x.cf[3]}` : ''}</span></div>` : '';
+  const solHtml = x => {
+    if (!x.sh) return cfHtml(x) + spu(x.ss, 'Answer and worked solution');
+    const by = k => x.sh.filter(e => e[0] === k).map(e => e[1]);
+    const con = by('con').map(h => h.replace(/^\s*Concept:\s*/, '')), steps = by('st').map(h => h.replace(/^\s*\d+[.)]\s*/, ''));
+    const flow = [...(x.cf ? [['💡', x.cf[0], 'fc']] : con.map(h => ['💡', h, 'fc'])), ...(x.cf && x.cf[1].length ? [['📐', `<span class="fx">${x.cf[1].join('<br>')}</span>`, 'ff']] : []), ...steps.map((h, k) => [k + 1, h]), ...by('ans').map(h => ['✓', h.replace(/^\s*Answer:\s*/, ''), 'end'])];
+    return `<div class="usol">${by('ans').map(h => `<p class="u-ans">${h}</p>`).join('')}<b class="flowh">Solution flow</b>${flowHtml(flow)}${x.cf ? `<span class="pg">💡 concept and 📐 formula line from the book's past-question appendix p ${x.cf[2]}${x.cf[3] ? ` · Study Notes p ${x.cf[3]}` : ''}</span>` : ''}${['why', 'mis', 'tw'].flatMap(k => by(k).map(h => `<p class="u-${k}">${h}</p>`)).join('')}</div>`;
+  };
   const uQ = x => {
     const oh = x.qh != null && x.oh ? Object.fromEntries(x.oh) : null;
     return { id: x.id, t: x.t, src: `Question Book · ${x.lab} · ${x.src}`, q: oh ? `<div class="uq">${x.qh}</div>` : spu(x.qs, x.src) + '<span class="zoomhint">Tap the picture to zoom</span>',
@@ -339,7 +349,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031100852';
+  const SWV = 'ae-20261031101442';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -479,7 +489,7 @@
           const L = s.kind === 'sums' ? ch.sums : ch.ratio, rs = s.kind === 'ratio';
           sec('learn', sid, s.n, title, cls, (rs ? '' : '<p class="lead">Read the sum, work it out on paper, then open the steps.</p>') + L.map(x => `<div class="box ss${rs ? ' rs' : ''}" data-s="${esc(plain(x.title) + ' ' + plain(ansOf(x)))}"><h3>${x.title.replace(/^(Sum \d+\.|R\d+\.)/, '<b>$1</b>')}</h3>
             <div class="acts"><button class="btn tg" data-t="st">${rs ? 'Show rule' : 'Show steps'}</button><button class="btn tg" data-t="an">Show answer</button></div>
-            <div class="st" hidden>${x.sp ? spr(x.sp, D, 'Working') : x.steps.filter(st => st[0] !== 'Answer').map(st => `<p class="fx"><b>${esc(st[0])}</b> ${st[1].join('<br>')}</p>`).join('')}</div>
+            <div class="st" hidden>${flowHtml(x.steps.filter(st => st[0] !== 'Answer').map(st => [esc(st[0].replace(/^Step\s*/, '')), `<span class="fx">${st[1].join('<br>')}</span>`]).concat([['✓', 'Answer — tap “Show answer”', 'end']]))}${x.sp ? `<details class="prt"><summary>View the sum as printed</summary>${spr(x.sp, D, 'Sum as printed')}</details>` : ''}</div>
             <div class="an" hidden><div class="ans">Answer: ${ansOf(x)}</div>${x.trap ? `<p class="tp">✗ ${x.trap}</p>` : ''}</div></div>`).join(''), `${L.length} sums`, KSHORT[s.kind]);
         }
         else if (s.kind === 'mcq') sec('learn', sid, s.n, title, cls, bookQ.map(mcqCard).join(''), '<span class="score"></span>', 'Practice MCQs');
@@ -636,8 +646,8 @@
       $('#glist').innerHTML = rows.slice(0, gshown).map(g => { const e = P.q[`g${id}.${g.i}`];
         return `<article class="box gs" data-g="${g.i}"><header><b>${esc(g.src)} · Q.${esc(g.q)}</b><span class="mk ${g.m === 2 ? 'two' : ''}">${g.m} mark${g.m > 1 ? 's' : ''}</span><span class="pg">p ${g.pg}</span></header>
         <div class="im">${spr(g.qs, D, `${g.src} Q.${g.q}`, 'g')}</div>
-        <div class="chain" hidden>${g.l.map((c, k) => (k ? '→ ' : '') + `<span>${esc(c)}</span>`).join(' ')}</div>
-        <div class="acts"><button class="btn gt" data-k="chain">Hint</button><button class="btn gt" data-k="ans">Answer</button><button class="btn gt" data-k="sol">Full solution</button>
+        <div class="chain" hidden>${flowHtml(g.l.map((c, k) => [k + 1, esc(c)]).concat([['✓', 'Answer: tap “Answer”', 'end']]))}</div>
+        <div class="acts"><button class="btn gt" data-k="chain">🧭 Solution flow</button><button class="btn gt" data-k="ans">Answer</button><button class="btn gt" data-k="sol">Full solution</button>
           <span class="self">${e ? `Last time: <b>${e[2] ? '✓ got it' : '✗ missed'}</b>` : 'Did you get it?'}</span><button class="btn ok" data-gs="1">✓ Got it</button><button class="btn no" data-gs="0">✗ Missed</button></div>
         <div class="ans" hidden>Answer: ${esc(g.a)}</div><div class="sol im" hidden>${spr(g.ss, D, 'Worked solution', 'g')}</div></article>`; }).join('') || '<div class="empty">No GATE sum matches this search.</div>';
       const m = $('#gmore'); m.hidden = rows.length <= gshown; m.textContent = `Show ${Math.min(5, rows.length - gshown)} more (${rows.length - gshown} left)`;
@@ -717,13 +727,14 @@
       ${sub[0] ? `<div class="usub"><b>${esc(sub[0])}</b>${sub[1] ? ` · ${esc(sub[1])}` : ''}</div>` : ''}
       ${x.qh != null ? `<div class="uq">${x.qh}${x.oh && x.oh.length ? `<ol class="uopts">${x.oh.map(([l, h]) => `<li><b>(${l})</b> ${h}</li>`).join('')}</ol>` : ''}</div>
         <div class="im print" hidden>${spu(x.qs, x.src)}</div>` : `<div class="im">${spu(x.qs, x.src)}<span class="zoomhint">Tap the picture to zoom</span></div>`}
-      <div class="acts">${ui}<button class="btn" data-uact="sol">Show solution</button>${x.qh != null ? '<button class="btn" data-uact="print">View as printed</button>' : ''}</div><div class="ufb" hidden></div>
+      <div class="acts">${ui}${x.cf ? '<button class="btn" data-uact="cf">💡 Concept & formula</button>' : ''}<button class="btn" data-uact="sol">Show solution</button>${x.qh != null ? '<button class="btn" data-uact="print">View as printed</button>' : ''}</div><div class="ucfh" hidden>${cfHtml(x)}</div><div class="ufb" hidden></div>
       <div class="sol" hidden>${x.sh ? solHtml(x) + `<button class="btn lnk" data-uact="sprint">View the solution as printed</button><div class="im sprint" hidden>${spu(x.ss, 'Answer and worked solution')}</div>` : `<div class="im">${spu(x.ss, 'Answer and worked solution')}</div>`}</div></article>`;
   }
   function uAnswer(e, U) {
     const card = e.target.closest('.ub'); if (!card) return;
     const x0 = U.q.find(q => q.id === card.dataset.u), x = { ...x0, ...(UBY[x0.id] || {}) }, b = e.target.closest('.uo, [data-uact]'); if (!b) return;
     const sol = $('.sol', card), fb = $('.ufb', card), showSol = () => { sol.hidden = false; lazy(card); $('[data-uact="sol"]', card).textContent = 'Hide solution'; };
+    if (b.dataset.uact === 'cf') { const h = $('.ucfh', card); h.hidden = !h.hidden; b.classList.toggle('on', !h.hidden); return; }
     if (b.dataset.uact === 'sol') { sol.hidden = !sol.hidden; b.textContent = sol.hidden ? 'Show solution' : 'Hide solution'; lazy(card); return; }
     if (b.dataset.uact === 'print' || b.dataset.uact === 'sprint') { const im = $(b.dataset.uact === 'print' ? '.print' : '.sprint', card); im.hidden = !im.hidden; b.textContent = (im.hidden ? 'View ' : 'Hide ') + (b.dataset.uact === 'print' ? 'as printed' : 'the solution as printed'); lazy(card); return; }
     if (card.dataset.done) return;

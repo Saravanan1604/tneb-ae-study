@@ -581,6 +581,29 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 }
 :root[data-theme="comfort"] body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:2147483646;background:#ffa53c;opacity:.09;mix-blend-mode:multiply}
 :root[data-theme="comfort"] .sp,:root[data-theme="comfort"] img{filter:sepia(.12) brightness(.97)}
+/* solution flow (steps as connected boxes) and concept & formula boxes */
+.flow{list-style:none;margin:4px 0;padding:0;display:grid;gap:22px;justify-items:start}
+.flow li{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:9px;align-items:start;background:var(--paper);border:1.5px solid var(--blue-bd);border-radius:10px;padding:8px 12px;max-width:100%;min-width:min(260px,100%);font-size:14px;line-height:1.5}
+.flow li>i{font-style:normal;font-weight:800;font-size:12px;background:var(--blue);color:#fff;border-radius:999px;min-width:24px;height:24px;padding:0 6px;display:grid;place-items:center;margin-top:1px}
+.flow li>div{min-width:0;overflow-wrap:anywhere}
+.flow li:not(:last-child)::after{content:"";position:absolute;left:22px;bottom:-21px;width:2px;height:16px;background:var(--blue-bd)}
+.flow li:not(:last-child)::before{content:"";position:absolute;left:17px;bottom:-22px;border:6px solid transparent;border-top:7px solid var(--blue);border-bottom:0}
+.flow li.fc{border-color:var(--yel-bd);background:var(--yel-bg)}
+.flow li.fc>i{background:var(--yel)}
+.flow li.ff{border-color:var(--pur-bd);background:var(--pur-bg)}
+.flow li.ff>i{background:var(--pur)}
+.flow li.end{border-color:var(--grn-bd);background:var(--grn-bg);font-weight:700}
+.flow li.end>i{background:var(--grn)}
+.flow .fx{font-size:15.5px}
+.flowh{font-size:13px;color:var(--navy);margin-top:4px}
+.prt{margin-top:8px}
+.prt summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--navy)}
+.prt[open] summary{margin-bottom:8px}
+.ucf{display:grid;gap:6px;border:1px solid var(--yel-bd);background:var(--yel-bg);border-radius:10px;padding:9px 12px;font-size:14px}
+.ucf p{margin:0}
+.ucf .fx{margin-top:2px}
+.ucfh{padding:0 12px}
+.ucfh[hidden]{display:none}
 /* look-up shelf */
 .tc.shelf .lnames{font-size:12.5px}
 .pgchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
