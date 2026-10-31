@@ -20,6 +20,21 @@
   const STANDALONE = /\.github\.io$/.test(location.hostname) || location.hostname === 'localhost';
   const SIM_URL = STANDALONE ? 'sim/transformers/#try' : 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP#try';
   const SIM_TGT = STANDALONE ? '' : ' target="_blank" rel="noopener"';
+  /* formula & concept simulators: sims/*.js, loaded the first time a Simulate tab or the Simulators page opens */
+  const LABN = {"106":2,"123":2,"140":2,"154":1,"166":1,"179":1,"190":1,"201":1,"212":1,"222":2,"235":2,"339":16,"365":8,"380":15,"409":2,"417":3,"429":5,"440":13,"468":3,"475":12,"497":11,"526":9,"550":11,"572":7,"580":9,"601":4,"607":4,"614":3,"621":5,"627":15,"657":3,"663":10,"678":7,"696":7,"714":4,"723":10,"759":3,"767":13,"800":2,"807":15,"838":4,"849":6,"867":9,"888":8,"906":7,"913":4,"935":3,"941":4,"953":3,"961":10,"998":7,"1008":4,"1027":6,"1042":3,"1048":3,"1055":6};
+  const SIMF = ['engine', 'c', 'x', 'p', 'k', 'e', 'm'];
+  let simsP = null;
+  const loadSims = () => simsP ||= SIMF.reduce((p, f) => p.then(() => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js`; el.onload = ok; el.onerror = () => no(new Error('Could not load the simulator')); document.head.appendChild(el); })), Promise.resolve()).catch(e => { simsP = null; throw e; });
+  // the book formula a lab is built on: its own topic first, then its home topic, then anywhere (tests/labref.js)
+  function labRef(L) {
+    const w = (L.rf || '').toLowerCase(); if (!w || !FA) return '';
+    const rank = id => ({ f: 0, k: 1, s: 2, x: 3 })[id[0]] ?? 4;
+    for (const t of [L.t, L.home, null]) {
+      const hit = FA.filter(x => (t == null || x.t === t) && plain(x.nm).toLowerCase().includes(w)).sort((a, b) => (plain(b.nm).toLowerCase() === w) - (plain(a.nm).toLowerCase() === w) || rank(a.id) - rank(b.id))[0];
+      if (hit) return `<b>📗 Book formula: ${esc(plain(hit.nm))}</b><span class="pg">${esc(hit.src)}${hit.t !== L.t ? ` · ${esc(short(T(hit.t)))}` : ''}</span><div class="fx">${hit.h.slice(0, 3).join('<br>')}</div>`;
+    }
+    return '';
+  }
   // accuracy colour scale: [upper bound, tile background, tile text, bar]
   const SCALE = [[50, '#fde3e3', '#a61b1b', '#d93636'], [65, '#ffe6cf', '#94420a', '#ef7d22'], [80, '#fff3c4', '#6e5300', '#e3b100'], [90, '#e8f4d9', '#3d6b12', '#7cb342'], [101, '#d4eedd', '#145c31', '#2e8b57']];
   const tone = p => p == null ? ['#eef2f7', '#56637a', '#c9d3e0'] : SCALE.find(s => p < s[0]).slice(1);
@@ -107,7 +122,7 @@
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a></div>` +
+    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a></div>` +
       IX.S.map(([k, n]) => `<h4 style="--c:${SC[k]}"><i></i>${esc(n)}</h4>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('')).join('');
     paintDots();
   }
@@ -320,7 +335,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031060720';
+  const SWV = 'ae-20261031064211';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -329,7 +344,7 @@
       <div class="acts"><button class="btn" data-off="data">Save notes & questions (8 MB)</button><button class="btn go" data-off="all">Save everything</button></div><div class="pg" id="offst"></div></div>`;
   }
   async function saveOffline(all) {
-    const st = $('#offst'), cache = await caches.open(SWV), urls = ['./', 'index.html', 'app.js', 'theme.js', 'manifest.json', 'data/index.json', 'data/q.json', 'data/f.json', 'data/u.json'];
+    const st = $('#offst'), cache = await caches.open(SWV), urls = ['./', 'index.html', 'app.js', 'theme.js', 'manifest.json', 'data/index.json', 'data/q.json', 'data/f.json', 'data/u.json', ...SIMF.map(f => `sims/${f}.js`)];
     IX.T.forEach(t => { urls.push(`data/t/${t.id}.json`); if (t.n.u) urls.push(`data/u/${t.id}.json`); });
     if (all) {
       st.textContent = 'Finding every picture…';
@@ -362,7 +377,7 @@
   async function route(keep) {
     if (!keep && !PENDQ) gsView = null;
     // views are plain hash names: #home, #progress, #mock, #more, #t-497, #t-497-prac
-    const tok = ++RT, h = location.hash.slice(1), tm = h.match(/^t-(\d+)(?:-(learn|prac|book))?$/);
+    const tok = ++RT, h = location.hash.slice(1), tm = h.match(/^t-(\d+)(?:-(learn|prac|sim|book))?$/);
     const [a, b, c] = tm ? ['t', tm[1], tm[2]] : [h];
     if (!qz.hidden && !keep) { qz.hidden = true; qz.innerHTML = ''; document.body.style.overflow = ''; }
     drawer(false);
@@ -373,6 +388,7 @@
       if (a === 'progress') return await viewConsole(tok, keep);
       if (a === 'mock') return await viewMock(tok);
       if (a === 'more') return await viewMore(tok);
+      if (a === 'sims') return await viewSims(tok);
       return viewHome(tok, keep);
     } catch (e) { if (tok === RT) main.innerHTML = `<div class="empty" style="margin-top:20px">Could not load this page (${esc(e.message)}). Check your connection and reload.</div>`; }
   }
@@ -395,10 +411,11 @@
     const tot = IX.totals;
     main.innerHTML = `<section class="hero"><h1>Every topic of your Complete Book</h1>
       <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="${SIM_URL}"${SIM_TGT}>⚙ Transformer simulator</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
+      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
       ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
+      <a class="tc" href="#sims" style="--c:#0f766e"><h3>⚙ Formula & concept simulators</h3><div class="meta"><span>${Object.values(LABN).reduce((a, b) => a + b, 0)} live labs on ${Object.keys(LABN).length} topics — every EE subject and Maths; graphs, what-if tables and the book's worked numbers as checks</span></div></a>
       <a class="tc" href="${SIM_URL}"${SIM_TGT} style="--c:#2e8b57"><h3>⚙ Transformer simulator</h3><div class="meta"><span>Change voltage, frequency, load or turns and watch flux, currents, losses, efficiency and regulation respond; phasors, 3-phase, parallel operation, saturation and inrush</span></div></a>
       ${offlineCard()}</div></section>
       <footer class="foot">From your TNEB AE (EEE) Question Book (all exams: Parts 2–3, all 2,620 past questions) and Complete Book: Study Notes (Vols 2–4), previous-year questions, question bank and mock test (Vol 5), Formula Self-Test and A–Z table (Vol 6), GATE multi-concept sums (Vols 7–9), past-question rows (Appendix A–C, Vol 4). Volume 1 (Maths and Basic Engineering notes, p 106–295) is not loaded yet, so those ${IX.T.filter(t => t.v === 1).length} topics have formulas, past questions and GATE sums but no chapter notes.</footer>`;
@@ -425,11 +442,11 @@
   async function viewTopic(id, pane, tok, keep) {
     const t = T(id);
     if (!keep) { setShell('topic', id); main.innerHTML = '<p class="loading">Loading ' + esc(t.t) + '…</p>'; }
-    const [D, U] = await Promise.all([topic(id), get(`data/u/${id}.json`).catch(() => null), loadAll()]);
+    const [D, U] = await Promise.all([topic(id), t.n.u ? get(`data/u/${id}.json`).catch(() => null) : null, loadAll()]);
     if (tok !== RT) return;
     if (keep && main.dataset.tid === id) { paintMine(D); if (U) rU && rU(); return; }
     document.title = t.t + ' · TNEB AE Study Site';
-    const ch = D.ch, vn = `Vol ${D.v}`, SECS = [], PANES = { learn: [], prac: [], book: [] };
+    const ch = D.ch, vn = `Vol ${D.v}`, SECS = [], PANES = { learn: [], prac: [], sim: [], book: [] };
     const sec = (pane, sid, n, title, cls, body, small = '', shortName = title) => { SECS.push([sid, n, shortName, pane]); PANES[pane].push(`<section class="sec ${cls}" id="${sid}"><h2><span class="n">${n}</span><span>${title}</span>${small ? `<small>${small}</small>` : ''}</h2><div class="in">${body}</div></section>`); };
     const myQ = QA.filter(x => x.t === id), bookQ = myQ.filter(x => x.k === 'book'), otherQ = myQ.filter(x => x.k !== 'book');
     const myF = FA.filter(f => f.t === id);
@@ -494,10 +511,11 @@
       <div id="qlist" style="display:grid;gap:10px"></div><button class="more" id="qmore" hidden></button>`, `${D.rows.length} questions`, 'Question bank');
 
     /* Book pages */
+    if (LABN[id]) sec('sim', 'labs', '⚙', 'Formula & concept simulator', 't-teal', `<p class="lead">${LABN[id]} live labs built on this topic's formulas. Move a slider or type a value: every output updates, ↑ ↓ → show which way it moved from where you started. <b>📈 Graph</b> plots any output against any input (or the lab's own curve), <b>↕ What happens if…</b> raises each input by 10 %, and <b>✓ Book checks</b> recompute the book's own worked numbers.</p><div class="labs" id="labbox"><p class="loading">Loading the simulator…</p></div>`, `${LABN[id]} labs`, 'Simulator');
     if (ch && ch.tamil.length) sec('book', 'tamil', 'த', 'Tamil stories & concept tour', 't-grn', `<p class="lead">The book's Tamil story pages and concept tour for this topic, exactly as printed.</p>` +
       ch.tamil.map(p => `<details class="ta"><summary>${esc(p.heads.join(' · ') || 'Book page')} <span class="pg">· ${vn} p ${p.pg}</span></summary><div class="pages">${spr(p.sp, D, 'Book page ' + p.pg, 't')}</div></details>`).join(''), `${ch.tamil.length} pages`, 'Tamil pages');
 
-    const panes = [['learn', '📖', 'Learn', ch ? 'chapter & formulas' : 'formulas'], ['prac', '✍', 'Practice', U ? `${U.q.length} past questions, tests, GATE` : 'tests, MCQs, GATE, question bank'], ...(PANES.book.length ? [['book', 'த', 'Tamil pages', 'stories & concept tour']] : [])];
+    const panes = [['learn', '📖', 'Learn', ch ? 'chapter & formulas' : 'formulas'], ['prac', '✍', 'Practice', U ? `${U.q.length} past questions, tests, GATE` : 'tests, MCQs, GATE, question bank'], ...(LABN[id] ? [['sim', '⚙', 'Simulate', `${LABN[id]} live labs`]] : []), ...(PANES.book.length ? [['book', 'த', 'Tamil pages', 'stories & concept tour']] : [])];
     const i = IX.T.indexOf(t), prev = IX.T[i - 1], nxt = IX.T[i + 1];
     const subj = IX.S.find(s => s[0] === t.s)[1];
     main.dataset.tid = id;
@@ -535,9 +553,15 @@
         $$('.pbar [data-pane]', main).forEach(b => b.setAttribute('aria-selected', String(b.dataset.pane === p)));
         $$('[data-sec]').forEach(a => { a.hidden = a.dataset.p !== p; });
         try { history.replaceState(null, '', `#t-${id}${p === 'learn' ? '' : '-' + p}`); } catch (e) {}
-        lazy();
+        lazy(); if (p === 'sim') mountLabs();
       }
       if (scroll) { const top = $('.pbar', main).getBoundingClientRect().top + scrollY - 70; if (scrollY > top) scrollTo(0, top); }
+    }
+    let labsOn = false;
+    function mountLabs() {
+      if (labsOn) return; labsOn = true; const box = $('#labbox');
+      Promise.all([loadSims(), loadF()]).then(() => { if (box.isConnected) SIMS.mount(box, LABS.filter(L => L.t === id), labRef); })
+        .catch(e => { labsOn = false; box.innerHTML = `<div class="empty">${esc(e.message)}. Check your connection and open this tab again.</div>`; });
     }
     $('.pbar', main).onclick = e => { const b = e.target.closest('[data-pane]'); if (b) showPane(b.dataset.pane, true); };
     $('#toc').onclick = $('#chips').onclick = e => { const a = e.target.closest('[data-sec]'); if (!a) return; e.preventDefault(); goSec(a.dataset.sec); };
@@ -925,6 +949,20 @@
   }
 
   /* ---------- past questions without a chapter page ---------- */
+  async function viewSims(tok) {
+    setShell('sims'); document.title = 'Simulators · TNEB AE Study Site';
+    main.innerHTML = '<p class="loading">Loading the simulators…</p>';
+    await Promise.all([loadSims(), loadF()]); if (tok !== RT) return;
+    const by = {}; LABS.forEach(L => { if (L.home === L.t) (by[L.t] ||= []).push(L); });
+    const g = {}; IX.T.forEach(t => { if (LABN[t.id]) (g[t.s] ||= []).push(t); });
+    const tot = Object.values(LABN).reduce((a, b) => a + b, 0);
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Simulators</div>
+      <section class="hero"><h1>⚙ Formula & concept simulators</h1><p>${tot} live labs on ${Object.keys(LABN).length} topics. Each lab is built on a formula of your book: change the numbers and watch every result move, plot any output against any input, see what a 10 % change does, and recompute the book's own worked examples (${LABS.reduce((a, L) => a + (L.ck || []).length, 0)} checks, all matching the book).</p>
+      <div class="acts"><a class="btn go" href="${SIM_URL}"${SIM_TGT}>⚙ Full Transformer simulator (phasors, 3-phase, parallel, inrush)</a></div></section>
+      ${IX.S.filter(([k]) => g[k]).map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].reduce((a, t) => a + LABN[t.id], 0)} labs</small></h2><div class="tcards">${g[k].map(t => `<a class="tc" href="#t-${t.id}-sim" style="--c:${SC[t.s]}" data-s="${esc(t.t)}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}<span>${LABN[t.id]} labs</span></div><p class="lnames">${(by[t.id] || LABS.filter(L => L.t === t.id)).map(L => esc(L.n)).join(' · ')}</p></a>`).join('')}</div></section>`).join('')}
+      <footer class="foot">Every lab uses the formula as printed in your Complete Book; the book link on each lab shows which formula and page. The ✓ Book checks are the book's solved sums, ratio sums, key-formula examples, one-minute sums, quick checks and value tables.</footer>`;
+    toTop();
+  }
   function viewMore() {
     setShell('home'); document.title = 'Other past questions · TNEB AE Study Site';
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Other past questions</div><div class="con"><section class="panel"><h2>Past questions not tied to a chapter page <small>${IX.unmapped.length} rows</small></h2>
