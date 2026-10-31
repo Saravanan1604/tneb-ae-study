@@ -18,7 +18,7 @@
   const KIND = { u: 'Question Book', b: 'Chapter MCQs', p: 'Previous-year MCQs', q: 'Question bank', g: 'GATE sums', f: 'Formula letters', k: 'Key formulas', s: 'Formula Self-Test', x: 'Past-question formulas' };
   // the GitHub Pages copy (and a local preview) has the simulator inside the site and works offline
   const STANDALONE = /\.github\.io$/.test(location.hostname) || location.hostname === 'localhost';
-  const SIM_URL = STANDALONE ? 'sim/transformers/' : 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP';
+  const SIM_URL = STANDALONE ? 'sim/transformers/#try' : 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP#try';
   const SIM_TGT = STANDALONE ? '' : ' target="_blank" rel="noopener"';
   // accuracy colour scale: [upper bound, tile background, tile text, bar]
   const SCALE = [[50, '#fde3e3', '#a61b1b', '#d93636'], [65, '#ffe6cf', '#94420a', '#ef7d22'], [80, '#fff3c4', '#6e5300', '#e3b100'], [90, '#e8f4d9', '#3d6b12', '#7cb342'], [101, '#d4eedd', '#145c31', '#2e8b57']];
@@ -320,7 +320,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031055339';
+  const SWV = 'ae-20261031055410';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -393,7 +393,7 @@
     const tot = IX.totals;
     main.innerHTML = `<section class="hero"><h1>Every topic of your Complete Book</h1>
       <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
+      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="${SIM_URL}"${SIM_TGT}>⚙ Transformer simulator</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
       ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
