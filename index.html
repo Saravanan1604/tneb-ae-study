@@ -539,7 +539,7 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;scroll-behavior:auto!important}}
 
-/* dark mode — only when the reader presses the moon button (light is the book's look and the default) */
+/* dark mode — only when the reader picks it with the theme button (light is the book's look and the default) */
 :root[data-theme="dark"]{
   color-scheme:dark;
   --paper:#161d29; --bg:#0d121a; --ink:#e4e9f2; --ink-2:#9eabbf; --line:#2b3648; --navy:#d6e4ff; --nbg:#2f5fbf;
@@ -573,6 +573,14 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 :root[data-theme="dark"] .stat:first-child b{color:#13265a}
 :root[data-theme="dark"] .stat span{color:#56637a}
 :root[data-theme="dark"] .logo i{color:#13265a}
+/* eye comfort — for long daytime reading: warm paper instead of white, softer text contrast, and a light
+   warm filter over the whole page (like a phone's eye-comfort setting) so the book's white pictures dim too */
+:root[data-theme="comfort"]{
+  --paper:#fbf4e4; --bg:#f1e7d2; --ink:#3a3024; --ink-2:#6b5d4a; --line:#e3d5b8; --navy:#2f3b5c; --nbg:#3d4f7a;
+  --blue-bg:#f3eedf; --s-pale:#f6eedc; --s-pale2:#f7f0df; --s-pale3:#f2ead8; --s-gray:#efe6d3; --s-track:#e6dac2;
+}
+:root[data-theme="comfort"] body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:2147483646;background:#ffa53c;opacity:.09;mix-blend-mode:multiply}
+:root[data-theme="comfort"] .sp,:root[data-theme="comfort"] img{filter:sepia(.12) brightness(.97)}
 .themebtn{border:1.5px solid var(--line);background:var(--paper);color:var(--ink);width:40px;height:38px;border-radius:9px;font-size:17px;display:grid;place-items:center;flex:none}
 </style>
 
@@ -588,7 +596,7 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
   </nav>
   <label class="hsearch" id="hsearch"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
     <input id="q" type="search" placeholder="Search this topic" aria-label="Search this topic" autocomplete="off"></label>
-  <button class="themebtn" id="theme" aria-label="Switch to dark mode">🌙</button>
+  <button class="themebtn" id="theme" aria-label="Theme: Light. Tap for Eye comfort">☀️</button>
   <button class="iconbtn" id="sbtn" aria-label="Search this topic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg></button>
 </header>
 

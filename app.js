@@ -320,7 +320,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031055410';
+  const SWV = 'ae-20261031060720';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -348,10 +348,12 @@
   }
   document.addEventListener('click', e => { const b = e.target.closest('[data-off]'); if (!b) return; $$('[data-off]').forEach(x => x.disabled = true); saveOffline(b.dataset.off === 'all').finally(() => $$('[data-off]').forEach(x => x.disabled = false)); });
 
-  /* ---------- dark mode button (light is the default) ---------- */
+  /* ---------- theme button: Light (default) → Eye comfort → Dark ---------- */
   const themeBtn = $('#theme');
-  const paintTheme = () => { const d = document.documentElement.dataset.theme === 'dark'; themeBtn.textContent = d ? '☀️' : '🌙'; themeBtn.setAttribute('aria-label', d ? 'Switch to light mode' : 'Switch to dark mode'); themeBtn.title = themeBtn.getAttribute('aria-label'); };
-  themeBtn.onclick = () => { const d = document.documentElement.dataset.theme !== 'dark'; document.documentElement.dataset.theme = d ? 'dark' : 'light'; try { localStorage.setItem('ae-theme', d ? 'dark' : 'light'); } catch (e) {} paintTheme(); };
+  const THEMES = [['light', '☀️', 'Light'], ['comfort', '👁️', 'Eye comfort'], ['dark', '🌙', 'Dark']];
+  const curTheme = () => Math.max(0, THEMES.findIndex(t => t[0] === document.documentElement.dataset.theme));
+  const paintTheme = () => { const [, ic, nm] = THEMES[curTheme()], nx = THEMES[(curTheme() + 1) % THEMES.length][2]; themeBtn.textContent = ic; themeBtn.setAttribute('aria-label', `Theme: ${nm}. Tap for ${nx}`); themeBtn.title = themeBtn.getAttribute('aria-label'); };
+  themeBtn.onclick = () => { const [k, , nm] = THEMES[(curTheme() + 1) % THEMES.length]; document.documentElement.dataset.theme = k; try { localStorage.setItem('ae-theme', k); } catch (e) {} paintTheme(); toast(`${nm} mode${k === 'comfort' ? ' — warm, softer page for daytime reading' : ''}`); };
   paintTheme();
 
   /* ---------- router ---------- */
