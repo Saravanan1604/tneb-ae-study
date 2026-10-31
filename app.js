@@ -12,10 +12,14 @@
   const get = u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
   let tt; const toast = m => { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 2800); };
   const main = $('#main');
+  try { const th = localStorage.getItem('ae-theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
   const SC = { m: '#3949ab', b: '#00796b', c: '#d84315', x: '#c62828', p: '#1565c0', k: '#7b1fa2', e: '#2e7d32' };
   const PRW = { HIGH: 3, MEDIUM: 2, LOW: 1 };
   const KIND = { u: 'Question Book', b: 'Chapter MCQs', p: 'Previous-year MCQs', q: 'Question bank', g: 'GATE sums', f: 'Formula letters', k: 'Key formulas', s: 'Formula Self-Test', x: 'Past-question formulas' };
-  const SIM_URL = 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP';
+  // the GitHub Pages copy (and a local preview) has the simulator inside the site and works offline
+  const STANDALONE = /\.github\.io$/.test(location.hostname) || location.hostname === 'localhost';
+  const SIM_URL = STANDALONE ? 'sim/transformers/' : 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP';
+  const SIM_TGT = STANDALONE ? '' : ' target="_blank" rel="noopener"';
   // accuracy colour scale: [upper bound, tile background, tile text, bar]
   const SCALE = [[50, '#fde3e3', '#a61b1b', '#d93636'], [65, '#ffe6cf', '#94420a', '#ef7d22'], [80, '#fff3c4', '#6e5300', '#e3b100'], [90, '#e8f4d9', '#3d6b12', '#7cb342'], [101, '#d4eedd', '#145c31', '#2e8b57']];
   const tone = p => p == null ? ['#eef2f7', '#56637a', '#c9d3e0'] : SCALE.find(s => p < s[0]).slice(1);
@@ -258,8 +262,12 @@
   const qz = $('#qz');
   const mcqQ = x => ({ id: x.id, t: x.t, src: x.src, q: x.q, opts: x.o.map(optOf), r: x.r, ex: explHtml(x) });
   // a Question Book question for a quiz or mock: the printed question as a picture, the options as its letters
-  const uQ = x => ({ id: x.id, t: x.t, src: `Question Book · ${x.lab} · ${x.src}`, q: spu(x.qs, x.src), opts: x.L.map(l => ({ l, h: '' })), r: x.L.indexOf(x.ok[0]), rs: x.ok.map(l => x.L.indexOf(l)),
-    ex: `<p><b>Answer: ${esc(x.ans)}</b>${x.c ? ' · ' + esc(x.c) : ''}</p>${spu(x.ss, 'Answer and worked solution')}` });
+  const solHtml = x => x.sh ? `<div class="usol">${x.sh.map(([k, h]) => `<p class="u-${k}">${h}</p>`).join('')}</div>` : spu(x.ss, 'Answer and worked solution');
+  const uQ = x => {
+    const oh = x.qh != null && x.oh ? Object.fromEntries(x.oh) : null;
+    return { id: x.id, t: x.t, src: `Question Book · ${x.lab} · ${x.src}`, q: oh ? `<div class="uq">${x.qh}</div>` : spu(x.qs, x.src) + '<span class="zoomhint">Tap the picture to zoom</span>',
+      opts: x.L.map(l => ({ l, h: oh && oh[l] || '' })), r: x.L.indexOf(x.ok[0]), rs: x.ok.map(l => x.L.indexOf(l)), ex: solHtml(x) };
+  };
   const isRight = (q, j) => q.rs ? q.rs.includes(j) : j === q.r;
   const optsHtml = (q, attr, sel) => `<div class="opts${q.opts.some(o => o.h) ? '' : ' lt'}">${q.opts.map((o, j) => `<button class="opt${sel === j ? ' sel' : ''}" ${attr}="${j}"><i>${esc(o.l || 'ABCD'[j])}</i>${o.h ? `<span>${o.h}</span>` : ''}</button>`).join('')}</div>`;
   function quiz(items, title) {
@@ -311,6 +319,41 @@
     return shuffle(out);
   }
 
+  /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
+  const SWV = 'ae-20261031054900';
+  if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  function offlineCard() {
+    if (!STANDALONE || !('caches' in window)) return '';
+    let done = ''; try { done = localStorage.getItem('ae-offline') || ''; } catch (e) {}
+    return `<div class="tc" style="--c:#0f766e" id="offl"><h3>📶 Use it offline</h3><div class="meta"><span>Pages you open are kept on this phone. To study with no network, save everything once (about 100 MB).${done ? ` Saved ${esc(done)}.` : ''}</span></div>
+      <div class="acts"><button class="btn" data-off="data">Save notes & questions (8 MB)</button><button class="btn go" data-off="all">Save everything</button></div><div class="pg" id="offst"></div></div>`;
+  }
+  async function saveOffline(all) {
+    const st = $('#offst'), cache = await caches.open(SWV), urls = ['./', 'index.html', 'app.js', 'theme.js', 'manifest.json', 'data/index.json', 'data/q.json', 'data/f.json', 'data/u.json'];
+    IX.T.forEach(t => { urls.push(`data/t/${t.id}.json`); if (t.n.u) urls.push(`data/u/${t.id}.json`); });
+    if (all) {
+      st.textContent = 'Finding every picture…';
+      for (const t of IX.T) { const D = await topic(t.id); D.sheets.forEach(([f]) => urls.push(f)); }
+      (await loadU()).forEach(x => { urls.push(x.qs[0]); urls.push(x.ss[0]); });
+      ['sim/transformers/', 'sim/transformers/sim.js', 'sim/transformers/progress.js'].forEach(u => urls.push(u));
+    }
+    const L = [...new Set(urls)]; let n = 0, bad = 0;
+    for (let i = 0; i < L.length; i += 6) {
+      await Promise.all(L.slice(i, i + 6).map(async u => { try { if (!(await cache.match(u))) await cache.add(u); } catch (e) { bad++; } n++; }));
+      st.textContent = `Saving ${n} of ${L.length} files…`;
+    }
+    const when = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + (all ? ' (everything)' : ' (notes & questions)');
+    try { localStorage.setItem('ae-offline', when); } catch (e) {}
+    st.textContent = bad ? `Saved ${n - bad} files; ${bad} could not be saved — try again with a better connection.` : `✓ Saved ${n} files. This site now works with no network.`;
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-off]'); if (!b) return; $$('[data-off]').forEach(x => x.disabled = true); saveOffline(b.dataset.off === 'all').finally(() => $$('[data-off]').forEach(x => x.disabled = false)); });
+
+  /* ---------- dark mode button (light is the default) ---------- */
+  const themeBtn = $('#theme');
+  const paintTheme = () => { const d = document.documentElement.dataset.theme === 'dark'; themeBtn.textContent = d ? '☀️' : '🌙'; themeBtn.setAttribute('aria-label', d ? 'Switch to light mode' : 'Switch to dark mode'); themeBtn.title = themeBtn.getAttribute('aria-label'); };
+  themeBtn.onclick = () => { const d = document.documentElement.dataset.theme !== 'dark'; document.documentElement.dataset.theme = d ? 'dark' : 'light'; try { localStorage.setItem('ae-theme', d ? 'dark' : 'light'); } catch (e) {} paintTheme(); };
+  paintTheme();
+
   /* ---------- router ---------- */
   let RT = 0, M = null;
   addEventListener('hashchange', () => route());
@@ -353,7 +396,8 @@
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
       ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
-      <a class="tc" href="${SIM_URL}" target="_blank" rel="noopener" style="--c:#2e8b57"><h3>⚙ Transformer simulator ↗</h3><div class="meta"><span>The full Transformers page with the formula & concept simulator (opens separately)</span></div></a></div></section>
+      <a class="tc" href="${SIM_URL}"${SIM_TGT} style="--c:#2e8b57"><h3>⚙ Transformer simulator</h3><div class="meta"><span>Change voltage, frequency, load or turns and watch flux, currents, losses, efficiency and regulation respond; phasors, 3-phase, parallel operation, saturation and inrush</span></div></a>
+      ${offlineCard()}</div></section>
       <footer class="foot">From your TNEB AE (EEE) Question Book (all exams: Parts 2–3, all 2,620 past questions) and Complete Book: Study Notes (Vols 2–4), previous-year questions, question bank and mock test (Vol 5), Formula Self-Test and A–Z table (Vol 6), GATE multi-concept sums (Vols 7–9), past-question rows (Appendix A–C, Vol 4). Volume 1 (Maths and Basic Engineering notes, p 106–295) is not loaded yet, so those ${IX.T.filter(t => t.v === 1).length} topics have formulas, past questions and GATE sums but no chapter notes.</footer>`;
     main.onclick = e => { if (e.target.closest('[data-h="rev"]')) reviseMistakes(); };
     if (!keep) toTop();
@@ -459,7 +503,7 @@
         ${ch && ch.sub ? `<div class="tsub">${esc(ch.sub)}</div>` : `<div class="tsub">${D.st.length} formulas · ${myQ.length} MCQs · ${D.rows.length} past questions · ${D.gate.length} GATE sums</div>`}
         ${ch && ch.stats.length ? `<div class="stats">${ch.stats.map(([n, l, c]) => `<div class="stat"><b style="color:${c}">${n}</b><span>${esc(l)}</span></div>`).join('')}${ch.priority[0] ? `<div class="stat pr ${ch.priority[0].split(' ')[0]}"><b>${esc(ch.priority[0])}</b><span>${esc(ch.priority[1])}</span></div>` : ''}</div>` : ''}
         ${ch && ch.note ? `<p class="tnote">${esc(ch.note)}</p>` : ''}
-        ${t.t === 'Transformers' ? `<a class="simlink" href="${SIM_URL}" target="_blank" rel="noopener"><i>⚙</i><span><b>Open the Transformer Formula & Concept Simulator ↗</b><small>Phasors, losses, efficiency, regulation, 3-phase, parallel operation, saturation and inrush — on the full Transformers page</small></span></a>` : ''}
+        ${t.t === 'Transformers' ? `<a class="simlink" href="${SIM_URL}"${SIM_TGT}><i>⚙</i><span><b>Open the Transformer Formula & Concept Simulator${STANDALONE ? ' →' : ' ↗'}</b><small>Phasors, losses, efficiency, regulation, 3-phase, parallel operation, saturation and inrush — on the full Transformers page</small></span></a>` : ''}
         <div class="mine" id="mine"></div></div>
       <div class="pbar" role="tablist" aria-label="Parts of this topic" style="--n:${panes.length}">${panes.map(([k, ic, n, sub]) => `<button role="tab" data-pane="${k}" aria-selected="false"><i>${ic}</i><span><b>${n}</b><small>${sub}</small></span><em class="pcount" hidden></em></button>`).join('')}</div>
       <nav class="chips" id="chips" aria-label="On this page"></nav>
@@ -594,7 +638,7 @@
       const L = U.q.filter(x => (!uf.p || x.lab[0] === uf.p) && (!uf.e || x.ex === uf.e) && (uf.s === '' || x.sub === +uf.s)
         && (!uf.m || (uf.m === 'new' ? !P.q[x.id] : P.q[x.id] && P.q[x.id][2] === 0)) && hit(x.lab + ' ' + x.src + ' ' + x.c + ' ' + x.x + ' ' + (U.subs[x.sub] || [''])[0]));
       nU = L.length;
-      $('#ulist').innerHTML = L.slice(0, ushown).map(x => uCard(x, U)).join('') || '<div class="empty">No question matches these filters.</div>';
+      $('#ulist').innerHTML = L.slice(0, ushown).map(x => uCard({ ...x, ...(UBY[x.id] || {}) }, U)).join('') || '<div class="empty">No question matches these filters.</div>';
       const m = $('#umore'); m.hidden = L.length <= ushown; m.textContent = `Show ${Math.min(6, L.length - ushown)} more (${L.length - ushown} left)`;
       lazy($('#ulist'));
     };
@@ -633,15 +677,17 @@
       : `<span class="pg">${/^MTA/.test(x.ans) ? 'Marks to all — the official key gave every candidate the marks.' : 'No option is correct as printed.'} Not scored.</span>`;
     return `<article class="box gs ub" data-u="${x.id}"><header><b>${x.lab}</b><span class="ex ex-${x.ex}">${esc(x.src)}</span>${uState(x)}<span class="pg">p ${x.pg}</span></header>
       ${sub[0] ? `<div class="usub"><b>${esc(sub[0])}</b>${sub[1] ? ` · ${esc(sub[1])}` : ''}</div>` : ''}
-      <div class="im">${spu(x.qs, x.src)}</div>
-      <div class="acts">${ui}<button class="btn" data-uact="sol">Show solution</button></div><div class="ufb" hidden></div>
-      <div class="sol im" hidden>${spu(x.ss, 'Answer and worked solution')}</div></article>`;
+      ${x.qh != null ? `<div class="uq">${x.qh}${x.oh && x.oh.length ? `<ol class="uopts">${x.oh.map(([l, h]) => `<li><b>(${l})</b> ${h}</li>`).join('')}</ol>` : ''}</div>
+        <div class="im print" hidden>${spu(x.qs, x.src)}</div>` : `<div class="im">${spu(x.qs, x.src)}<span class="zoomhint">Tap the picture to zoom</span></div>`}
+      <div class="acts">${ui}<button class="btn" data-uact="sol">Show solution</button>${x.qh != null ? '<button class="btn" data-uact="print">View as printed</button>' : ''}</div><div class="ufb" hidden></div>
+      <div class="sol" hidden>${x.sh ? solHtml(x) + `<button class="btn lnk" data-uact="sprint">View the solution as printed</button><div class="im sprint" hidden>${spu(x.ss, 'Answer and worked solution')}</div>` : `<div class="im">${spu(x.ss, 'Answer and worked solution')}</div>`}</div></article>`;
   }
   function uAnswer(e, U) {
     const card = e.target.closest('.ub'); if (!card) return;
-    const x = U.q.find(q => q.id === card.dataset.u), b = e.target.closest('.uo, [data-uact]'); if (!b) return;
+    const x0 = U.q.find(q => q.id === card.dataset.u), x = { ...x0, ...(UBY[x0.id] || {}) }, b = e.target.closest('.uo, [data-uact]'); if (!b) return;
     const sol = $('.sol', card), fb = $('.ufb', card), showSol = () => { sol.hidden = false; lazy(card); $('[data-uact="sol"]', card).textContent = 'Hide solution'; };
     if (b.dataset.uact === 'sol') { sol.hidden = !sol.hidden; b.textContent = sol.hidden ? 'Show solution' : 'Hide solution'; lazy(card); return; }
+    if (b.dataset.uact === 'print' || b.dataset.uact === 'sprint') { const im = $(b.dataset.uact === 'print' ? '.print' : '.sprint', card); im.hidden = !im.hidden; b.textContent = (im.hidden ? 'View ' : 'Hide ') + (b.dataset.uact === 'print' ? 'as printed' : 'the solution as printed'); lazy(card); return; }
     if (card.dataset.done) return;
     let ok;
     if (b.classList.contains('uo')) {
