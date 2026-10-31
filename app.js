@@ -355,7 +355,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031133038';
+  const SWV = 'ae-20261031133803';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -981,27 +981,33 @@
   const partImg = ([f, W, H, y, w, h, mw], alt) => `<div class="sp rpi" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${mw}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${H > h ? (y / (H - h) * 100).toFixed(4) : 0}%"></div>`;
   // a book page re-set for reading: its text as text (tables become one card per row on a phone), its picture cards
   // and drawings cut out one per row; the printed page stays one tap away
-  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption><span>Vol ${g.v} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
+  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption><span class="pgt">Vol ${g.v} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
     ${rh ? `<div class="rp">${rh[0].replace(/<i data-k="(\d+)"><\/i>/g, (_, k) => partImg(rh[1][k], `${g.n}, p ${e[0]}, picture ${+k + 1}`))}</div><div class="pp" hidden>${pgImg(e, `${g.n}, book page ${e[0]}`)}</div>` : pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`;
   document.addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (!b) return; const f = b.closest('figure'), pp = $('.pp', f), rp = $('.rp', f); if (!pp) return;
     const on = pp.hidden; pp.hidden = !on; rp.hidden = on; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '📖 Readable' : '🖼 As printed'; });
   const SPECIAL = [['sym', '🔤', 'Symbols A–Z — what every letter means', 'Every symbol of the book with its meaning, unit, where it is used and a formula it appears in (456 entries, Vol 6 p 1540–1565).'],
     ['az', '📒', 'A–Z formula table', 'Every formula by name, A to Z: Engineering Mathematics, Electrical & Electronics, Basic Engineering & Sciences (Vol 6 p 1566–1674).'],
     ['gate', '🎓', 'GATE multi-concept sums', 'All GATE EE sums of Vols 7–9 with their concept chain and full solution, topic by topic.']];
-  function shelfCard(g) { return `<a class="tc shelf" href="#ref-${g.id}" style="--c:#a86a00"><h3>${g.ic} ${esc(g.n)}</h3><div class="meta"><span>Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''}</span><span>${g.p.length} page${g.p.length > 1 ? 's' : ''}</span></div><p class="lnames">${esc(g.d)}</p></a>`; }
+  // every shelf has its own colour: its index card, its page frames, and the row cards of its tables
+  const SHC = { which: '#2563eb', sym: '#7c3aed', az: '#0e7490', cards: '#dc2626', keyvals: '#ea580c', magic: '#db2777', eeemagic: '#c026d3', mathmagic: '#7e22ce',
+    values: '#b45309', reck: '#0f766e', lookalike: '#e11d48', mental: '#15803d', units: '#0369a1', visual: '#4f46e5', geometry: '#059669', mensuration: '#a16207',
+    aptitude: '#9333ea', curves: '#1d4ed8', colour: '#b91c1c', trees: '#166534', compare: '#0891b2', cross: '#6d28d9', concept: '#be185d', analogy: '#0284c7',
+    proportion: '#c2410c', scoc: '#b91c1c', whatif: '#a21caf', rlctamil: '#047857', gate: '#dc2626' };
+  const shc = id => SHC[id] || '#a86a00';
+  function shelfCard(g) { return `<a class="tc shelf" href="#ref-${g.id}" style="--c:${shc(g.id)}"><h3><span class="shi">${g.ic}</span> ${esc(g.n)}</h3><div class="meta"><span>Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''}</span><span>${g.p.length} page${g.p.length > 1 ? 's' : ''}</span></div><p class="lnames">${esc(g.d)}</p></a>`; }
   async function viewRef(tok) {
     setShell('ref'); document.title = 'Look-up shelf · TNEB AE Study Site';
     main.innerHTML = '<p class="loading">Loading the look-up shelf…</p>';
     const R = await loadRef(); if (tok !== RT) return;
-    const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids) => `<section class="subj"><h2>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:#a86a00"><h3>${s[1]} ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
+    const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids, c) => `<section class="subj shelfsec" style="--c:${c}"><h2><i></i>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:${shc(s[0])}"><h3><span class="shi">${s[1]}</span> ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
       <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book (${R.g.reduce((a, g) => a + g.p.length, 0)} pages), set for easy reading on a phone — one card per row, every word as printed; the printed page is one tap away. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
       <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
-      ${sec('Letters & formulas', ['which', 'sym', 'az', 'cards', 'keyvals'])}
-      ${sec('Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'])}
-      ${sec('Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'])}
-      ${sec('Ideas & comparisons', ['compare', 'cross', 'concept', 'analogy', 'proportion', 'scoc', 'whatif', 'rlctamil'])}
-      ${sec('Sums', ['gate'])}
+      ${sec('🔤 Letters & formulas', ['which', 'sym', 'az', 'cards', 'keyvals'], '#2563eb')}
+      ${sec('🔢 Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'], '#db2777')}
+      ${sec('🖼 Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'], '#059669')}
+      ${sec('💡 Ideas & comparisons', ['compare', 'cross', 'concept', 'analogy', 'proportion', 'scoc', 'whatif', 'rlctamil'], '#7c3aed')}
+      ${sec('🎓 Sums', ['gate'], '#dc2626')}
       <footer class="foot">From your Complete Book: Visual Tricks & Formula Sheets and Electrical Formula Read Cards (Vol 5), the Look-up shelf — Symbols A–Z, A–Z Formula Table, Calculation Ready-Reckoner, Magic Numbers, Look-alike Numbers & Trap Factors, Key Formula & Direct-Answer Values (Vol 6) — and One Concept Many Places, Quick Comparisons, the Cross-Comparison Book, the Analogy Book and RC · RL · RLC in Tamil (Vol 7).</footer>`;
     toTop();
   }
@@ -1012,9 +1018,9 @@
     document.title = g.n + ' · Look-up shelf';
     const prev = R.g[i - 1], nxt = R.g[i + 1];
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › ${esc(g.n)}</div>
-      <section class="hero"><h1>${g.ic} ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · ${RH ? 'the book’s words, set for easy reading: one card per row, tables as cards on a phone, pictures cut out large (tap to zoom). “🖼 As printed” shows the page itself.' : 'exactly as printed — tap a page to zoom.'}</p>
+      <section class="hero shelfh" style="--c:${shc(g.id)}"><h1><span class="shi">${g.ic}</span> ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · ${RH ? 'the book’s words, set for easy reading: one card per row, tables as cards on a phone, pictures cut out large (tap to zoom). “🖼 As printed” shows the page itself.' : 'exactly as printed — tap a page to zoom.'}</p>
       ${g.p.length > 3 ? `<nav class="pgchips" aria-label="Pages">${g.p.map(([p]) => `<a href="#ref-${g.id}-${p}">p ${p}</a>`).join('')}</nav>` : ''}</section>
-      <div class="pages refpages">${g.p.map(e => readPage(g, e, RH && RH[e[0]])).join('')}</div>
+      <div class="pages refpages" style="--c:${shc(g.id)}">${g.p.map(e => readPage(g, e, RH && RH[e[0]])).join('')}</div>
       <div class="pn">${prev ? `<a href="#ref-${prev.id}"><small>← Previous shelf</small><b>${esc(prev.n)}</b></a>` : '<a href="#ref"><small>←</small><b>Look-up shelf</b></a>'}${nxt ? `<a href="#ref-${nxt.id}"><small>Next shelf →</small><b>${esc(nxt.n)}</b></a>` : ''}</div>`;
     lazy();
     const el = page && document.getElementById('rp' + page);

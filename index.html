@@ -667,6 +667,45 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
   .rp .rt.rc td.e{display:none}
 }
 :root[data-theme="dark"] .rp{background:#f1efe9;filter:brightness(.92)}
+/* colour: each shelf has its own colour (--c); a table carries the book's colour for it (--hc) */
+.shelfsec>h2 i{background:var(--c)}
+.shelfsec>h2{border-bottom:3px solid color-mix(in srgb,var(--c) 35%,transparent);padding-bottom:6px}
+.tc.shelf{background:linear-gradient(135deg,color-mix(in srgb,var(--c) 22%,var(--paper)) 0%,color-mix(in srgb,var(--c) 5%,var(--paper)) 75%);border-color:color-mix(in srgb,var(--c) 35%,var(--line));border-left:7px solid var(--c);box-shadow:0 2px 6px color-mix(in srgb,var(--c) 14%,transparent)}
+.tc.shelf .meta span{background:color-mix(in srgb,var(--c) 12%,var(--paper));color:color-mix(in srgb,var(--c) 80%,var(--ink));border-radius:999px;padding:1px 8px;font-weight:700}
+.tc.shelf h3{color:color-mix(in srgb,var(--c) 72%,var(--ink));display:flex;align-items:center;gap:8px}
+.shi{display:inline-grid;place-items:center;flex:none;width:1.9em;height:1.9em;border-radius:50%;background:color-mix(in srgb,var(--c) 24%,var(--paper));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--c) 35%,transparent);font-size:.95em;font-style:normal}
+.hero.shelfh{background:linear-gradient(120deg,color-mix(in srgb,var(--c) 22%,var(--paper)) 0%,color-mix(in srgb,var(--c) 7%,var(--paper)) 60%,#fff4d6 100%);border-color:color-mix(in srgb,var(--c) 30%,var(--line))}
+.hero.shelfh h1{color:color-mix(in srgb,var(--c) 70%,var(--ink));display:flex;align-items:center;gap:10px}
+@media (max-width:640px){.hero.shelfh .pgchips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:6px;margin-inline:-4px;scrollbar-width:thin}.hero.shelfh .pgchips a{flex:none}}
+.hero.shelfh .pgchips a{border-color:color-mix(in srgb,var(--c) 40%,var(--line));color:color-mix(in srgb,var(--c) 80%,var(--ink));background:color-mix(in srgb,var(--c) 6%,var(--paper))}
+.refpages .refpg{border-top:5px solid var(--c);border-color:color-mix(in srgb,var(--c) 25%,var(--line));border-top-color:var(--c)}
+.refpg .pgt{background:var(--c);color:#fff;border-radius:999px;padding:2px 10px;font-weight:800}
+.refpg figcaption .btn{border-color:color-mix(in srgb,var(--c) 45%,var(--line));color:color-mix(in srgb,var(--c) 80%,var(--ink))}
+.rp h4:not([style*="color"]){color:color-mix(in srgb,var(--c) 75%,#000)}
+.rp .rt th{background:var(--hc,var(--c))}
+.rp .rt tbody tr:nth-child(even){background:color-mix(in srgb,var(--hc,var(--c)) 8%,#fff)}
+.rp .rt tbody tr:nth-child(odd){background:color-mix(in srgb,var(--hc,var(--c)) 2%,#fff)}
+.rp .rt td{border-bottom-color:color-mix(in srgb,var(--hc,var(--c)) 18%,#fff)}
+.rp .rn{background:color-mix(in srgb,var(--hc,var(--c)) 16%,#fff);color:color-mix(in srgb,var(--hc,var(--c)) 85%,#000);font-weight:800}
+.rp .rl li:nth-child(even){background:color-mix(in srgb,var(--hc,var(--c)) 5%,#fff)}
+.rp .rcol{border-color:color-mix(in srgb,var(--c) 25%,#fff);background:color-mix(in srgb,var(--c) 6%,#fff)}
+.rp .rdm li:nth-child(even){background:color-mix(in srgb,var(--c) 5%,#fff)}
+.rp .tree ul{border-left-color:color-mix(in srgb,var(--c) 35%,#fff)}
+.rp .tree ul>li::before{border-top-color:color-mix(in srgb,var(--c) 35%,#fff)}
+/* row cards and numbered items take turns through six bright colours */
+.rp .rt.rc tbody tr:nth-child(6n+1),.rp .rl li:nth-child(6n+1){--rc:#2563eb}
+.rp .rt.rc tbody tr:nth-child(6n+2),.rp .rl li:nth-child(6n+2){--rc:#16a34a}
+.rp .rt.rc tbody tr:nth-child(6n+3),.rp .rl li:nth-child(6n+3){--rc:#ea580c}
+.rp .rt.rc tbody tr:nth-child(6n+4),.rp .rl li:nth-child(6n+4){--rc:#9333ea}
+.rp .rt.rc tbody tr:nth-child(6n+5),.rp .rl li:nth-child(6n+5){--rc:#db2777}
+.rp .rt.rc tbody tr:nth-child(6n+6),.rp .rl li:nth-child(6n+6){--rc:#0891b2}
+.rp .rl .rn{background:var(--rc);color:#fff}
+.rp .rl li{border-left:4px solid var(--rc);padding-left:.4em;margin:.15em 0;background:color-mix(in srgb,var(--rc) 6%,#fff)!important;border-radius:6px;border-bottom:0}
+@media (max-width:640px){
+  .rp .rt.rc tr{border:1.5px solid color-mix(in srgb,var(--rc) 30%,#fff);border-left:7px solid var(--rc);background:color-mix(in srgb,var(--rc) 5%,#fff)!important;padding:0 0 .35em;overflow:hidden;box-shadow:0 1px 3px color-mix(in srgb,var(--rc) 18%,transparent)}
+  .rp .rt.rc td:first-child{background:color-mix(in srgb,var(--rc) 16%,#fff);padding:.45em .65em;margin-bottom:.25em}
+  .rp .rt.rc td[data-h]::before{color:inherit;opacity:.72;letter-spacing:.02em;text-transform:uppercase;font-size:.7em}
+}
 .fbox{display:flex;align-items:center;gap:8px;margin-top:12px;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:4px 10px;max-width:520px}
 .fbox input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;color:var(--ink);padding:6px 0;outline:none}
 .symg,[data-grp]{scroll-margin-top:calc(var(--hdr) + 12px)}
