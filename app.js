@@ -49,6 +49,10 @@
   let UA = null, UBY = null;
   const loadU = () => UA ? Promise.resolve(UA) : get('data/u.json').then(u => { UA = u; UBY = Object.fromEntries(u.map(x => [x.id, x])); return u; });
   const loadAll = () => Promise.all([loadQ(), loadF(), loadU()]);
+  let REF = null, SYM = null, AZT = null;
+  const loadRef = () => REF ? Promise.resolve(REF) : get('data/ref.json').then(r => REF = r);
+  const loadSym = () => SYM ? Promise.resolve(SYM) : get('data/sym.json').then(r => SYM = r);
+  const loadAzt = () => AZT ? Promise.resolve(AZT) : get('data/az.json').then(r => AZT = r);
   const loadF = () => FA ? Promise.resolve(FA) : get('data/f.json').then(f => { FA = f; FBY = Object.fromEntries(f.map(x => [x.id, x])); return f; });
   const T = id => IX.T.find(t => t.id === id);
   const short = t => t.t.replace(/^Code 400 · /, 'C400 · ');
@@ -122,7 +126,7 @@
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a></div>` +
+    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a></div>` +
       IX.S.map(([k, n]) => `<h4 style="--c:${SC[k]}"><i></i>${esc(n)}</h4>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('')).join('');
     paintDots();
   }
@@ -335,7 +339,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031064211';
+  const SWV = 'ae-20261031100350';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -372,7 +376,7 @@
   paintTheme();
 
   /* ---------- router ---------- */
-  let RT = 0, M = null, PENDQ = null;
+  let RT = 0, M = null, PENDQ = null, GOSEC = null;
   addEventListener('hashchange', () => route());
   async function route(keep) {
     if (!keep && !PENDQ) gsView = null;
@@ -389,6 +393,8 @@
       if (a === 'mock') return await viewMock(tok);
       if (a === 'more') return await viewMore(tok);
       if (a === 'sims') return await viewSims(tok);
+      const rm = h.match(/^ref(?:-([a-z]+))?(?:-(\d+))?$/);
+      if (rm) return await (rm[1] === 'sym' ? viewSym(tok) : rm[1] === 'az' ? viewAz(tok) : rm[1] === 'gate' ? viewGateIdx(tok) : rm[1] ? viewShelf(rm[1], rm[2], tok) : viewRef(tok));
       return viewHome(tok, keep);
     } catch (e) { if (tok === RT) main.innerHTML = `<div class="empty" style="margin-top:20px">Could not load this page (${esc(e.message)}). Check your connection and reload.</div>`; }
   }
@@ -411,10 +417,11 @@
     const tot = IX.totals;
     main.innerHTML = `<section class="hero"><h1>Every topic of your Complete Book</h1>
       <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
+      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
       ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
+      <a class="tc" href="#ref" style="--c:#a86a00"><h3>📚 Look-up shelf</h3><div class="meta"><span>The book's look-up pages: visual tricks, geometry, mensuration, magic numbers, exam values, mental maths, unit conversions, ready-reckoner, look-alike numbers & trap factors, symbols A–Z, the A–Z formula table, comparisons, analogies and every GATE multi-concept sum</span></div></a>
       <a class="tc" href="#sims" style="--c:#0f766e"><h3>⚙ Formula & concept simulators</h3><div class="meta"><span>${Object.values(LABN).reduce((a, b) => a + b, 0)} live labs on ${Object.keys(LABN).length} topics — every EE subject and Maths; graphs, what-if tables and the book's worked numbers as checks</span></div></a>
       <a class="tc" href="${SIM_URL}"${SIM_TGT} style="--c:#2e8b57"><h3>⚙ Transformer simulator</h3><div class="meta"><span>Change voltage, frequency, load or turns and watch flux, currents, losses, efficiency and regulation respond; phasors, 3-phase, parallel operation, saturation and inrush</span></div></a>
       ${offlineCard()}</div></section>
@@ -694,6 +701,7 @@
     rEvery(); if ($('#glist')) rGate(); if ($('#qlist')) rBank(); if ($('#ulist')) rU();
     paintMine(D);
     showPane(pane || 'learn'); toTop(); lazy();
+    if (GOSEC) { const el = document.getElementById(GOSEC); GOSEC = null; if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); }
     if (PENDQ) { const w = PENDQ; PENDQ = null; gsView = null; $('#q').value = w; $('#hsearch').classList.add('open'); q = w.toLowerCase().replace(/\s+/g, ' '); applySearch();
       const first = pane === 'prac' ? ($('#qbook') && nU ? $('#qbook') : $('.pane[data-pane="prac"] .sec:not(#mine)')) : null;
       if (first) requestAnimationFrame(() => first.scrollIntoView({ block: 'start' })); }
@@ -949,6 +957,93 @@
   }
 
   /* ---------- past questions without a chapter page ---------- */
+  /* ---------- look-up shelf: the book's look-up pages as printed, plus Symbols A–Z and the A–Z formula table ---------- */
+  const pgImg = (p, w, h, alt) => `<div class="sp pgimg" role="img" aria-label="${esc(alt)}" data-src="img/ref/p${p}.webp" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${w}px;background-size:100% auto;background-position:0 0"></div>`;
+  const SPECIAL = [['sym', '🔤', 'Symbols A–Z — what every letter means', 'Every symbol of the book with its meaning, unit, where it is used and a formula it appears in (456 entries, Vol 6 p 1540–1565).'],
+    ['az', '📒', 'A–Z formula table', 'Every formula by name, A to Z: Engineering Mathematics, Electrical & Electronics, Basic Engineering & Sciences (Vol 6 p 1566–1674).'],
+    ['gate', '🎓', 'GATE multi-concept sums', 'All GATE EE sums of Vols 7–9 with their concept chain and full solution, topic by topic.']];
+  function shelfCard(g) { return `<a class="tc shelf" href="#ref-${g.id}" style="--c:#a86a00"><h3>${g.ic} ${esc(g.n)}</h3><div class="meta"><span>Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''}</span><span>${g.p.length} page${g.p.length > 1 ? 's' : ''}</span></div><p class="lnames">${esc(g.d)}</p></a>`; }
+  async function viewRef(tok) {
+    setShell('ref'); document.title = 'Look-up shelf · TNEB AE Study Site';
+    main.innerHTML = '<p class="loading">Loading the look-up shelf…</p>';
+    const R = await loadRef(); if (tok !== RT) return;
+    const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids) => `<section class="subj"><h2>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:#a86a00"><h3>${s[1]} ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
+      <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book, exactly as printed (${R.g.reduce((a, g) => a + g.p.length, 0)} pages): tap a page to zoom. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
+      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
+      ${sec('Letters & formulas', ['which', 'sym', 'az', 'cards', 'keyvals'])}
+      ${sec('Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'])}
+      ${sec('Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'])}
+      ${sec('Ideas & comparisons', ['compare', 'cross', 'concept', 'analogy', 'proportion', 'scoc', 'whatif', 'rlctamil'])}
+      ${sec('Sums', ['gate'])}
+      <footer class="foot">From your Complete Book: Visual Tricks & Formula Sheets and Electrical Formula Read Cards (Vol 5), the Look-up shelf — Symbols A–Z, A–Z Formula Table, Calculation Ready-Reckoner, Magic Numbers, Look-alike Numbers & Trap Factors, Key Formula & Direct-Answer Values (Vol 6) — and One Concept Many Places, Quick Comparisons, the Cross-Comparison Book, the Analogy Book and RC · RL · RLC in Tamil (Vol 7).</footer>`;
+    toTop();
+  }
+  async function viewShelf(id, page, tok) {
+    setShell('ref'); main.innerHTML = '<p class="loading">Loading…</p>';
+    const R = await loadRef(); if (tok !== RT) return;
+    const i = R.g.findIndex(g => g.id === id), g = R.g[i]; if (!g) { location.hash = '#ref'; return; }
+    document.title = g.n + ' · Look-up shelf';
+    const prev = R.g[i - 1], nxt = R.g[i + 1];
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › ${esc(g.n)}</div>
+      <section class="hero"><h1>${g.ic} ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · exactly as printed — tap a page to zoom.</p>
+      ${g.p.length > 3 ? `<nav class="pgchips" aria-label="Pages">${g.p.map(([p]) => `<a href="#ref-${g.id}-${p}">p ${p}</a>`).join('')}</nav>` : ''}</section>
+      <div class="pages refpages">${g.p.map(([p, w, h, x]) => `<figure class="box refpg" id="rp${p}"><figcaption>Vol ${g.v} · p ${p}</figcaption>${pgImg(p, w, h, `${g.n}, book page ${p}`)}</figure>`).join('')}</div>
+      <div class="pn">${prev ? `<a href="#ref-${prev.id}"><small>← Previous shelf</small><b>${esc(prev.n)}</b></a>` : '<a href="#ref"><small>←</small><b>Look-up shelf</b></a>'}${nxt ? `<a href="#ref-${nxt.id}"><small>Next shelf →</small><b>${esc(nxt.n)}</b></a>` : ''}</div>`;
+    lazy();
+    const el = page && document.getElementById('rp' + page);
+    if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); setTimeout(() => el.isConnected && el.scrollIntoView({ block: 'start' }), 350); } else toTop();
+  }
+  function filterBox(ph) { return `<label class="fbox"><span>🔎</span><input type="search" placeholder="${esc(ph)}" aria-label="${esc(ph)}"></label>`; }
+  function wireFilter(sel) {
+    const inp = $('.fbox input', main); if (!inp) return;
+    inp.oninput = () => { const W = words(inp.value); $$(sel, main).forEach(el => { el.hidden = W.length > 0 && !hitAll(norm(el.dataset.s || el.textContent), W); });
+      $$('[data-grp]', main).forEach(gr => { gr.hidden = !$$(sel, gr).some(el => !el.hidden); }); };
+  }
+  async function viewSym(tok) {
+    setShell('ref'); document.title = 'Symbols A–Z · Look-up shelf'; main.innerHTML = '<p class="loading">Loading…</p>';
+    const S = await loadSym(); if (tok !== RT) return;
+    const by = {}; S.e.forEach(e => (by[e[0]] ||= []).push(e));
+    const notes = Object.fromEntries(S.bands.map(b => [b[0], b]));
+    const L = Object.keys(by);
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › Symbols A–Z</div>
+      <section class="hero"><h1>🔤 Symbols A–Z — what every letter means</h1><p>${S.e.length} symbols from your book (Vol 6 p 1540–1565): meaning, unit, where it is used and a formula it appears in. Type to filter.</p>
+      ${filterBox('Filter symbols — e.g. flux, ohm, Xd')}<nav class="pgchips" aria-label="Letters">${L.map((l, i) => `<a href="#" data-jump="sg${i}">${esc(l)}</a>`).join('')}</nav></section>
+      ${L.map((l, i) => `<section class="panel symg" id="sg${i}" data-grp><h2>${esc(l)}</h2>${notes[l] ? `<p class="pg">${plain(notes[l][1]).replace(l, '').trim()} · p ${notes[l][2]}</p>` : ''}
+        <div class="ctab"><table class="symt"><thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th><th>Used in</th><th>Formula</th></tr></thead><tbody>${by[l].map(e => `<tr class="symr" data-s="${esc(plain([e[1], e[2], e[3], e[4], e[5], e[6].join(' ')].join(' ')))}"><td class="sym">${e[1]}</td><td>${e[2]}</td><td>${e[3]}${e[4] ? ` <small>${e[4]}</small>` : ''}</td><td>${e[5]}</td><td class="fx">${e[6].join('<br>')}<span class="pg"> · p ${e[7]}</span></td></tr>`).join('')}</tbody></table></div></section>`).join('')}`;
+    wireFilter('.symr');
+    main.onclick = e => { const a = e.target.closest('[data-jump]'); if (a) { e.preventDefault(); document.getElementById(a.dataset.jump).scrollIntoView({ block: 'start' }); } };
+    toTop();
+  }
+  async function viewAz(tok) {
+    setShell('ref'); document.title = 'A–Z formula table · Look-up shelf'; main.innerHTML = '<p class="loading">Loading…</p>';
+    const A = await loadAzt(); if (tok !== RT) return;
+    const first = n => { const c = plain(n).trim()[0] || '#'; return /[0-9]/.test(c) ? '0–9' : /[a-z]/i.test(c) ? c.toUpperCase() : c; };
+    let cur = 1;
+    const paint = () => {
+      const [, title, rows] = A[cur], by = {}; rows.forEach(r => (by[first(r[0])] ||= []).push(r)); const L = Object.keys(by);
+      $('#azbody').innerHTML = `<nav class="pgchips" aria-label="Letters">${L.map((l, i) => `<a href="#" data-jump="az${i}">${esc(l)}</a>`).join('')}</nav>` +
+        L.map((l, i) => `<section class="panel" id="az${i}" data-grp><h2>${esc(l)} <small>${by[l].length}</small></h2><div class="azl">${by[l].map(r => `<div class="box azr" data-s="${esc(plain(r[0] + ' ' + r[1].join(' ') + ' ' + r[2]))}"><b>${r[0]}</b><div class="fx">${r[1].join('<br>')}</div><span class="pg">${esc(r[2])} · Vol 6 p ${r[3]}</span></div>`).join('')}</div></section>`).join('');
+      $$('[data-az]', main).forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.az === cur)));
+      const inp = $('.fbox input', main); if (inp && inp.value) inp.oninput();
+    };
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › A–Z formula table</div>
+      <section class="hero"><h1>📒 A–Z formula table</h1><p>Every formula of the book by name, as printed (Vol 6 p 1566–1674): ${A.map(a => `${esc(a[1])} ${a[2].length}`).join(', ')}. Type to filter.</p>
+      <div class="seg" role="group" aria-label="Table">${A.map((a, i) => `<button data-az="${i}" aria-pressed="false">${esc(a[1])}</button>`).join('')}</div>${filterBox('Filter formulas — e.g. resonance, slip, Laplace')}</section><div id="azbody"></div>`;
+    wireFilter('.azr');
+    main.onclick = e => { const b = e.target.closest('[data-az]'); if (b) { cur = +b.dataset.az; paint(); return; } const a = e.target.closest('[data-jump]'); if (a) { e.preventDefault(); document.getElementById(a.dataset.jump).scrollIntoView({ block: 'start' }); } };
+    paint(); toTop();
+  }
+  function viewGateIdx(tok) {
+    setShell('ref'); document.title = 'GATE multi-concept sums · Look-up shelf';
+    const g = {}; IX.T.forEach(t => { if (t.n.gate) (g[t.s] ||= []).push(t); });
+    const tot = IX.T.reduce((a, t) => a + (t.n.gate || 0), 0);
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › GATE multi-concept sums</div>
+      <section class="hero"><h1>🎓 GATE multi-concept sums</h1><p>All ${tot} GATE EE sums of the book's GATE Multi-Concept Sums (Vols 7–9), filed under their topics. Each opens on the topic's Practice tab with the concept chain, the question and the full solution as printed.</p></section>
+      ${IX.S.filter(([k]) => g[k]).map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].reduce((a, t) => a + t.n.gate, 0)} sums</small></h2><div class="tcards">${g[k].map(t => `<a class="tc" href="#t-${t.id}-prac" data-gt="${t.id}" style="--c:${SC[t.s]}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta"><span>${t.n.gate} GATE sums</span></div></a>`).join('')}</div></section>`).join('')}`;
+    main.onclick = e => { const a = e.target.closest('[data-gt]'); if (a) GOSEC = 'gate'; };
+    toTop();
+  }
   async function viewSims(tok) {
     setShell('sims'); document.title = 'Simulators · TNEB AE Study Site';
     main.innerHTML = '<p class="loading">Loading the simulators…</p>';
@@ -978,8 +1073,11 @@
   const norm = t => t.toLowerCase().replace(/\s+/g, ' ');
   async function gsIndex() {
     if (GSI) return GSI;
-    await loadAll();
+    await Promise.all([loadAll(), loadRef(), loadSym(), loadAzt()]);
     GSI = {
+      r: REF.g.flatMap(g => g.p.map(([p, , , x]) => [{ g, p, x }, norm(g.n + ' ' + x)])),
+      s: SYM.e.map(e => [e, norm(plain([e[1], e[2], e[3], e[4], e[5], e[6].join(' ')].join(' ')))]),
+      a: AZT.flatMap(([, t, rows]) => rows.map(r => [{ r, t }, norm(plain(r[0] + ' ' + r[1].join(' ') + ' ' + r[2]))])),
       f: FA.map(f => [f, norm(f.nm + ' ' + plain(f.h.join(' ')) + ' ' + (T(f.t) || {}).t)]),
       u: UA.map(x => [x, norm([x.lab, x.src, x.c, x.sb, x.ans, plain(x.qh || ''), (x.oh || []).map(o => plain(o[1])).join(' '), x.x || '', (T(x.t) || {}).t].join(' '))]),
       q: QA.map(x => [x, norm(plain(x.q + ' ' + x.o.join(' ')) + ' ' + x.src + ' ' + (T(x.t) || {}).t)]),
@@ -997,7 +1095,8 @@
     const fs = I.f.filter(([, s]) => hitAll(s, W)).map(([f]) => f);
     const us = I.u.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
     const qs = I.q.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
-    const n = tp.length + fs.length + us.length + qs.length;
+    const rs = I.r.filter(([, s]) => hitAll(s, W)).map(([x]) => x), ss = I.s.filter(([, s]) => hitAll(s, W)).map(([x]) => x), as = I.a.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
+    const n = tp.length + fs.length + us.length + qs.length + rs.length + ss.length + as.length;
     const grp = (id, title, L, row, k = 8) => L.length ? `<section class="panel"><h2>${title} <small>${L.length}</small></h2><div class="gsl">${L.slice(0, k).map(row).join('')}</div>${L.length > k ? `<button class="more" data-gs="${id}">Show all ${L.length}</button>` : ''}</section>` : '';
     const tn = id => esc((T(id) || {}).t || '');
     const go = (id, pane) => `data-go="${id}" data-pane="${pane || ''}"`;
@@ -1005,13 +1104,16 @@
       t: t => `<a class="gsr" href="#t-${t.id}"><b>${esc(t.t)}</b><small>${esc(IX.S.find(s => s[0] === t.s)[1])}</small></a>`,
       f: f => `<a class="gsr" href="#t-${f.t}" ${go(f.t, '')}><b>${esc(f.nm)}</b><span class="fx">${f.h[0]}</span><small>${tn(f.t)} · ${esc(f.src)}</small></a>`,
       u: x => `<a class="gsr" href="#t-${x.t}-prac" ${go(x.t, 'prac')}><b><span class="ex ex-${x.ex}">${esc(x.src)}</span></b><span>${esc((plain(x.qh || '') || x.x || x.sb || '').slice(0, 160))}…</span><small>${tn(x.t)} · ${esc(x.sb || '')} · Answer: ${esc(x.ans)}</small></a>`,
+      r: x => { const i = x.x.toLowerCase().indexOf(W[0]), sn = x.x.slice(Math.max(0, i - 60), i + 120); return `<a class="gsr" href="#ref-${x.g.id}-${x.p}"><b>${x.g.ic} ${esc(x.g.n)} · p ${x.p}</b><span>${i > 60 ? '…' : ''}${esc(sn)}…</span><small>Look-up shelf · Vol ${x.g.v} · book page ${x.p}</small></a>`; },
+      s: e => `<a class="gsr" href="#ref-sym"><b><span class="fx">${e[1]}</span> — ${e[2]}</b><span>${e[3]}${e[5] ? ' · ' + e[5] : ''}</span><small>Symbols A–Z · Vol 6 p ${e[7]}</small></a>`,
+      a: x => `<a class="gsr" href="#ref-az"><b>${x.r[0]}</b><span class="fx">${x.r[1][0] || ''}</span><small>A–Z formula table · ${esc(x.t)} · ${esc(x.r[2])} · Vol 6 p ${x.r[3]}</small></a>`,
       q: x => `<a class="gsr" href="#t-${x.t}${x.k === 'book' ? '' : '-prac'}" ${go(x.t, x.k === 'book' ? '' : 'prac')}><b>${esc(plain(x.q).slice(0, 140))}</b><small>${tn(x.t)} · ${esc(x.src)}</small></a>`,
     };
-    const L = { t: tp, f: fs, u: us, q: qs };
+    const L = { t: tp, f: fs, u: us, q: qs, r: rs, s: ss, a: as };
     const render = (all = '') => {
       main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Search</div><div class="con">
         <section class="panel"><h2>🔎 “${esc(q)}” <small>${n ? `${n} results` : 'nothing found — try fewer or different words'}</small></h2><p>Every word must appear. Tap a result to open its topic with these words already searched there.</p></section>
-        ${grp('t', 'Topics', tp, rows.t, all === 't' ? 1e9 : 8)}${grp('f', 'Formulas', fs, rows.f, all === 'f' ? 1e9 : 8)}${grp('u', 'Question Book — past questions', us, rows.u, all === 'u' ? 1e9 : 8)}${grp('q', 'Book MCQs', qs, rows.q, all === 'q' ? 1e9 : 8)}</div>`;
+        ${grp('t', 'Topics', tp, rows.t, all === 't' ? 1e9 : 8)}${grp('f', 'Formulas', fs, rows.f, all === 'f' ? 1e9 : 8)}${grp('u', 'Question Book — past questions', us, rows.u, all === 'u' ? 1e9 : 8)}${grp('q', 'Book MCQs', qs, rows.q, all === 'q' ? 1e9 : 8)}${grp('r', '📚 Look-up shelf pages', rs, rows.r, all === 'r' ? 1e9 : 6)}${grp('s', '🔤 Symbols A–Z', ss, rows.s, all === 's' ? 1e9 : 6)}${grp('a', '📒 A–Z formula table', as, rows.a, all === 'a' ? 1e9 : 6)}</div>`;
     };
     render();
     main.onclick = e => {

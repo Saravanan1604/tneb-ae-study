@@ -581,6 +581,37 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 }
 :root[data-theme="comfort"] body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:2147483646;background:#ffa53c;opacity:.09;mix-blend-mode:multiply}
 :root[data-theme="comfort"] .sp,:root[data-theme="comfort"] img{filter:sepia(.12) brightness(.97)}
+/* look-up shelf */
+.tc.shelf .lnames{font-size:12.5px}
+.pgchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.pgchips a{font-size:12.5px;font-weight:700;text-decoration:none;color:var(--navy);background:var(--paper);border:1.5px solid var(--line);border-radius:999px;padding:3px 10px}
+.refpages{display:grid;gap:16px;margin-top:16px;justify-items:center}
+.refpg{margin:0;padding:10px;width:100%;max-width:1120px;display:grid;gap:8px;justify-items:center;scroll-margin-top:calc(var(--hdr) + 12px)}
+.refpg figcaption{justify-self:start;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+.pgimg{width:100%;border:1px solid var(--line);border-radius:6px}
+.fbox{display:flex;align-items:center;gap:8px;margin-top:12px;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:4px 10px;max-width:520px}
+.fbox input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:15px;color:var(--ink);padding:6px 0;outline:none}
+.symg,[data-grp]{scroll-margin-top:calc(var(--hdr) + 12px)}
+.symt{width:100%;border-collapse:collapse;font-size:13.5px;min-width:640px}
+.symt th{text-align:left;font-size:12px;color:var(--ink-2);border-bottom:1.5px solid var(--line);padding:6px 8px}
+.symt td{border-bottom:1px solid var(--line);padding:7px 8px;vertical-align:top}
+.symt td.sym{font-family:var(--f-math);font-size:18px;font-weight:700;color:var(--navy);white-space:nowrap}
+.symt td.fx{font-size:15px}
+.symt small{color:var(--ink-2)}
+.azl{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+.azr{padding:10px 12px;display:grid;gap:4px;align-content:start}
+.azr b{color:var(--navy);font-size:14.5px}
+.azr .fx{font-size:15.5px}
+.symr[hidden],.azr[hidden],[data-grp][hidden]{display:none}
+@media (max-width:760px){
+  .symt{min-width:0}
+  .symt thead{display:none}
+  .symt tr{display:grid;grid-template-columns:minmax(52px,auto) 1fr;gap:3px 12px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .symt td{border:0;padding:0}
+  .symt td.sym{grid-row:span 4}
+  .symt td:nth-child(n+3){font-size:12.5px;color:var(--ink-2)}
+  .symt td.fx{font-size:14px;color:var(--ink)}
+}
 /* formula & concept simulator labs (sims/engine.js) */
 .labs{display:grid;gap:14px}
 .lab{padding:14px 16px;display:grid;gap:12px;border-left:4px solid var(--teal)}
