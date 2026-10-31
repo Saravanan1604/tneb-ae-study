@@ -51,6 +51,7 @@
   const loadAll = () => Promise.all([loadQ(), loadF(), loadU()]);
   let REF = null, SYM = null, AZT = null;
   const loadRef = () => REF ? Promise.resolve(REF) : get('data/ref.json').then(r => REF = r);
+  const REFH = {}, loadRefh = id => REFH[id] ? Promise.resolve(REFH[id]) : get(`data/refh/${id}.json`).then(r => REFH[id] = r);
   const loadSym = () => SYM ? Promise.resolve(SYM) : get('data/sym.json').then(r => SYM = r);
   const loadAzt = () => AZT ? Promise.resolve(AZT) : get('data/az.json').then(r => AZT = r);
   const loadF = () => FA ? Promise.resolve(FA) : get('data/f.json').then(f => { FA = f; FBY = Object.fromEntries(f.map(x => [x.id, x])); return f; });
@@ -354,7 +355,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031115048';
+  const SWV = 'ae-20261031132437';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -646,12 +647,12 @@
     // GATE sums
     let gm = 0, gshown = 5, nG = 0;
     const rGate = () => {
-      const rows = D.gate.filter(g => (!gm || g.m === gm) && hit(g.src + ' q' + g.q + ' ' + g.a + ' ' + g.l.join(' '))).sort((a, b) => +(b.src.match(/\d{4}/) || [0])[0] - +(a.src.match(/\d{4}/) || [0])[0]);
+      const rows = D.gate.filter(g => (!gm || g.m === gm) && hit(g.src + ' q' + g.q + ' ' + g.a + ' ' + plain(g.l.join(' ')))).sort((a, b) => +(b.src.match(/\d{4}/) || [0])[0] - +(a.src.match(/\d{4}/) || [0])[0]);
       nG = rows.length;
       $('#glist').innerHTML = rows.slice(0, gshown).map(g => { const e = P.q[`g${id}.${g.i}`];
         return `<article class="box gs" data-g="${g.i}"><header><b>${esc(g.src)} · Q.${esc(g.q)}</b><span class="mk ${g.m === 2 ? 'two' : ''}">${g.m} mark${g.m > 1 ? 's' : ''}</span><span class="pg">p ${g.pg}</span></header>
         <div class="im">${spr(g.qs, D, `${g.src} Q.${g.q}`, 'g')}</div>
-        <div class="chain" hidden>${flowHtml(g.l.map((c, k) => [k + 1, esc(c)]).concat([['✓', 'Answer: tap “Answer”', 'end']]))}</div>
+        <div class="chain" hidden>${flowHtml(g.l.map((c, k) => [k + 1, g.lr ? c + (g.lr[k] ? `<span class="fr">${g.lr[k]}</span>` : '') : esc(c)]).concat([['✓', 'Answer: tap “Answer”', 'end']]))}</div>
         <div class="acts"><button class="btn gt" data-k="chain">🧭 Solution flow</button><button class="btn gt" data-k="ans">Answer</button><button class="btn gt" data-k="sol">Full solution</button>
           <span class="self">${e ? `Last time: <b>${e[2] ? '✓ got it' : '✗ missed'}</b>` : 'Did you get it?'}</span><button class="btn ok" data-gs="1">✓ Got it</button><button class="btn no" data-gs="0">✗ Missed</button></div>
         <div class="ans" hidden>Answer: ${esc(g.a)}</div><div class="sol im" hidden>${spr(g.ss, D, 'Worked solution', 'g')}</div></article>`; }).join('') || '<div class="empty">No GATE sum matches this search.</div>';
@@ -976,6 +977,14 @@
   /* ---------- look-up shelf: the book's look-up pages as printed, plus Symbols A–Z and the A–Z formula table ---------- */
   // a book page packed in a shelf sheet: [page, file, W, H, y, w, h]
   const pgImg = ([, f, W, H, y, w, h], alt) => `<div class="sp pgimg" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${w}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${H > h ? (y / (H - h) * 100).toFixed(4) : 0}%"></div>`;
+  // one cut-out part of a page (a card or a picture): [file, W, H, y, w, h, largest sensible width in px]
+  const partImg = ([f, W, H, y, w, h, mw], alt) => `<div class="sp rpi" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${mw}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${H > h ? (y / (H - h) * 100).toFixed(4) : 0}%"></div>`;
+  // a book page re-set for reading: its text as text (tables become one card per row on a phone), its picture cards
+  // and drawings cut out one per row; the printed page stays one tap away
+  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption><span>Vol ${g.v} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
+    ${rh ? `<div class="rp">${rh[0].replace(/<i data-k="(\d+)"><\/i>/g, (_, k) => partImg(rh[1][k], `${g.n}, p ${e[0]}, picture ${+k + 1}`))}</div><div class="pp" hidden>${pgImg(e, `${g.n}, book page ${e[0]}`)}</div>` : pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`;
+  document.addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (!b) return; const f = b.closest('figure'), pp = $('.pp', f), rp = $('.rp', f); if (!pp) return;
+    const on = pp.hidden; pp.hidden = !on; rp.hidden = on; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '📖 Readable' : '🖼 As printed'; });
   const SPECIAL = [['sym', '🔤', 'Symbols A–Z — what every letter means', 'Every symbol of the book with its meaning, unit, where it is used and a formula it appears in (456 entries, Vol 6 p 1540–1565).'],
     ['az', '📒', 'A–Z formula table', 'Every formula by name, A to Z: Engineering Mathematics, Electrical & Electronics, Basic Engineering & Sciences (Vol 6 p 1566–1674).'],
     ['gate', '🎓', 'GATE multi-concept sums', 'All GATE EE sums of Vols 7–9 with their concept chain and full solution, topic by topic.']];
@@ -986,7 +995,7 @@
     const R = await loadRef(); if (tok !== RT) return;
     const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids) => `<section class="subj"><h2>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:#a86a00"><h3>${s[1]} ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
-      <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book, exactly as printed (${R.g.reduce((a, g) => a + g.p.length, 0)} pages): tap a page to zoom. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
+      <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book (${R.g.reduce((a, g) => a + g.p.length, 0)} pages), set for easy reading on a phone — one card per row, every word as printed; the printed page is one tap away. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
       <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
       ${sec('Letters & formulas', ['which', 'sym', 'az', 'cards', 'keyvals'])}
       ${sec('Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'])}
@@ -998,18 +1007,21 @@
   }
   async function viewShelf(id, page, tok) {
     setShell('ref'); main.innerHTML = '<p class="loading">Loading…</p>';
-    const R = await loadRef(); if (tok !== RT) return;
+    const [R, RH] = await Promise.all([loadRef(), loadRefh(id).catch(() => null)]); if (tok !== RT) return;
     const i = R.g.findIndex(g => g.id === id), g = R.g[i]; if (!g) { location.hash = '#ref'; return; }
     document.title = g.n + ' · Look-up shelf';
     const prev = R.g[i - 1], nxt = R.g[i + 1];
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › ${esc(g.n)}</div>
-      <section class="hero"><h1>${g.ic} ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · exactly as printed — tap a page to zoom.</p>
+      <section class="hero"><h1>${g.ic} ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · ${RH ? 'the book’s words, set for easy reading: one card per row, tables as cards on a phone, pictures cut out large (tap to zoom). “🖼 As printed” shows the page itself.' : 'exactly as printed — tap a page to zoom.'}</p>
       ${g.p.length > 3 ? `<nav class="pgchips" aria-label="Pages">${g.p.map(([p]) => `<a href="#ref-${g.id}-${p}">p ${p}</a>`).join('')}</nav>` : ''}</section>
-      <div class="pages refpages">${g.p.map(e => `<figure class="box refpg" id="rp${e[0]}"><figcaption>Vol ${g.v} · p ${e[0]}</figcaption>${pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`).join('')}</div>
+      <div class="pages refpages">${g.p.map(e => readPage(g, e, RH && RH[e[0]])).join('')}</div>
       <div class="pn">${prev ? `<a href="#ref-${prev.id}"><small>← Previous shelf</small><b>${esc(prev.n)}</b></a>` : '<a href="#ref"><small>←</small><b>Look-up shelf</b></a>'}${nxt ? `<a href="#ref-${nxt.id}"><small>Next shelf →</small><b>${esc(nxt.n)}</b></a>` : ''}</div>`;
     lazy();
     const el = page && document.getElementById('rp' + page);
-    if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); setTimeout(() => el.isConnected && el.scrollIntoView({ block: 'start' }), 350); } else toTop();
+    if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }));
+      // text above the page can still reflow while web fonts load: settle once more unless the reader has scrolled
+      let y0; setTimeout(() => { if (el.isConnected) { el.scrollIntoView({ block: 'start' }); y0 = scrollY; } }, 350);
+      setTimeout(() => { if (el.isConnected && scrollY === y0) el.scrollIntoView({ block: 'start' }); }, 1200); } else toTop();
   }
   function filterBox(ph) { return `<label class="fbox"><span>🔎</span><input type="search" placeholder="${esc(ph)}" aria-label="${esc(ph)}"></label>`; }
   function wireFilter(sel) {
