@@ -339,7 +339,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031100350';
+  const SWV = 'ae-20261031100852';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -958,7 +958,8 @@
 
   /* ---------- past questions without a chapter page ---------- */
   /* ---------- look-up shelf: the book's look-up pages as printed, plus Symbols A–Z and the A–Z formula table ---------- */
-  const pgImg = (p, w, h, alt) => `<div class="sp pgimg" role="img" aria-label="${esc(alt)}" data-src="img/ref/p${p}.webp" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${w}px;background-size:100% auto;background-position:0 0"></div>`;
+  // a book page packed in a shelf sheet: [page, file, W, H, y, w, h]
+  const pgImg = ([, f, W, H, y, w, h], alt) => `<div class="sp pgimg" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${w}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${H > h ? (y / (H - h) * 100).toFixed(4) : 0}%"></div>`;
   const SPECIAL = [['sym', '🔤', 'Symbols A–Z — what every letter means', 'Every symbol of the book with its meaning, unit, where it is used and a formula it appears in (456 entries, Vol 6 p 1540–1565).'],
     ['az', '📒', 'A–Z formula table', 'Every formula by name, A to Z: Engineering Mathematics, Electrical & Electronics, Basic Engineering & Sciences (Vol 6 p 1566–1674).'],
     ['gate', '🎓', 'GATE multi-concept sums', 'All GATE EE sums of Vols 7–9 with their concept chain and full solution, topic by topic.']];
@@ -988,7 +989,7 @@
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › ${esc(g.n)}</div>
       <section class="hero"><h1>${g.ic} ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · exactly as printed — tap a page to zoom.</p>
       ${g.p.length > 3 ? `<nav class="pgchips" aria-label="Pages">${g.p.map(([p]) => `<a href="#ref-${g.id}-${p}">p ${p}</a>`).join('')}</nav>` : ''}</section>
-      <div class="pages refpages">${g.p.map(([p, w, h, x]) => `<figure class="box refpg" id="rp${p}"><figcaption>Vol ${g.v} · p ${p}</figcaption>${pgImg(p, w, h, `${g.n}, book page ${p}`)}</figure>`).join('')}</div>
+      <div class="pages refpages">${g.p.map(e => `<figure class="box refpg" id="rp${e[0]}"><figcaption>Vol ${g.v} · p ${e[0]}</figcaption>${pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`).join('')}</div>
       <div class="pn">${prev ? `<a href="#ref-${prev.id}"><small>← Previous shelf</small><b>${esc(prev.n)}</b></a>` : '<a href="#ref"><small>←</small><b>Look-up shelf</b></a>'}${nxt ? `<a href="#ref-${nxt.id}"><small>Next shelf →</small><b>${esc(nxt.n)}</b></a>` : ''}</div>`;
     lazy();
     const el = page && document.getElementById('rp' + page);
@@ -1075,7 +1076,7 @@
     if (GSI) return GSI;
     await Promise.all([loadAll(), loadRef(), loadSym(), loadAzt()]);
     GSI = {
-      r: REF.g.flatMap(g => g.p.map(([p, , , x]) => [{ g, p, x }, norm(g.n + ' ' + x)])),
+      r: REF.g.flatMap(g => g.p.map(e => [{ g, p: e[0], x: e[7] }, norm(g.n + ' ' + e[7])])),
       s: SYM.e.map(e => [e, norm(plain([e[1], e[2], e[3], e[4], e[5], e[6].join(' ')].join(' ')))]),
       a: AZT.flatMap(([, t, rows]) => rows.map(r => [{ r, t }, norm(plain(r[0] + ' ' + r[1].join(' ') + ' ' + r[2]))])),
       f: FA.map(f => [f, norm(f.nm + ' ' + plain(f.h.join(' ')) + ' ' + (T(f.t) || {}).t)]),
