@@ -621,6 +621,7 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .refpg figcaption{display:flex;align-items:center;gap:10px;width:100%;justify-content:space-between}
 .refpg figcaption .btn{font-size:12.5px;padding:4px 10px}
 .refpg .pp{width:100%;display:grid;justify-items:center}
+.refpages .refpg{grid-template-columns:minmax(0,1fr)}.refpg>.rp,.refpg>.pp{min-width:0}
 .rp{width:100%;max-width:820px;background:#fff;color:#15202b;border-radius:10px;padding:2px 2px 6px;font-size:15.5px;line-height:1.5;overflow-wrap:anywhere;text-align:left}
 .rp p{margin:.35em 0}.rp h4{margin:.55em 0 .3em;line-height:1.25;font-size:1.1em}
 .rp sub,.rp sup{line-height:0}
@@ -667,6 +668,21 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
   .rp .rt.rc td.e{display:none}
 }
 :root[data-theme="dark"] .rp{background:#f1efe9;filter:brightness(.92)}
+/* a printed question with maths: on a phone keep it at a readable size and let the line scroll sideways */
+@media (max-width:640px){.im.wide{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%;min-width:0}.im.wide .sp{min-width:620px;max-width:none!important}}
+.qcard,.qcard .qq,.ub{min-width:0;max-width:100%}
+/* numericals drill cards */
+.drl{display:grid;gap:10px}
+.dr{padding:10px 12px;display:grid;gap:8px;border-left:5px solid #2563eb}
+.dr:nth-child(6n+2){border-left-color:#16a34a}.dr:nth-child(6n+3){border-left-color:#ea580c}.dr:nth-child(6n+4){border-left-color:#9333ea}.dr:nth-child(6n+5){border-left-color:#db2777}.dr:nth-child(6n+6){border-left-color:#0891b2}
+.dr header{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:12.5px;color:var(--ink-2)}
+.dr header b{color:var(--navy);font-size:14px}
+.dr .dq{font-size:15px;line-height:1.5}
+.dr .da{display:grid;gap:6px}
+.dr .da .sp{max-width:min(100%,560px)!important}
+.dr .dans{margin:0;font-size:15px}.dr .dans b{color:#15803d;font-size:16px}
+.drs{scroll-margin-top:-60px}
+@media (max-width:1199px){.drs{scroll-margin-top:-100px}}
 /* colour: each shelf has its own colour (--c); a table carries the book's colour for it (--hc) */
 .shelfsec>h2 i{background:var(--c)}
 .shelfsec>h2{border-bottom:3px solid color-mix(in srgb,var(--c) 35%,transparent);padding-bottom:6px}

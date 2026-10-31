@@ -15,7 +15,7 @@
   try { const th = localStorage.getItem('ae-theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
   const SC = { m: '#3949ab', b: '#00796b', c: '#d84315', x: '#c62828', p: '#1565c0', k: '#7b1fa2', e: '#2e7d32' };
   const PRW = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-  const KIND = { u: 'Question Book', b: 'Chapter MCQs', p: 'Previous-year MCQs', q: 'Question bank', g: 'GATE sums', f: 'Formula letters', k: 'Key formulas', s: 'Formula Self-Test', x: 'Past-question formulas' };
+  const KIND = { u: 'Question Book', b: 'Chapter MCQs', p: 'Previous-year MCQs', q: 'Question bank', g: 'GATE sums', f: 'Formula letters', k: 'Key formulas', s: 'Formula Self-Test', x: 'Past-question formulas', d: 'Numericals drill' };
   // the GitHub Pages copy (and a local preview) has the simulator inside the site and works offline
   const STANDALONE = /\.github\.io$/.test(location.hostname) || location.hostname === 'localhost';
   const SIM_URL = STANDALONE ? 'sim/transformers/#try' : 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP#try';
@@ -51,6 +51,9 @@
   const loadAll = () => Promise.all([loadQ(), loadF(), loadU()]);
   let REF = null, SYM = null, AZT = null;
   const loadRef = () => REF ? Promise.resolve(REF) : get('data/ref.json').then(r => REF = r);
+  let DRILL = null, PRED = null;
+  const loadDrill = () => DRILL ? Promise.resolve(DRILL) : get('data/drill.json').then(r => DRILL = r);
+  const loadPred = () => PRED ? Promise.resolve(PRED) : get('data/pred.json').then(r => PRED = r);
   const REFH = {}, loadRefh = id => REFH[id] ? Promise.resolve(REFH[id]) : get(`data/refh/${id}.json`).then(r => REFH[id] = r);
   const loadSym = () => SYM ? Promise.resolve(SYM) : get('data/sym.json').then(r => SYM = r);
   const loadAzt = () => AZT ? Promise.resolve(AZT) : get('data/az.json').then(r => AZT = r);
@@ -127,7 +130,7 @@
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a></div>` +
+    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a><a href="#practice">📝 Practice papers & drills</a></div>` +
       IX.S.map(([k, n]) => `<h4 style="--c:${SC[k]}"><i></i>${esc(n)}</h4>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('')).join('');
     paintDots();
   }
@@ -139,7 +142,7 @@
     $('#shell').classList.toggle('notoc', view !== 'topic');
     $$('[data-nav]').forEach(a => a.dataset.nav === view ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
     if (view !== 'topic') delete main.dataset.tid;
-    main.onclick = null; $('#q').oninput = null;
+    main.onclick = null; main.onkeydown = null; $('#q').oninput = null;
     $$('#side [data-tid]').forEach(a => a.dataset.tid === tid ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
     const q = $('#q'); q.value = ''; q.placeholder = view === 'topic' ? 'Search this topic' : 'Search all topics, formulas, questions'; q.setAttribute('aria-label', q.placeholder);
     if (!PENDQ) $('#hsearch').classList.remove('open');
@@ -355,7 +358,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031133803';
+  const SWV = 'ae-20261031154540';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -409,6 +412,9 @@
       if (a === 'mock') return await viewMock(tok);
       if (a === 'more') return await viewMore(tok);
       if (a === 'sims') return await viewSims(tok);
+      if (a === 'practice') return await viewPractice(tok);
+      const dm = h.match(/^drill(?:-(\d+))?$/); if (dm) return await viewDrill(dm[1], tok);
+      const pm = h.match(/^pred-(gate|tneb)$/); if (pm) return await viewPred(pm[1], tok);
       const rm = h.match(/^ref(?:-([a-z]+))?(?:-(\d+))?$/);
       if (rm) return await (rm[1] === 'sym' ? viewSym(tok) : rm[1] === 'az' ? viewAz(tok) : rm[1] === 'gate' ? viewGateIdx(tok) : rm[1] ? viewShelf(rm[1], rm[2], tok) : viewRef(tok));
       return viewHome(tok, keep);
@@ -433,7 +439,7 @@
     const tot = IX.totals;
     main.innerHTML = `<section class="hero"><h1>Every topic of your Complete Book</h1>
       <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
+      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a><a class="btn" href="#practice">📝 Practice papers & drills</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
       ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
@@ -465,7 +471,7 @@
   async function viewTopic(id, pane, tok, keep) {
     const t = T(id);
     if (!keep) { setShell('topic', id); main.innerHTML = '<p class="loading">Loading ' + esc(t.t) + '…</p>'; }
-    const [D, U] = await Promise.all([topic(id), t.n.u ? get(`data/u/${id}.json`).catch(() => null) : null, loadAll()]);
+    const [D, U, DR] = await Promise.all([topic(id), t.n.u ? get(`data/u/${id}.json`).catch(() => null) : null, loadDrill().catch(() => null), loadAll()]);
     if (tok !== RT) return;
     if (keep && main.dataset.tid === id) { paintMine(D); if (U) rU && rU(); return; }
     document.title = t.t + ' · TNEB AE Study Site';
@@ -509,6 +515,9 @@
 
     /* Practice */
     sec('prac', 'mine', '★', 'My progress in this topic', 't-yel', '<div id="minebox" style="display:grid;gap:10px"></div>', '', 'My progress');
+    const myDrill = DR && DR.T.find(x => x.t === id);
+    if (myDrill) sec('prac', 'drill', '🔢', 'Numericals drill — one minute each', 't-teal', `<p class="lead">${myDrill.q.length} quick numericals from the Question Book's Numericals Drill (p ${myDrill.p}): solve on paper, then show the method and the answer and mark yourself. Every answer was computed by the book from the formula shown.</p>
+      <div class="drl">${myDrill.q.map(x => drillCard(myDrill, x)).join('')}</div>`, `${myDrill.q.length} numericals`, 'Numericals drill');
     const UEX = { GATE: 'GATE EE', TNPSC: 'TNPSC', ESE: 'UPSC ESE', APGENCO: 'APGENCO', TANGEDCO: 'TANGEDCO AE' };
     if (U && U.q.length) {
       const nA = U.q.filter(x => x.lab[0] === 'A').length, exs = Object.keys(UEX).filter(k => U.q.some(x => x.ex === k));
@@ -732,13 +741,13 @@
     return `<article class="box gs ub" data-u="${x.id}"><header><b>${x.lab}</b><span class="ex ex-${x.ex}">${esc(x.src)}</span>${uState(x)}<span class="pg">p ${x.pg}</span></header>
       ${sub[0] ? `<div class="usub"><b>${esc(sub[0])}</b>${sub[1] ? ` · ${esc(sub[1])}` : ''}</div>` : ''}
       ${x.qh != null ? `<div class="uq">${x.qh}${x.oh && x.oh.length ? `<ol class="uopts">${x.oh.map(([l, h]) => `<li><b>(${l})</b> ${h}</li>`).join('')}</ol>` : ''}</div>
-        <div class="im print" hidden>${spu(x.qs, x.src)}</div>` : `<div class="im">${spu(x.qs, x.src)}<span class="zoomhint">Tap the picture to zoom</span></div>`}
+        <div class="im print${x.wide ? ' wide' : ''}" hidden>${spu(x.qs, x.src)}</div>` : `<div class="im${x.wide ? ' wide' : ''}">${spu(x.qs, x.src)}<span class="zoomhint">${x.wide ? 'Swipe sideways to read the whole line · tap to zoom' : 'Tap the picture to zoom'}</span></div>`}
       <div class="acts">${ui}${x.cf ? '<button class="btn" data-uact="cf">💡 Concept & formula</button>' : ''}<button class="btn" data-uact="sol">Show solution</button>${x.qh != null ? '<button class="btn" data-uact="print">View as printed</button>' : ''}</div><div class="ucfh" hidden>${cfHtml(x)}</div><div class="ufb" hidden></div>
       <div class="sol" hidden>${x.sh ? solHtml(x) + `<button class="btn lnk" data-uact="sprint">View the solution as printed</button><div class="im sprint" hidden>${spu(x.ss, 'Answer and worked solution')}</div>` : `<div class="im">${spu(x.ss, 'Answer and worked solution')}</div>`}</div></article>`;
   }
   function uAnswer(e, U) {
     const card = e.target.closest('.ub'); if (!card) return;
-    const x0 = U.q.find(q => q.id === card.dataset.u), x = { ...x0, ...(UBY[x0.id] || {}) }, b = e.target.closest('.uo, [data-uact]'); if (!b) return;
+    const x0 = U.q.find(q => q.id === card.dataset.u), x = { ...x0, ...((UBY && UBY[x0.id]) || {}) }, b = e.target.closest('.uo, [data-uact]'); if (!b) return;
     const sol = $('.sol', card), fb = $('.ufb', card), showSol = () => { sol.hidden = false; lazy(card); $('[data-uact="sol"]', card).textContent = 'Hide solution'; };
     if (b.dataset.uact === 'cf') { const h = $('.ucfh', card); h.hidden = !h.hidden; b.classList.toggle('on', !h.hidden); return; }
     if (b.dataset.uact === 'sol') { sol.hidden = !sol.hidden; b.textContent = sol.hidden ? 'Show solution' : 'Hide solution'; lazy(card); return; }
@@ -981,7 +990,7 @@
   const partImg = ([f, W, H, y, w, h, mw], alt) => `<div class="sp rpi" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${mw}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${H > h ? (y / (H - h) * 100).toFixed(4) : 0}%"></div>`;
   // a book page re-set for reading: its text as text (tables become one card per row on a phone), its picture cards
   // and drawings cut out one per row; the printed page stays one tap away
-  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption><span class="pgt">Vol ${g.v} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
+  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption><span class="pgt">${volOf(g)} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
     ${rh ? `<div class="rp">${rh[0].replace(/<i data-k="(\d+)"><\/i>/g, (_, k) => partImg(rh[1][k], `${g.n}, p ${e[0]}, picture ${+k + 1}`))}</div><div class="pp" hidden>${pgImg(e, `${g.n}, book page ${e[0]}`)}</div>` : pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`;
   document.addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (!b) return; const f = b.closest('figure'), pp = $('.pp', f), rp = $('.rp', f); if (!pp) return;
     const on = pp.hidden; pp.hidden = !on; rp.hidden = on; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '📖 Readable' : '🖼 As printed'; });
@@ -992,9 +1001,10 @@
   const SHC = { which: '#2563eb', sym: '#7c3aed', az: '#0e7490', cards: '#dc2626', keyvals: '#ea580c', magic: '#db2777', eeemagic: '#c026d3', mathmagic: '#7e22ce',
     values: '#b45309', reck: '#0f766e', lookalike: '#e11d48', mental: '#15803d', units: '#0369a1', visual: '#4f46e5', geometry: '#059669', mensuration: '#a16207',
     aptitude: '#9333ea', curves: '#1d4ed8', colour: '#b91c1c', trees: '#166534', compare: '#0891b2', cross: '#6d28d9', concept: '#be185d', analogy: '#0284c7',
-    proportion: '#c2410c', scoc: '#b91c1c', whatif: '#a21caf', rlctamil: '#047857', gate: '#dc2626' };
+    proportion: '#c2410c', scoc: '#b91c1c', whatif: '#a21caf', rlctamil: '#047857', gate: '#dc2626', words: '#0d9488', acdc: '#ea580c', chain: '#be123c', drill: '#2563eb', pred: '#7c3aed', flow: '#be123c', pgate: '#dc2626', ptneb: '#1f4e79' };
   const shc = id => SHC[id] || '#a86a00';
-  function shelfCard(g) { return `<a class="tc shelf" href="#ref-${g.id}" style="--c:${shc(g.id)}"><h3><span class="shi">${g.ic}</span> ${esc(g.n)}</h3><div class="meta"><span>Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''}</span><span>${g.p.length} page${g.p.length > 1 ? 's' : ''}</span></div><p class="lnames">${esc(g.d)}</p></a>`; }
+  const volOf = g => /^QB/.test(String(g.v)) ? 'Question Book' : `Vol ${g.v}`;
+  function shelfCard(g) { return `<a class="tc shelf" href="#ref-${g.id}" style="--c:${shc(g.id)}"><h3><span class="shi">${g.ic}</span> ${esc(g.n)}</h3><div class="meta"><span>${volOf(g)} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''}</span><span>${g.p.length} page${g.p.length > 1 ? 's' : ''}</span></div><p class="lnames">${esc(g.d)}</p></a>`; }
   async function viewRef(tok) {
     setShell('ref'); document.title = 'Look-up shelf · TNEB AE Study Site';
     main.innerHTML = '<p class="loading">Loading the look-up shelf…</p>';
@@ -1003,11 +1013,11 @@
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
       <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book (${R.g.reduce((a, g) => a + g.p.length, 0)} pages), set for easy reading on a phone — one card per row, every word as printed; the printed page is one tap away. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
       <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
-      ${sec('🔤 Letters & formulas', ['which', 'sym', 'az', 'cards', 'keyvals'], '#2563eb')}
+      ${sec('🔤 Letters & formulas', ['which', 'sym', 'az', 'words', 'cards', 'keyvals'], '#2563eb')}
       ${sec('🔢 Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'], '#db2777')}
       ${sec('🖼 Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'], '#059669')}
       ${sec('💡 Ideas & comparisons', ['compare', 'cross', 'concept', 'analogy', 'proportion', 'scoc', 'whatif', 'rlctamil'], '#7c3aed')}
-      ${sec('🎓 Sums', ['gate'], '#dc2626')}
+      ${sec('🎓 Sums & solving', ['flow', 'chain', 'gate', 'acdc'], '#dc2626')}
       <footer class="foot">From your Complete Book: Visual Tricks & Formula Sheets and Electrical Formula Read Cards (Vol 5), the Look-up shelf — Symbols A–Z, A–Z Formula Table, Calculation Ready-Reckoner, Magic Numbers, Look-alike Numbers & Trap Factors, Key Formula & Direct-Answer Values (Vol 6) — and One Concept Many Places, Quick Comparisons, the Cross-Comparison Book, the Analogy Book and RC · RL · RLC in Tamil (Vol 7).</footer>`;
     toTop();
   }
@@ -1018,7 +1028,7 @@
     document.title = g.n + ' · Look-up shelf';
     const prev = R.g[i - 1], nxt = R.g[i + 1];
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › ${esc(g.n)}</div>
-      <section class="hero shelfh" style="--c:${shc(g.id)}"><h1><span class="shi">${g.ic}</span> ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">Vol ${g.v} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · ${RH ? 'the book’s words, set for easy reading: one card per row, tables as cards on a phone, pictures cut out large (tap to zoom). “🖼 As printed” shows the page itself.' : 'exactly as printed — tap a page to zoom.'}</p>
+      <section class="hero shelfh" style="--c:${shc(g.id)}"><h1><span class="shi">${g.ic}</span> ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">${volOf(g)} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · ${RH ? 'the book’s words, set for easy reading: one card per row, tables as cards on a phone, pictures cut out large (tap to zoom). “🖼 As printed” shows the page itself.' : 'exactly as printed — tap a page to zoom.'}</p>
       ${g.p.length > 3 ? `<nav class="pgchips" aria-label="Pages">${g.p.map(([p]) => `<a href="#ref-${g.id}-${p}">p ${p}</a>`).join('')}</nav>` : ''}</section>
       <div class="pages refpages" style="--c:${shc(g.id)}">${g.p.map(e => readPage(g, e, RH && RH[e[0]])).join('')}</div>
       <div class="pn">${prev ? `<a href="#ref-${prev.id}"><small>← Previous shelf</small><b>${esc(prev.n)}</b></a>` : '<a href="#ref"><small>←</small><b>Look-up shelf</b></a>'}${nxt ? `<a href="#ref-${nxt.id}"><small>Next shelf →</small><b>${esc(nxt.n)}</b></a>` : ''}</div>`;
@@ -1092,6 +1102,78 @@
       ${IX.S.filter(([k]) => g[k]).map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].reduce((a, t) => a + LABN[t.id], 0)} labs</small></h2><div class="tcards">${g[k].map(t => `<a class="tc" href="#t-${t.id}-sim" style="--c:${SC[t.s]}" data-s="${esc(t.t)}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}<span>${LABN[t.id]} labs</span></div><p class="lnames">${(by[t.id] || LABS.filter(L => L.t === t.id)).map(L => esc(L.n)).join(' · ')}</p></a>`).join('')}</div></section>`).join('')}
       <footer class="foot">Every lab uses the formula as printed in your Complete Book; the book link on each lab shows which formula and page. The ✓ Book checks are the book's solved sums, ratio sums, key-formula examples, one-minute sums, quick checks and value tables.</footer>`;
     toTop();
+  }
+  /* ---------- practice papers & drills (Question Book Parts 4, 6 and 7) ---------- */
+  const drillId = (T_, x) => `d${T_.t}.${x.n}`;
+  const drillCard = (T_, x) => { const id = drillId(T_, x), e = P.q[id];
+    return `<article class="box dr" data-d="${id}"><header><b>${T_.k}.${x.n}</b><span>${esc(T_.n)}</span>${e ? `<span class="pg ${e[2] ? 'up' : 'dn'}">${e[2] ? '✓ got it last time' : '✗ missed last time'}</span>` : ''}</header>
+      <div class="dq">${x.q}</div><div class="acts"><button class="btn" data-dr="show">Show method & answer</button></div>
+      <div class="da" hidden>${x.m ? spu(x.m, 'Method') : ''}<p class="dans">Answer: <b>${x.a}</b></p><div class="acts"><span class="pg">Did you get it?</span><button class="btn" data-dr="ok">✓ Got it</button><button class="btn" data-dr="no">✗ Missed</button></div></div></article>`; };
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-dr]'); if (!b) return; const card = b.closest('.dr');
+    if (b.dataset.dr === 'show') { const a = $('.da', card); a.hidden = !a.hidden; b.textContent = a.hidden ? 'Show method & answer' : 'Hide method & answer'; lazy(card); return; }
+    if (card.dataset.done) return; card.dataset.done = 1; record(card.dataset.d, b.dataset.dr === 'ok');
+    $('.da .acts', card).innerHTML = b.dataset.dr === 'ok' ? '<b class="up">✓ Marked as got it</b>' : '<b class="dn">✗ Marked as missed — it counts in your progress console</b>';
+  });
+  async function viewPractice(tok) {
+    setShell('home'); document.title = 'Practice papers & drills · TNEB AE Study Site';
+    const [DR, PR] = await Promise.all([loadDrill(), loadPred()]); if (tok !== RT) return;
+    const card = (h, ic, n, m, d, c) => `<a class="tc shelf" href="${h}" style="--c:${c}"><h3><span class="shi">${ic}</span> ${n}</h3><div class="meta"><span>${m}</span></div><p class="lnames">${d}</p></a>`;
+    const done = ids => ids.filter(i => P.q[i]).length;
+    const nd = DR.T.reduce((a, t) => a + t.q.length, 0);
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Practice papers & drills</div>
+      <section class="hero shelfh" style="--c:#7c3aed"><h1><span class="shi">📝</span> Practice papers & drills</h1><p>The practice parts of your Question Book: the 300-numericals drill and the two predicted papers with their keys and worked solutions, plus the mock test built from every past question.</p></section>
+      <section class="subj shelfsec" style="--c:#7c3aed"><h2><i></i>Practise</h2><div class="tcards">
+      ${card('#drill', '🔢', 'Numericals drill', `${nd} numericals · 25 topics · ${done(DR.T.flatMap(t => t.q.map(x => drillId(t, x))))} done`, 'One minute each: solve on paper, then show the method and the answer and mark yourself. Question Book Part 4, p 1203–1229.', '#2563eb')}
+      ${card('#pred-gate', '🎓', esc(PR.gate.t), `${PR.gate.q.length} questions · ${done(PR.gate.q.map(x => x.id))} done`, 'MCQ, MSQ and numerical-answer questions with the key, worked solutions and why each was predicted. Question Book Part 6.', '#dc2626')}
+      ${card('#pred-tneb', '⚡', esc(PR.tneb.t), `${PR.tneb.q.length} questions · ${done(PR.tneb.q.map(x => x.id))} done`, 'All four-option MCQs: answer one by one, or sit it as a timed 2-hour paper with −⅓ per wrong answer. Question Book Part 7.', '#1f4e79')}
+      ${card('#mock', '⏱', 'Mock test', 'any topics · any length', 'A timed paper from the 2,620 real past questions and the book MCQs, with a topic-by-topic result.', '#0f766e')}
+      ${card('#ref-flow', '🧭', 'How to solve any sum', 'one flow · four trees', 'The 9-step flow and the Maths, EEE, Basic Engineering and Aptitude trees from Question Book Part 1.', '#be123c')}
+      ${card('#ref-acdc', '⚡', 'Ten practice sums & machine sums', 'DC · 1-φ · 3-φ · machines', 'Fully worked sums with computed answers, from the Complete Book comparison sheets.', '#ea580c')}</div></section>
+      <p class="tnote" style="margin-top:16px">The two predicted papers are practice questions the book wrote from past-paper trends — they are not real past papers.</p>`;
+    toTop();
+  }
+  async function viewDrill(k, tok) {
+    setShell('home'); document.title = 'Numericals drill · TNEB AE Study Site';
+    const DR = await loadDrill(); if (tok !== RT) return;
+    const n = DR.T.reduce((a, t) => a + t.q.length, 0);
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#practice">Practice papers & drills</a> › Numericals drill</div>
+      <section class="hero shelfh" style="--c:#2563eb"><h1><span class="shi">🔢</span> Numericals drill</h1><p>${n} quick numericals in 25 EEE topics (Question Book Part 4, p 1203–1229). Aim for one minute each: solve on paper, then show the method and the answer, and mark yourself — it counts in your progress console. Every answer was computed by the book from the formula shown.</p>
+      <nav class="pgchips" aria-label="Topics">${DR.T.map(t => `<a href="#drill-${t.k}">${t.k}. ${esc(t.n)}</a>`).join('')}</nav></section>
+      ${DR.T.map(t => `<section class="panel drs" id="dk${t.k}"><h2>${t.k}. ${esc(t.n)} <small>${t.q.length} numericals · p ${t.p}${t.t ? ` · <a href="#t-${t.t}">open the topic</a>` : ''}</small></h2><div class="drl">${t.q.map(x => drillCard(t, x)).join('')}</div></section>`).join('')}`;
+    const el = k && document.getElementById('dk' + k);
+    if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); else toTop();
+  }
+  async function viewPred(pid, tok) {
+    setShell('home');
+    const PR = await loadPred(); if (tok !== RT) return;
+    const X = PR[pid], U = { subs: [], q: X.q }; document.title = X.t + ' · TNEB AE Study Site';
+    const right = X.q.filter(x => P.q[x.id] && P.q[x.id][2]).length, tried = X.q.filter(x => P.q[x.id]).length;
+    let sel = '';
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#practice">Practice papers & drills</a> › ${esc(X.t)}</div>
+      <section class="hero shelfh" style="--c:${pid === 'gate' ? '#dc2626' : '#1f4e79'}"><h1><span class="shi">${pid === 'gate' ? '🎓' : '⚡'}</span> ${esc(X.t)}</h1>
+      <p><b>Practice questions, not a real past paper:</b> the book wrote this paper from the trends of the past papers (Question Book Part ${pid === 'gate' ? '6, p 1285–1315' : '7, p 1316–1359'}). ${X.q.length} questions, each with the book's key, the worked solution and why it was predicted.</p>
+      <p class="pg">You: ${tried} answered · ${right} right last time</p>
+      <div class="acts">${pid === 'tneb' ? '<button class="btn go" data-pt="timed">⏱ Sit it as a timed paper (2 hours, −⅓ per wrong)</button>' : ''}<a class="btn" href="#ref-${pid === 'gate' ? 'pgate' : 'ptneb'}">🎯 How it was predicted</a></div>
+      <div class="seg" id="psec"><button data-v="" aria-pressed="true">All · ${X.q.length}</button>${X.secs.map(s => `<button data-v="${esc(s)}" aria-pressed="false">${esc(s.replace(/^Part [IV]+ — /, ''))} · ${X.q.filter(x => x.sec === s).length}</button>`).join('')}</div></section>
+      <div id="plist" style="display:grid;gap:12px;margin-top:14px"></div>`;
+    const paint = () => { $('#plist').innerHTML = X.q.filter(x => !sel || x.sec === sel).map(x => uCard({ ...x, src: [x.sec.replace(/^Part [IV]+ — /, ''), x.topic].filter(Boolean).join(' · ') || x.src }, U)).join(''); lazy(); };
+    paint();
+    main.onclick = e => {
+      const sb = e.target.closest('#psec [data-v]'); if (sb) { sel = sb.dataset.v; $$('#psec [data-v]').forEach(b => b.setAttribute('aria-pressed', String(b === sb))); paint(); return; }
+      if (e.target.closest('[data-pt="timed"]')) { predTimed(X); return; }
+      uAnswer(e, U);
+    };
+    main.onkeydown = e => { if (e.key === 'Enter' && e.target.classList.contains('unum')) { e.preventDefault(); uAnswer({ target: e.target.closest('.ub').querySelector('[data-uact="chk"]') }, U); } };
+    toTop();
+  }
+  function predTimed(X) {
+    const qs = X.q.filter(x => x.ty === 'mcq').map(x => { const oh = x.qh != null ? Object.fromEntries(x.oh) : null;
+      return { id: x.id, t: '', src: `${X.t} · ${x.lab}`, q: oh ? `<div class="uq">${x.qh}</div>` : `<div class="im wide">${spu(x.qs, x.lab)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>`,
+        opts: x.L.map(l => ({ l, h: oh && oh[l] || '' })), r: x.L.indexOf(x.ok[0]), ex: x.sh ? solHtml(x) : spu(x.ss, 'Answer and working') }; });
+    M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), i: 0, end: Date.now() + 120 * 60 * 1000, total: 7200, neg: true, t0: Date.now() };
+    showMock();
+    clearInterval(tick); tick = setInterval(() => { if (!M) return clearInterval(tick); const left = Math.round((M.end - Date.now()) / 1000), el = $('.mk-time'); if (el) { el.textContent = clock(left); el.classList.toggle('low', left <= 60); } if (left <= 0) mockSubmit(); }, 1000);
   }
   function viewMore() {
     setShell('home'); document.title = 'Other past questions · TNEB AE Study Site';
