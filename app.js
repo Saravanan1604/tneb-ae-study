@@ -355,7 +355,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031132437';
+  const SWV = 'ae-20261031133038';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
