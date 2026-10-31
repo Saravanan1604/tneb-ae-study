@@ -67,8 +67,13 @@
   let P = EMPTY(), where = 'browser', ref = null, saving = false, again = false, timer = 0, SV = 0, STC = null;
   try { const s = localStorage.getItem(KEY); if (s) P = { ...EMPTY(), ...JSON.parse(s) }; } catch (e) {}
   const keepLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
-  // before the day log existed only each question's last answer was kept: seed the log from those, once
-  const fixP = () => {
+  // dates for the day log (local date) — defined before fixP, which runs as soon as the saved progress is read
+  const dayOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const dayStart = () => Math.round(new Date().setHours(0, 0, 0, 0) / 60000);
+  // before the day log existed only each question's last answer was kept: seed the log from those, once.
+  // Never let an odd saved record stop the app: anything unreadable is simply started afresh.
+  const fixP = () => { try { fixP0(); } catch (e) { P.star = P.star && typeof P.star === 'object' ? P.star : {}; P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {}; if (!P.days || typeof P.days !== 'object') P.days = {}; } };
+  const fixP0 = () => {
     P.star = P.star && typeof P.star === 'object' ? P.star : {};
     P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {};
     if (!P.days || typeof P.days !== 'object') { P.days = {}; for (const m of [P.q, P.f]) for (const id in m) { const e = m[id]; if (!e[3]) continue; const k = dayOf(e[3] * 60000), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (e[2]) d[1]++; } }
@@ -108,8 +113,6 @@
   const topicOf = id => (String(id).match(/^[a-z](\d+|gen)\./) || [])[1];
   const isF = id => /^[fksx]/.test(id);
   // answers per day (local date): { 'YYYY-MM-DD': [answers, right] } — the streak, the daily chart and the calendar
-  const dayOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-  const dayStart = () => Math.round(new Date().setHours(0, 0, 0, 0) / 60000);
   const logDay = ok => { const k = dayOf(Date.now()), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (ok) d[1]++; };
   /* spaced revision: each answer moves a question up one level (a wrong answer sends it back to 0). Days to the next
      revision by level: 0 (wrong) → 1; then 1, 2, 4, 8, 15 → revisions on day 1, 3, 7, 15 and 30; then every 30 days. */
@@ -425,7 +428,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031202037';
+  const SWV = 'ae-20261031202825';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
