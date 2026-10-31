@@ -171,13 +171,18 @@
 
   /* ---------- MCQ helpers ---------- */
   const optOf = o => { const m = plain(o).match(/^\(([A-Da-d1-4])\)/); return { l: m ? m[1] : '', h: o.replace(/^\s*\([A-Da-d1-4]\)\s*/, '') }; };
-  const explHtml = x => (x.k === 'book' ? `<p><b>Answer: ${x.ans}</b></p>` : `<p><b>Answer ${x.ans}.</b> ${x.why || ''}</p>`) + (x.wrong || []).map(w => `<p class="w">✘ ${w}</p>`).join('');
+  // concept & formula of a book MCQ: previous-year MCQs from the past-question appendix (same paper + question);
+  // chapter and question-bank MCQs: the chapter formula the question uses (mcq_cf.py, every pairing checked by hand)
+  const mcqCf = x => x.cf ? `<div class="ucf">${x.cf.c ? `<p><b>💡 Concept:</b> ${x.cf.c}</p>` : ''}${x.cf.f && x.cf.f.length ? `<div><b>📐 ${x.cf.n ? `Formula: ${x.cf.n}` : 'Formula used:'}</b><div class="fx">${x.cf.f.join('<br>')}</div></div>` : ''}<span class="pg">${esc(x.cf.src)}</span></div>` : '';
+  const explHtml = x => (x.k === 'book' ? `<p><b>Answer: ${x.ans}</b></p>` : `<p><b>Answer ${x.ans}.</b> ${x.why || ''}</p>`) + (x.wrong || []).map(w => `<p class="w">✘ ${w}</p>`).join('') + mcqCf(x);
   const mcqCard = x => {
     const os = x.o.map(optOf), noans = x.r == null;
     return `<div class="box mcq${noans ? ' noans' : ''}" data-id="${x.id}" data-s="${esc(plain(x.q + ' ' + x.o.join(' ')))}"><span class="src">${esc(x.src)}</span><div class="q">${x.q}</div>
       <div class="opts">${os.map((o, i) => `<button class="opt" data-i="${i}" ${noans ? 'disabled' : ''}><i>${esc(o.l || 'ABCD'[i])}</i><span>${o.h}</span></button>`).join('')}</div>
+      ${x.cf && !noans ? `<button class="btn lnk mcf" data-mcf>💡 Concept & formula</button><div class="mcfh" hidden>${mcqCf(x)}</div>` : ''}
       ${noans ? `<div class="expl"><p><b>⚠ No option is correct as printed — the book says so, so this one is not scored.</b> ${x.why}</p>${(x.wrong || []).map(w => `<p class="w">${w}</p>`).join('')}</div>` : `<div class="expl" hidden>${explHtml(x)}</div>`}</div>`;
   };
+  document.addEventListener('click', e => { const b = e.target.closest('[data-mcf]'); if (!b) return; const h = b.nextElementSibling; h.hidden = !h.hidden; b.classList.toggle('on', !h.hidden); });
   // inline MCQ cards anywhere on a page
   document.addEventListener('click', e => {
     const o = e.target.closest('.mcq .opt'); if (!o || o.closest('.qz')) return;
@@ -349,7 +354,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031101442';
+  const SWV = 'ae-20261031115048';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
