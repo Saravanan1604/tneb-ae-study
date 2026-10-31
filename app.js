@@ -130,7 +130,7 @@
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a><a href="#practice">📝 Practice papers & drills</a></div>` +
+    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a></div>` +
       IX.S.map(([k, n]) => `<h4 style="--c:${SC[k]}"><i></i>${esc(n)}</h4>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('')).join('');
     paintDots();
   }
@@ -358,7 +358,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031154540';
+  const SWV = 'ae-20261031163526';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -413,6 +413,7 @@
       if (a === 'more') return await viewMore(tok);
       if (a === 'sims') return await viewSims(tok);
       if (a === 'practice') return await viewPractice(tok);
+      if (a === 'qbook') return await viewQbook(tok);
       const dm = h.match(/^drill(?:-(\d+))?$/); if (dm) return await viewDrill(dm[1], tok);
       const pm = h.match(/^pred-(gate|tneb)$/); if (pm) return await viewPred(pm[1], tok);
       const rm = h.match(/^ref(?:-([a-z]+))?(?:-(\d+))?$/);
@@ -439,7 +440,7 @@
     const tot = IX.totals;
     main.innerHTML = `<section class="hero"><h1>Every topic of your Complete Book</h1>
       <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a><a class="btn" href="#practice">📝 Practice papers & drills</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
+      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a><a class="btn" href="#qbook">📘 Question Book (2,620)</a><a class="btn" href="#practice">📝 Practice papers & drills</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
       ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
@@ -726,7 +727,9 @@
     rEvery(); if ($('#glist')) rGate(); if ($('#qlist')) rBank(); if ($('#ulist')) rU();
     paintMine(D);
     showPane(pane || 'learn'); toTop(); lazy();
-    if (GOSEC) { const el = document.getElementById(GOSEC); GOSEC = null; if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); }
+    if (GOSEC) { const el = document.getElementById(GOSEC); GOSEC = null; if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }));
+      // the sections above can still grow (pictures, progress box): settle once more unless the reader has scrolled
+      let y0; setTimeout(() => { if (el.isConnected) { el.scrollIntoView({ block: 'start' }); y0 = scrollY; } }, 400); setTimeout(() => { if (el.isConnected && scrollY === y0) el.scrollIntoView({ block: 'start' }); }, 1300); } }
     if (PENDQ) { const w = PENDQ; PENDQ = null; gsView = null; $('#q').value = w; $('#hsearch').classList.add('open'); q = w.toLowerCase().replace(/\s+/g, ' '); applySearch();
       const first = pane === 'prac' ? ($('#qbook') && nU ? $('#qbook') : $('.pane[data-pane="prac"] .sec:not(#mine)')) : null;
       if (first) requestAnimationFrame(() => first.scrollIntoView({ block: 'start' })); }
@@ -892,7 +895,7 @@
       <form class="mkset" id="mkf">
         <fieldset><legend>Which topics</legend>
           <label class="r"><input type="radio" name="sc" value="all" checked> All topics</label>
-          <label class="r"><input type="radio" name="sc" value="weak"> My weak and untried topics (from the console's Study next)</label>
+          <label class="r"><input type="radio" name="sc" value="weak"><span class="lt">My weak and untried topics (from the console's Study next)</span></label>
           <label class="r"><input type="radio" name="sc" value="subj"> One subject <select id="mks">${IX.S.map(([k, n]) => `<option value="${k}">${esc(n)}</option>`).join('')}</select></label>
           <label class="r"><input type="radio" name="sc" value="pick"> Choose topics</label>
           <div class="picks" id="mkp" hidden>${IX.S.map(([k, n]) => `<b>${esc(n)}</b>` + g[k].map(t => `<label><input type="checkbox" value="${t.id}">${esc(short(t))} <span class="pg">${avail(t.id)} MCQs</span></label>`).join('')).join('')}</div></fieldset>
@@ -1115,6 +1118,27 @@
     if (card.dataset.done) return; card.dataset.done = 1; record(card.dataset.d, b.dataset.dr === 'ok');
     $('.da .acts', card).innerHTML = b.dataset.dr === 'ok' ? '<b class="up">✓ Marked as got it</b>' : '<b class="dn">✗ Marked as missed — it counts in your progress console</b>';
   });
+  // the Question Book's 2,620 past questions live on their topics' Practice tabs: one page to find them all
+  async function viewQbook(tok) {
+    setShell('home'); document.title = 'Question Book — all past questions · TNEB AE Study Site';
+    const U = await loadU(); if (tok !== RT) return;
+    const EXN = { GATE: 'GATE EE', TNPSC: 'TNPSC', ESE: 'UPSC ESE', TANGEDCO: 'TANGEDCO AE', APGENCO: 'APGENCO AE' };
+    const by = {}; U.forEach(x => { const b = by[x.t] || (by[x.t] = { n: 0, A: 0, B: 0, ex: {}, done: 0, right: 0 }); b.n++; b[x.lab[0] === 'A' ? 'A' : 'B']++; b.ex[x.ex] = (b.ex[x.ex] || 0) + 1; const e = P.q[x.id]; if (e) { b.done++; if (e[2]) b.right++; } });
+    const exT = {}; U.forEach(x => exT[x.ex] = (exT[x.ex] || 0) + 1);
+    const nA = U.filter(x => x.lab[0] === 'A').length, done = U.filter(x => P.q[x.id]).length;
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Question Book</div>
+      <section class="hero shelfh" style="--c:#1565c0"><h1><span class="shi">📘</span> Question Book — all ${U.length.toLocaleString('en-IN')} past questions</h1>
+      <p>Every past question of your Question Book (all exams), each with its full solution, filed under its topic: ${nA.toLocaleString('en-IN')} theory / concept and ${(U.length - nA).toLocaleString('en-IN')} numerical. Tap a topic to open its questions (Practice tab → Question Book), where you can filter by exam, concept or numerical, sub-topic, and the ones you got wrong.</p>
+      <div class="meta qbx">${Object.keys(EXN).filter(k => exT[k]).map(k => `<span class="ex ex-${k}">${EXN[k]} · ${exT[k]}</span>`).join('')}</div>
+      <p class="pg">You: ${done.toLocaleString('en-IN')} of ${U.length.toLocaleString('en-IN')} answered</p>
+      <div class="acts"><a class="btn go" href="#mock">⏱ Mock test from these questions</a><a class="btn" href="#practice">📝 Practice papers & drills</a></div></section>
+      ${IX.S.map(([k, n]) => { const ts = IX.T.filter(t => t.s === k && by[t.id]); if (!ts.length) return '';
+        return `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${ts.reduce((a, t) => a + by[t.id].n, 0)} questions</small></h2><div class="tcards">${ts.map(t => { const b = by[t.id];
+          return `<a class="tc" href="#t-${t.id}-prac" style="--c:${SC[t.s]}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta"><span><b>${b.n}</b> questions</span><span>${b.A} concept · ${b.B} numerical</span>${b.done ? `<span>${b.done} done · ${b.right} right</span>` : ''}</div>
+            <div class="meta">${Object.keys(EXN).filter(e => b.ex[e]).map(e => `<span class="ex ex-${e}">${EXN[e]} ${b.ex[e]}</span>`).join('')}</div></a>`; }).join('')}</div></section>`; }).join('')}`;
+    main.onclick = e => { if (e.target.closest('.tc[href^="#t-"]')) GOSEC = 'qbook'; };   // land on the topic's Question Book section
+    toTop();
+  }
   async function viewPractice(tok) {
     setShell('home'); document.title = 'Practice papers & drills · TNEB AE Study Site';
     const [DR, PR] = await Promise.all([loadDrill(), loadPred()]); if (tok !== RT) return;
@@ -1124,6 +1148,7 @@
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Practice papers & drills</div>
       <section class="hero shelfh" style="--c:#7c3aed"><h1><span class="shi">📝</span> Practice papers & drills</h1><p>The practice parts of your Question Book: the 300-numericals drill and the two predicted papers with their keys and worked solutions, plus the mock test built from every past question.</p></section>
       <section class="subj shelfsec" style="--c:#7c3aed"><h2><i></i>Practise</h2><div class="tcards">
+      ${card('#qbook', '📘', 'Question Book — all past questions', '2,620 questions · 46 topics', 'Every past question (GATE, TNPSC, ESE, TANGEDCO, APGENCO) with its full solution, topic by topic.', '#1565c0')}
       ${card('#drill', '🔢', 'Numericals drill', `${nd} numericals · 25 topics · ${done(DR.T.flatMap(t => t.q.map(x => drillId(t, x))))} done`, 'One minute each: solve on paper, then show the method and the answer and mark yourself. Question Book Part 4, p 1203–1229.', '#2563eb')}
       ${card('#pred-gate', '🎓', esc(PR.gate.t), `${PR.gate.q.length} questions · ${done(PR.gate.q.map(x => x.id))} done`, 'MCQ, MSQ and numerical-answer questions with the key, worked solutions and why each was predicted. Question Book Part 6.', '#dc2626')}
       ${card('#pred-tneb', '⚡', esc(PR.tneb.t), `${PR.tneb.q.length} questions · ${done(PR.tneb.q.map(x => x.id))} done`, 'All four-option MCQs: answer one by one, or sit it as a timed 2-hour paper with −⅓ per wrong answer. Question Book Part 7.', '#1f4e79')}
