@@ -105,7 +105,6 @@
   $('#bmenu').onclick = e => { e.preventDefault(); drawer(true); };
   side.addEventListener('click', e => { if (e.target.closest('a')) drawer(false); });
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
-  $('#sbtn').onclick = () => { const h = $('#hsearch'); h.classList.toggle('open'); if (h.classList.contains('open')) $('#q').focus(); };
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a></div>` +
@@ -122,7 +121,8 @@
     if (view !== 'topic') delete main.dataset.tid;
     main.onclick = null; $('#q').oninput = null;
     $$('#side [data-tid]').forEach(a => a.dataset.tid === tid ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
-    const q = $('#q'); q.value = ''; q.placeholder = view === 'topic' ? 'Search this topic' : 'Search topics'; q.setAttribute('aria-label', q.placeholder);
+    const q = $('#q'); q.value = ''; q.placeholder = view === 'topic' ? 'Search this topic' : 'Search all topics, formulas, questions'; q.setAttribute('aria-label', q.placeholder);
+    if (!PENDQ) $('#hsearch').classList.remove('open');
     $('#toc').innerHTML = '';
   }
 
@@ -320,7 +320,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031054900';
+  const SWV = 'ae-20261031055339';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
@@ -355,9 +355,10 @@
   paintTheme();
 
   /* ---------- router ---------- */
-  let RT = 0, M = null;
+  let RT = 0, M = null, PENDQ = null;
   addEventListener('hashchange', () => route());
   async function route(keep) {
+    if (!keep && !PENDQ) gsView = null;
     // views are plain hash names: #home, #progress, #mock, #more, #t-497, #t-497-prac
     const tok = ++RT, h = location.hash.slice(1), tm = h.match(/^t-(\d+)(?:-(learn|prac|book))?$/);
     const [a, b, c] = tm ? ['t', tm[1], tm[2]] : [h];
@@ -667,6 +668,9 @@
     rEvery(); if ($('#glist')) rGate(); if ($('#qlist')) rBank(); if ($('#ulist')) rU();
     paintMine(D);
     showPane(pane || 'learn'); toTop(); lazy();
+    if (PENDQ) { const w = PENDQ; PENDQ = null; gsView = null; $('#q').value = w; $('#hsearch').classList.add('open'); q = w.toLowerCase().replace(/\s+/g, ' '); applySearch();
+      const first = pane === 'prac' ? ($('#qbook') && nU ? $('#qbook') : $('.pane[data-pane="prac"] .sec:not(#mine)')) : null;
+      if (first) requestAnimationFrame(() => first.scrollIntoView({ block: 'start' })); }
   }
   let rU = null;
   const uState = x => { const e = P.q[x.id]; return e ? `<span class="pg ${e[2] ? 'up' : 'dn'}">${e[2] ? '✓ right last time' : '✗ wrong last time'} · ${e[1]}/${e[0]}</span>` : ''; };
@@ -927,13 +931,65 @@
     toTop();
   }
 
-  /* ---------- header search: topic page filters, elsewhere filters topic cards ---------- */
+  /* ---------- search everywhere (on a topic page the topic filters itself) ----------
+     Topics, every formula, every Question Book question and every book MCQ; a result opens its topic with the
+     same words already searched there. */
+  let GSI = null, gsTimer = 0, gsView = null;
+  const norm = t => t.toLowerCase().replace(/\s+/g, ' ');
+  async function gsIndex() {
+    if (GSI) return GSI;
+    await loadAll();
+    GSI = {
+      f: FA.map(f => [f, norm(f.nm + ' ' + plain(f.h.join(' ')) + ' ' + (T(f.t) || {}).t)]),
+      u: UA.map(x => [x, norm([x.lab, x.src, x.c, x.sb, x.ans, plain(x.qh || ''), (x.oh || []).map(o => plain(o[1])).join(' '), x.x || '', (T(x.t) || {}).t].join(' '))]),
+      q: QA.map(x => [x, norm(plain(x.q + ' ' + x.o.join(' ')) + ' ' + x.src + ' ' + (T(x.t) || {}).t)]),
+    };
+    return GSI;
+  }
+  const words = q => norm(q).trim().split(' ').filter(Boolean);
+  const hitAll = (txt, W) => W.every(w => txt.includes(w));
+  async function globalSearch(q) {
+    const W = words(q); if (!W.length) return;
+    if (!gsView) gsView = location.hash || '#home';
+    const I = await gsIndex();
+    if ($('#q').value.trim() !== q) return;            // a newer search is on its way
+    const tp = IX.T.filter(t => hitAll(norm(t.t + ' ' + IX.S.find(s => s[0] === t.s)[1]), W));
+    const fs = I.f.filter(([, s]) => hitAll(s, W)).map(([f]) => f);
+    const us = I.u.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
+    const qs = I.q.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
+    const n = tp.length + fs.length + us.length + qs.length;
+    const grp = (id, title, L, row, k = 8) => L.length ? `<section class="panel"><h2>${title} <small>${L.length}</small></h2><div class="gsl">${L.slice(0, k).map(row).join('')}</div>${L.length > k ? `<button class="more" data-gs="${id}">Show all ${L.length}</button>` : ''}</section>` : '';
+    const tn = id => esc((T(id) || {}).t || '');
+    const go = (id, pane) => `data-go="${id}" data-pane="${pane || ''}"`;
+    const rows = {
+      t: t => `<a class="gsr" href="#t-${t.id}"><b>${esc(t.t)}</b><small>${esc(IX.S.find(s => s[0] === t.s)[1])}</small></a>`,
+      f: f => `<a class="gsr" href="#t-${f.t}" ${go(f.t, '')}><b>${esc(f.nm)}</b><span class="fx">${f.h[0]}</span><small>${tn(f.t)} · ${esc(f.src)}</small></a>`,
+      u: x => `<a class="gsr" href="#t-${x.t}-prac" ${go(x.t, 'prac')}><b><span class="ex ex-${x.ex}">${esc(x.src)}</span></b><span>${esc((plain(x.qh || '') || x.x || x.sb || '').slice(0, 160))}…</span><small>${tn(x.t)} · ${esc(x.sb || '')} · Answer: ${esc(x.ans)}</small></a>`,
+      q: x => `<a class="gsr" href="#t-${x.t}${x.k === 'book' ? '' : '-prac'}" ${go(x.t, x.k === 'book' ? '' : 'prac')}><b>${esc(plain(x.q).slice(0, 140))}</b><small>${tn(x.t)} · ${esc(x.src)}</small></a>`,
+    };
+    const L = { t: tp, f: fs, u: us, q: qs };
+    const render = (all = '') => {
+      main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Search</div><div class="con">
+        <section class="panel"><h2>🔎 “${esc(q)}” <small>${n ? `${n} results` : 'nothing found — try fewer or different words'}</small></h2><p>Every word must appear. Tap a result to open its topic with these words already searched there.</p></section>
+        ${grp('t', 'Topics', tp, rows.t, all === 't' ? 1e9 : 8)}${grp('f', 'Formulas', fs, rows.f, all === 'f' ? 1e9 : 8)}${grp('u', 'Question Book — past questions', us, rows.u, all === 'u' ? 1e9 : 8)}${grp('q', 'Book MCQs', qs, rows.q, all === 'q' ? 1e9 : 8)}</div>`;
+    };
+    render();
+    main.onclick = e => {
+      const m = e.target.closest('[data-gs]'); if (m) { render(m.dataset.gs); return; }
+      const a = e.target.closest('[data-go]'); if (a) PENDQ = q;      // the topic page picks the words up
+    };
+  }
   $('#q').addEventListener('input', e => {
     if (main.querySelector('.pbar')) return;     // the topic page handles its own search
-    const q = e.target.value.trim().toLowerCase();
-    if (!$('.tcards', main)) { if (q) location.hash = '#home'; return; }
-    $$('.tc[data-s]', main).forEach(c => c.classList.toggle('hidden-by-search', !!q && !c.dataset.s.toLowerCase().includes(q)));
+    const q = e.target.value.trim();
+    clearTimeout(gsTimer);
+    if (!q) { if (gsView) { const v = gsView; gsView = null; if (location.hash === v || (!location.hash && v === '#home')) route(true); else location.hash = v; } return; }
+    gsTimer = setTimeout(() => globalSearch(q), 220);
   });
+  // tapping the search icon on a phone opens the box; leaving it empty closes it again
+  $('#q').addEventListener('blur', () => setTimeout(() => { if (!$('#q').value.trim()) $('#hsearch').classList.remove('open'); }, 150));
+  $('#q').addEventListener('keydown', e => { if (e.key === 'Escape') { $('#q').value = ''; $('#q').dispatchEvent(new Event('input')); $('#q').blur(); } });
+  $('#sbtn').onclick = () => { const h = $('#hsearch'); h.classList.toggle('open'); if (h.classList.contains('open')) $('#q').focus(); };
 
   route();
 })();

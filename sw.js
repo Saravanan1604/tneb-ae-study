@@ -1,7 +1,7 @@
 /* Offline support for the GitHub Pages copy. Pages and data you open are kept; the app shell and data are
    refreshed from the network when online (network first), book pictures are served from the cache (cache first).
    The cache name changes with every deploy, so an update never mixes old pictures with new positions. */
-const V = 'ae-20261031054900';
+const V = 'ae-20261031055339';
 const SHELL = ['./', 'index.html', 'app.js', 'theme.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'data/index.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
