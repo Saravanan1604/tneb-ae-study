@@ -21,8 +21,8 @@
   const SIM_URL = STANDALONE ? 'sim/transformers/#try' : 'https://claude.ai/artifact/CjRrpNTnMdHvmPpzSYDKLP#try';
   const SIM_TGT = STANDALONE ? '' : ' target="_blank" rel="noopener"';
   /* formula & concept simulators: sims/*.js, loaded the first time a Simulate tab or the Simulators page opens */
-  const LABN = {"106":2,"123":2,"140":2,"154":1,"166":1,"179":1,"190":1,"201":1,"212":1,"222":2,"235":2,"339":16,"365":8,"380":15,"409":2,"417":3,"429":5,"440":13,"468":3,"475":12,"497":11,"526":9,"550":11,"572":7,"580":9,"601":4,"607":4,"614":3,"621":5,"627":15,"657":3,"663":10,"678":7,"696":7,"714":4,"723":10,"759":3,"767":13,"800":2,"807":15,"838":4,"849":6,"867":9,"888":8,"906":7,"913":4,"935":3,"941":4,"953":3,"961":10,"998":7,"1008":4,"1027":6,"1042":3,"1048":3,"1055":6};
-  const SIMF = ['engine', 'c', 'x', 'p', 'k', 'e', 'm'];
+  const LABN = {"106":2,"123":2,"140":2,"154":1,"166":1,"179":1,"190":1,"201":1,"212":1,"222":2,"235":2,"252":5,"265":4,"275":5,"283":6,"296":6,"308":6,"316":8,"339":16,"365":8,"380":15,"409":2,"417":3,"429":5,"440":13,"468":3,"475":12,"497":11,"526":9,"550":11,"572":7,"580":9,"601":4,"607":4,"614":3,"621":5,"627":15,"657":3,"663":10,"678":7,"696":7,"714":4,"723":10,"759":3,"767":13,"800":2,"807":15,"838":4,"849":6,"867":9,"888":8,"906":7,"913":4,"935":3,"941":4,"953":3,"961":10,"998":7,"1008":4,"1027":6,"1042":3,"1048":3,"1055":6};
+  const SIMF = ['engine', 'c', 'x', 'p', 'k', 'e', 'm', 'b'];
   let simsP = null;
   const loadSims = () => simsP ||= SIMF.reduce((p, f) => p.then(() => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js`; el.onload = ok; el.onerror = () => no(new Error('Could not load the simulator')); document.head.appendChild(el); })), Promise.resolve()).catch(e => { simsP = null; throw e; });
   // the book formula a lab is built on: its own topic first, then its home topic, then anywhere (tests/labref.js)
@@ -63,10 +63,17 @@
 
   /* ---------- progress store ---------- */
   const KEY = 'tneb-ae-progress-v1';
-  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [] });
+  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {} });
   let P = EMPTY(), where = 'browser', ref = null, saving = false, again = false, timer = 0, SV = 0, STC = null;
   try { const s = localStorage.getItem(KEY); if (s) P = { ...EMPTY(), ...JSON.parse(s) }; } catch (e) {}
   const keepLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
+  // before the day log existed only each question's last answer was kept: seed the log from those, once
+  const fixP = () => {
+    P.star = P.star && typeof P.star === 'object' ? P.star : {};
+    P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {};
+    if (!P.days || typeof P.days !== 'object') { P.days = {}; for (const m of [P.q, P.f]) for (const id in m) { const e = m[id]; if (!e[3]) continue; const k = dayOf(e[3] * 60000), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (e[2]) d[1]++; } }
+  };
+  fixP();
   async function save() {
     if (!ref) return;
     if (saving) { again = true; return; }
@@ -91,7 +98,7 @@
       const snap = await Promise.race([r.get(), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 10000))]);
       ref = r; where = 'account';
       const remote = snap.exists ? JSON.parse(JSON.stringify(snap.data())) : null;
-      if (remote && (remote.t || 0) >= (P.t || 0)) { P = { ...EMPTY(), ...remote }; keepLocal(); SV++; STC = null; }
+      if (remote && (remote.t || 0) >= (P.t || 0)) { P = { ...EMPTY(), ...remote }; fixP(); keepLocal(); SV++; STC = null; }
       else if (P.t) save();
       paintDots();
       if (/^(#(home|progress)?)?$/.test(location.hash) && !M) route(true);
@@ -100,11 +107,24 @@
   const now = () => Math.round(Date.now() / 60000);
   const topicOf = id => (String(id).match(/^[a-z](\d+|gen)\./) || [])[1];
   const isF = id => /^[fksx]/.test(id);
+  // answers per day (local date): { 'YYYY-MM-DD': [answers, right] } — the streak, the daily chart and the calendar
+  const dayOf = ms => { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+  const dayStart = () => Math.round(new Date().setHours(0, 0, 0, 0) / 60000);
+  const logDay = ok => { const k = dayOf(Date.now()), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (ok) d[1]++; };
+  /* spaced revision: each answer moves a question up one level (a wrong answer sends it back to 0). Days to the next
+     revision by level: 0 (wrong) → 1; then 1, 2, 4, 8, 15 → revisions on day 1, 3, 7, 15 and 30; then every 30 days. */
+  const SRI = [1, 1, 2, 4, 8, 15, 30], SRN = ['Wrong — again tomorrow', 'Day 1', 'Day 3', 'Day 7', 'Day 15', 'Day 30', 'Mastered'];
+  const srLevel = (id, e) => P.sr[id] ?? (e && e[2] ? 1 : 0);
+  const srDue = (id, e) => e[3] + SRI[Math.min(srLevel(id, e), 6)] * 1440;
+  const srStep = (id, e, ok) => { P.sr[id] = ok ? Math.min(6, srLevel(id, e) + 1) : 0; };
+  // questions and formulas whose revision falls due by the time t (minutes), wrong ones first, then the most overdue
+  const SRK = /^([bpqud]\d|z(gate|tneb)\.|[fks]\d)/;
+  const dueList = (t = dayStart() + 1440) => { const L = []; for (const m of [P.q, P.f]) for (const id in m) { if (!SRK.test(id)) continue; const e = m[id], d = srDue(id, e); if (d <= t) L.push([id, d, srLevel(id, e)]); } return L.sort((a, b) => (a[2] > 0) - (b[2] > 0) || a[1] - b[1]); };
   function record(id, ok) {
-    const m = isF(id) ? P.f : P.q, e = m[id] || (m[id] = [0, 0, 0, 0]);
+    const m = isF(id) ? P.f : P.q; srStep(id, m[id], ok); const e = m[id] || (m[id] = [0, 0, 0, 0]);
     e[0]++; if (ok) e[1]++; e[2] = ok ? 1 : 0; e[3] = now();
     const t = topicOf(id); if (t) P.seen[t] = now();
-    changed();
+    logDay(ok); changed();
   }
   // per-topic totals, by source
   function stats() {
@@ -116,10 +136,20 @@
     let a = 0, r = 0; for (const t in by) { a += by[t].a; r += by[t].r; }
     return (STC = { by, a, r });
   }
+  /* ---------- stars: questions, formulas, look-up pages and topics you want to find again (kept with your progress) ---------- */
+  const STARKEY = /^([a-z]\d+\.[A-Za-z0-9.]+|z(gate|tneb)\.\d+|ref\/[a-z]+\/\d+|t\/\d+)$/;
+  const starBtn = (k, what = 'question') => k && STARKEY.test(k) ? `<button class="star${P.star[k] ? ' on' : ''}" data-star="${esc(k)}" aria-pressed="${!!P.star[k]}" title="${P.star[k] ? 'Starred — tap to remove' : `Star this ${what}`}" aria-label="Star this ${what}">${P.star[k] ? '★' : '☆'}</button>` : '';
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-star]'); if (!b) return; e.preventDefault(); e.stopPropagation();
+    const k = b.dataset.star; if (!STARKEY.test(k)) return;
+    const on = !P.star[k]; if (on) P.star[k] = now(); else delete P.star[k];
+    $$(`[data-star="${CSS.escape(k)}"]`).forEach(x => { x.classList.toggle('on', on); x.textContent = on ? '★' : '☆'; x.setAttribute('aria-pressed', String(on)); x.title = on ? 'Starred — tap to remove' : 'Star this'; });
+    changed(); toast(on ? '★ Starred — find it under ⭐ My starred' : 'Star removed');
+  }, true);
   const accOf = id => { const s = stats().by[id]; return s && s.a ? pct(s.r, s.a) : null; };
   const weakFormulas = () => Object.entries(P.f).filter(([id, e]) => /^[fks]/.test(id) && (e[2] === 0 || (e[0] >= 2 && e[1] / e[0] < 0.7)))
     .sort((x, y) => x[1][2] - y[1][2] || x[1][1] / x[1][0] - y[1][1] / y[1][0] || y[1][3] - x[1][3]);
-  const mistakes = () => Object.entries(P.q).filter(([id, e]) => e[2] === 0 && /^[bpqu]/.test(id)).sort((x, y) => y[1][3] - x[1][3]).map(([id]) => id);
+  const mistakes = () => Object.entries(P.q).filter(([id, e]) => e[2] === 0 && /^[bpqudz]/.test(id)).sort((x, y) => y[1][3] - x[1][3]).map(([id]) => id);
 
   /* ---------- shell: sidebar, drawer, search ---------- */
   const side = $('#side'), scrim = $('#scrim'), menu = $('#menu');
@@ -130,7 +160,7 @@
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a></div>` +
+    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
       IX.S.map(([k, n]) => `<h4 style="--c:${SC[k]}"><i></i>${esc(n)}</h4>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('')).join('');
     paintDots();
   }
@@ -181,7 +211,7 @@
   const explHtml = x => (x.k === 'book' ? `<p><b>Answer: ${x.ans}</b></p>` : `<p><b>Answer ${x.ans}.</b> ${x.why || ''}</p>`) + (x.wrong || []).map(w => `<p class="w">✘ ${w}</p>`).join('') + mcqCf(x);
   const mcqCard = x => {
     const os = x.o.map(optOf), noans = x.r == null;
-    return `<div class="box mcq${noans ? ' noans' : ''}" data-id="${x.id}" data-s="${esc(plain(x.q + ' ' + x.o.join(' ')))}"><span class="src">${esc(x.src)}</span><div class="q">${x.q}</div>
+    return `<div class="box mcq${noans ? ' noans' : ''}" data-id="${x.id}" data-s="${esc(plain(x.q + ' ' + x.o.join(' ')))}"><span class="src">${starBtn(x.id)}${esc(x.src)}</span><div class="q">${x.q}</div>
       <div class="opts">${os.map((o, i) => `<button class="opt" data-i="${i}" ${noans ? 'disabled' : ''}><i>${esc(o.l || 'ABCD'[i])}</i><span>${o.h}</span></button>`).join('')}</div>
       ${x.cf && !noans ? `<button class="btn lnk mcf" data-mcf>💡 Concept & formula</button><div class="mcfh" hidden>${mcqCf(x)}</div>` : ''}
       ${noans ? `<div class="expl"><p><b>⚠ No option is correct as printed — the book says so, so this one is not scored.</b> ${x.why}</p>${(x.wrong || []).map(w => `<p class="w">${w}</p>`).join('')}</div>` : `<div class="expl" hidden>${explHtml(x)}</div>`}</div>`;
@@ -303,20 +333,32 @@
   };
   const uQ = x => {
     const oh = x.qh != null && x.oh ? Object.fromEntries(x.oh) : null;
-    return { id: x.id, t: x.t, src: `Question Book · ${x.lab} · ${x.src}`, q: oh ? `<div class="uq">${x.qh}</div>` : spu(x.qs, x.src) + '<span class="zoomhint">Tap the picture to zoom</span>',
+    return { id: x.id, t: x.t, src: x.qsrc || `Question Book · ${x.lab} · ${x.src}`, q: oh || (x.qh != null && x.ty === 'nat') ? `<div class="uq">${x.qh}</div>`
+      : x.wide ? `<div class="im wide">${spu(x.qs, x.src)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>` : spu(x.qs, x.src) + '<span class="zoomhint">Tap the picture to zoom</span>',
       opts: x.L.map(l => ({ l, h: oh && oh[l] || '' })), r: x.L.indexOf(x.ok[0]), rs: x.ok.map(l => x.L.indexOf(l)), ex: solHtml(x) };
   };
+  // any Question Book or predicted-paper question as a quiz item: one answer, several answers (MSQ) or a typed number (NAT)
+  const uItem = x => x.ty === 'mcq' ? uQ(x) : x.ty === 'msq' ? { ...uQ(x), ty: 'msq' } : x.ty === 'nat' ? { ...uQ(x), ty: 'nat', opts: [], r: -1, rs: null, ok: x.ok, ans: x.ans } : null;
+  // a numerical answer is right within the book's range, or within 1 % of its value
+  const natOk = (ok, v) => { const [val, lo, hi] = ok; return lo != null ? v >= Math.min(lo, hi) - 1e-9 && v <= Math.max(lo, hi) + 1e-9 : Math.abs(v - val) <= Math.max(Math.abs(val) * 0.01, 0.01); };
+  const numIn = s => parseFloat(String(s).replace(/−/g, '-').replace(/,/g, ''));
   const isRight = (q, j) => q.rs ? q.rs.includes(j) : j === q.r;
   const optsHtml = (q, attr, sel) => `<div class="opts${q.opts.some(o => o.h) ? '' : ' lt'}">${q.opts.map((o, j) => `<button class="opt${sel === j ? ' sel' : ''}" ${attr}="${j}"><i>${esc(o.l || 'ABCD'[j])}</i>${o.h ? `<span>${o.h}</span>` : ''}</button>`).join('')}</div>`;
+  /* quiz items: {id, t, src, q, opts, r, rs?, ex} — one tap answers; ty 'msq': select every correct option, then Check;
+     ty 'nat': type a number; ty 'self': show the method and answer, then mark yourself (the numericals drill) */
   function quiz(items, title) {
     if (!items.length) { toast('Nothing to practise here yet.'); return; }
     let i = 0, right = 0, done = false; const miss = [];
     const show = () => {
       const q = items[i]; done = false;
+      const ui = q.ty === 'nat' ? '<div class="acts natin"><input class="unum" type="text" inputmode="decimal" placeholder="Your answer" aria-label="Your numerical answer"><button class="btn go" data-z="chk">Check</button></div>'
+        : q.ty === 'self' ? '<div class="acts"><button class="btn go" data-z="show">Show method & answer</button></div>'
+        : optsHtml(q, 'data-zi') + (q.ty === 'msq' ? '<div class="acts"><button class="btn go" data-z="chk">Check</button><span class="pg">select every correct option</span></div>' : '');
       qz.innerHTML = `<div class="wrap gut"><div class="top"><b>${esc(title)}</b><span>Question ${i + 1} of ${items.length}</span><span class="score">Score ${right}</span><button class="btn" data-z="close">✕ Close</button></div>
-        <div class="box qcard"><div class="qs">${esc(q.src || '')}${q.t && T(q.t) ? ' · ' + esc(T(q.t).t) : ''}</div><div class="qq">${q.q}</div>
-        ${optsHtml(q, 'data-zi')}
-        <div class="expl" hidden></div><div class="acts"><button class="btn go" data-z="next" hidden>${i + 1 < items.length ? 'Next question →' : 'See my score'}</button></div></div></div>`;
+        <div class="box qcard"><div class="qs">${starBtn(q.id)}${esc(q.src || '')}${q.t && T(q.t) ? ' · ' + esc(T(q.t).t) : ''}</div><div class="qq">${q.q}</div>
+        ${ui}
+        <div class="expl" hidden></div><div class="acts zself" hidden><span class="pg">Did you get it?</span><button class="btn ok" data-z="s1">✓ Got it</button><button class="btn no" data-z="s0">✗ Missed</button></div>
+        <div class="acts"><button class="btn go" data-z="next" hidden>${i + 1 < items.length ? 'Next question →' : 'See my score'}</button></div></div></div>`;
       qz.scrollTop = 0;
     };
     const end = () => {
@@ -325,21 +367,46 @@
         <span>${miss.length ? `${miss.length} to look at again — they are now in your progress console.` : 'All correct!'}</span>
         <div class="acts">${miss.length ? '<button class="btn" data-z="miss">Retry the ones I missed</button>' : ''}<a class="btn" href="#progress" data-z="close">Open my progress console</a></div></div></div>`;
     };
+    // mark the answer, show the solution and the Next button
+    const finish = ok => {
+      const q = items[i]; done = true; if (ok) right++; else miss.push(q);
+      const ex = $('.expl', qz);
+      if (q.ty !== 'self') { ex.innerHTML = `<p><b class="${ok ? 'up' : 'dn'}">${ok ? 'Correct.' : 'Not quite.'}</b>${!ok && q.ty === 'nat' ? ` The answer is <b>${esc(q.ans)}</b>.` : ''}</p>` + q.ex; ex.hidden = false; lazy(qz); }
+      else $('.zself', qz).innerHTML = `<b class="${ok ? 'up' : 'dn'}">${ok ? '✓ Marked as got it' : '✗ Marked as missed'}</b>`;
+      $('[data-z="next"]', qz).hidden = false; $('.score', qz).textContent = `Score ${right}`;
+      record(q.id, ok);
+    };
     qz.onclick = e => {
-      const z = e.target.closest('[data-z]'), o = e.target.closest('[data-zi]');
+      const z = e.target.closest('[data-z]'), o = e.target.closest('[data-zi]'), q = items[i];
       if (o && !done) {
-        done = true; const q = items[i], j = +o.dataset.zi, ok = isRight(q, j); if (ok) right++; else miss.push(q);
+        const j = +o.dataset.zi;
+        if (q.ty === 'msq') { o.classList.toggle('sel'); return; }
+        const ok = isRight(q, j);
         $$('[data-zi]', qz).forEach((b, k) => { if (isRight(q, k)) b.classList.add('right'); else if (k === j) b.classList.add('wrong'); });
         if (q.ml) $$('.blank', qz).forEach(bl => { bl.textContent = plain(q.opts[q.r].h); bl.classList.add(ok ? 'ok' : 'no'); });
-        const ex = $('.expl', qz); ex.innerHTML = `<p><b class="${ok ? 'up' : 'dn'}">${ok ? 'Correct.' : 'Not quite.'}</b></p>` + q.ex; ex.hidden = false; lazy(qz);
-        $('[data-z="next"]', qz).hidden = false; $('.score', qz).textContent = `Score ${right}`;
-        record(q.id, ok); return;
+        finish(ok); return;
       }
       if (!z) return;
-      if (z.dataset.z === 'close') { closeQuiz(); return; }
-      if (z.dataset.z === 'next') { if (++i < items.length) { show(); lazy(qz); } else end(); }
-      if (z.dataset.z === 'miss') { const m = miss.slice().map(q => { const f = q.ml && FBY && FBY[q.id], it = f && mlItems([f])[0]; return it ? mlQuestion(it) : q; }); quiz(m, title + ' — retry'); }
+      const k = z.dataset.z;
+      if (k === 'chk' && !done) {
+        if (q.ty === 'msq') {
+          const sel = $$('[data-zi].sel', qz).map(b => +b.dataset.zi); if (!sel.length) { toast('Select at least one option.'); return; }
+          const ok = sel.length === q.rs.length && sel.every(j => q.rs.includes(j));
+          $$('[data-zi]', qz).forEach((b, j) => { if (q.rs.includes(j)) b.classList.add('right'); else if (b.classList.contains('sel')) b.classList.add('wrong'); });
+          finish(ok);
+        } else if (q.ty === 'nat') {
+          const v = numIn($('.unum', qz).value); if (!Number.isFinite(v)) { toast('Type a number first.'); return; }
+          finish(natOk(q.ok, v));
+        }
+        return;
+      }
+      if (k === 'show') { const ex = $('.expl', qz); ex.innerHTML = q.ex; ex.hidden = false; z.hidden = true; $('.zself', qz).hidden = false; lazy(qz); return; }
+      if ((k === 's1' || k === 's0') && !done) { finish(k === 's1'); return; }
+      if (k === 'close') { closeQuiz(); return; }
+      if (k === 'next') { if (++i < items.length) { show(); lazy(qz); } else end(); }
+      if (k === 'miss') { const m = miss.slice().map(q => { const f = q.ml && FBY && FBY[q.id], it = f && mlItems([f])[0]; return it ? mlQuestion(it) : q; }); quiz(m, title + ' — retry'); }
     };
+    qz.onkeydown = e => { if (e.key === 'Enter' && e.target.classList.contains('unum')) { e.preventDefault(); $('[data-z="chk"]', qz).click(); } };
     qz.hidden = false; document.body.style.overflow = 'hidden'; show(); lazy(qz);
   }
   const closeQuiz = () => { qz.hidden = true; qz.innerHTML = ''; document.body.style.overflow = ''; if (/^(#(home|progress|t-.*)?)?$/.test(location.hash) && !M) route(true); };
@@ -358,33 +425,47 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031163526';
+  const SWV = 'ae-20261031202037';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
+  const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
+  const fileList = () => fetch('data/files.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : Promise.reject(new Error('file list ' + r.status)));
   function offlineCard() {
     if (!STANDALONE || !('caches' in window)) return '';
-    let done = ''; try { done = localStorage.getItem('ae-offline') || ''; } catch (e) {}
-    return `<div class="tc" style="--c:#0f766e" id="offl"><h3>📶 Use it offline</h3><div class="meta"><span>Pages you open are kept on this phone. To study with no network, save everything once (about 100 MB).${done ? ` Saved ${esc(done)}.` : ''}</span></div>
-      <div class="acts"><button class="btn" data-off="data">Save notes & questions (8 MB)</button><button class="btn go" data-off="all">Save everything</button></div><div class="pg" id="offst"></div></div>`;
+    return `<div class="tc" style="--c:#0f766e" id="offl"><h3>📶 Use it offline</h3><div class="meta"><span>Pages you open are kept on this phone. To study with no network, save everything once: every note, question, look-up page, drill, predicted paper and picture. After an update only the changed files are fetched again.</span></div>
+      <div class="acts"><button class="btn" data-off="data">Save notes & questions</button><button class="btn go" data-off="all">Save everything</button></div><div class="pg" id="offst">Checking what is saved…</div></div>`;
+  }
+  // how much of each set is already in the cache (run after the home page is drawn)
+  async function offlineStatus() {
+    const st = $('#offst'); if (!st) return;
+    try {
+      const [L, cache] = await Promise.all([fileList(), caches.open(SWV)]);
+      const keys = new Set((await cache.keys()).map(r => new URL(r.url).pathname));
+      const base = new URL('./', location.href).pathname, have = x => keys.has(base + x[0]);
+      const D = L.f.filter(x => x[3] === 'd'), A = L.f, dm = D.filter(x => !have(x)), am = A.filter(x => !have(x));
+      const sz = l => l.reduce((a, x) => a + x[1], 0);
+      $('[data-off="data"]').textContent = dm.length ? `Save notes & questions (${MB(sz(dm))})` : '✓ Notes & questions saved';
+      $('[data-off="all"]').textContent = am.length ? `Save everything (${MB(sz(am))}${am.length < A.length ? ' left' : ''})` : '✓ Everything saved';
+      st.textContent = !am.length ? `Everything is on this phone (${A.length.toLocaleString('en-IN')} files, ${MB(sz(A))}). It works with no network.`
+        : !dm.length ? `Notes & questions are on this phone. Pictures: ${(A.length - D.length - am.length).toLocaleString('en-IN')} of ${(A.length - D.length).toLocaleString('en-IN')} saved.`
+        : `${(A.length - am.length).toLocaleString('en-IN')} of ${A.length.toLocaleString('en-IN')} files saved (${MB(sz(A) - sz(am))} of ${MB(sz(A))}).`;
+    } catch (e) { st.textContent = ''; }
   }
   async function saveOffline(all) {
-    const st = $('#offst'), cache = await caches.open(SWV), urls = ['./', 'index.html', 'app.js', 'theme.js', 'manifest.json', 'data/index.json', 'data/q.json', 'data/f.json', 'data/u.json', ...SIMF.map(f => `sims/${f}.js`)];
-    IX.T.forEach(t => { urls.push(`data/t/${t.id}.json`); if (t.n.u) urls.push(`data/u/${t.id}.json`); });
-    if (all) {
-      st.textContent = 'Finding every picture…';
-      for (const t of IX.T) { const D = await topic(t.id); D.sheets.forEach(([f]) => urls.push(f)); }
-      (await loadU()).forEach(x => { urls.push(x.qs[0]); urls.push(x.ss[0]); });
-      ['sim/transformers/', 'sim/transformers/sim.js', 'sim/transformers/progress.js'].forEach(u => urls.push(u));
-    }
-    const L = [...new Set(urls)]; let n = 0, bad = 0;
-    for (let i = 0; i < L.length; i += 6) {
-      await Promise.all(L.slice(i, i + 6).map(async u => { try { if (!(await cache.match(u))) await cache.add(u); } catch (e) { bad++; } n++; }));
-      st.textContent = `Saving ${n} of ${L.length} files…`;
+    const st = $('#offst'), cache = await caches.open(SWV);
+    st.textContent = 'Getting the file list…';
+    const L = await fileList(), urls = ['./', 'data/files.json', ...L.f.filter(x => all || x[3] === 'd').map(x => x[0])];
+    let n = 0, bad = 0, got = 0;
+    for (let i = 0; i < urls.length; i += 8) {
+      await Promise.all(urls.slice(i, i + 8).map(async u => { try { if (u === 'data/files.json' || !(await cache.match(u))) { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw 0; await cache.put(u, r); got++; } } catch (e) { bad++; } n++; }));
+      st.textContent = `Saving ${n.toLocaleString('en-IN')} of ${urls.length.toLocaleString('en-IN')} files…`;
     }
     const when = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + (all ? ' (everything)' : ' (notes & questions)');
     try { localStorage.setItem('ae-offline', when); } catch (e) {}
-    st.textContent = bad ? `Saved ${n - bad} files; ${bad} could not be saved — try again with a better connection.` : `✓ Saved ${n} files. This site now works with no network.`;
+    await offlineStatus();
+    if (bad) st.textContent = `Saved ${n - bad} files; ${bad} could not be saved — try again with a better connection.`;
   }
-  document.addEventListener('click', e => { const b = e.target.closest('[data-off]'); if (!b) return; $$('[data-off]').forEach(x => x.disabled = true); saveOffline(b.dataset.off === 'all').finally(() => $$('[data-off]').forEach(x => x.disabled = false)); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-off]'); if (!b) return; $$('[data-off]').forEach(x => x.disabled = true); saveOffline(b.dataset.off === 'all').catch(err => { $('#offst').textContent = `Could not save (${err.message}). Check the connection and try again.`; }).finally(() => $$('[data-off]').forEach(x => x.disabled = false)); });
 
   /* ---------- theme button: Light (default) → Eye comfort → Dark ---------- */
   const themeBtn = $('#theme');
@@ -414,8 +495,10 @@
       if (a === 'sims') return await viewSims(tok);
       if (a === 'practice') return await viewPractice(tok);
       if (a === 'qbook') return await viewQbook(tok);
-      const dm = h.match(/^drill(?:-(\d+))?$/); if (dm) return await viewDrill(dm[1], tok);
-      const pm = h.match(/^pred-(gate|tneb)$/); if (pm) return await viewPred(pm[1], tok);
+      if (a === 'starred') return await viewStarred(tok);
+      if (a === 'today') { history.replaceState(null, '', '#home'); viewHome(tok); startToday(); return; }
+      const dm = h.match(/^drill(?:-(\d+)(?:-(\d+))?)?$/); if (dm) return await viewDrill(dm[1], tok, dm[2]);
+      const pm = h.match(/^pred-(gate|tneb)(?:-(\d+))?$/); if (pm) return await viewPred(pm[1], tok, pm[2]);
       const rm = h.match(/^ref(?:-([a-z]+))?(?:-(\d+))?$/);
       if (rm) return await (rm[1] === 'sym' ? viewSym(tok) : rm[1] === 'az' ? viewAz(tok) : rm[1] === 'gate' ? viewGateIdx(tok) : rm[1] ? viewShelf(rm[1], rm[2], tok) : viewRef(tok));
       return viewHome(tok, keep);
@@ -433,30 +516,125 @@
       <div class="bar" style="--col:${bar}"><i style="width:${p == null ? 0 : Math.max(3, p)}%"></i></div>
       <div class="acc">${p == null ? '<span>Not practised yet</span>' : `<span><b>${p} %</b> correct</span><span>${s.a} answers</span>`}</div></a>`;
   }
+  /* ---------- home dashboard: preparation overview, recommendations, subject progress ----------
+     Coverage = questions tried (up to 20 per topic) — practice, not pages opened. Mastery = coverage × accuracy. */
+  let UEX = null; const loadUex = () => UEX ? Promise.resolve(UEX) : get('data/uex.json').then(r => UEX = r);
+  function topicProgress() {
+    const S = stats(), tried = {}; for (const id in P.q) { const t = topicOf(id); if (t && /^[bpqud]/.test(id)) tried[t] = (tried[t] || 0) + 1; }
+    const T0 = {}; IX.T.forEach(t => { const tot = t.n.u + t.n.book + t.n.pyq + t.n.qb, tg = Math.max(1, Math.min(20, tot)), cov = Math.min(1, (tried[t.id] || 0) / tg), s = S.by[t.id], acc = s && s.a ? s.r / s.a : 0;
+      T0[t.id] = { cov, acc: s && s.a ? acc : null, m: cov * acc, a: s ? s.a : 0, weak: !!(s && s.a >= 3 && acc < 0.7) }; });
+    return T0;
+  }
+  function overviewHtml() {
+    const S = stats(), TP = topicProgress(), ts = Object.values(TP), cov = ts.reduce((a, x) => a + x.cov, 0) / ts.length, mas = ts.reduce((a, x) => a + x.m, 0) / ts.length;
+    const nq = Object.keys(P.q).length, nf = Object.keys(P.f).length, ring = (p, col) => `<svg viewBox="0 0 36 36" class="ring" aria-hidden="true"><circle cx="18" cy="18" r="15.5" class="rt"/><circle cx="18" cy="18" r="15.5" class="rv" stroke="${col}" stroke-dasharray="${(p * 97.4).toFixed(1)} 97.4"/></svg>`;
+    const ex = k => { if (!UEX || !UEX[k]) return null; const L = UEX[k], d = L.filter(id => P.q[id]), r = d.filter(id => P.q[id][2]).length; return { n: L.length, d: d.length, r }; };
+    const exTile = (k, nm) => { const x = ex(k); return `<div class="ov"><span>${nm}</span>${x ? `${ring(x.d / x.n, '#06b6d4')}<b>${pct(x.d, x.n)} %</b><small>${x.d} of ${x.n.toLocaleString('en-IN')} past questions${x.d ? ` · ${pct(x.r, x.d)} % right last time` : ''}</small>` : '<b>…</b>'}</div>`; };
+    const due = dueList().length;
+    return `<section class="ovw" id="ovw"><div class="ov"><span>Syllabus coverage</span>${ring(cov, '#2563eb')}<b>${Math.round(cov * 100)} %</b><small>questions tried, up to 20 a topic</small></div>
+      <div class="ov"><span>Topic mastery</span>${ring(mas, '#8b5cf6')}<b>${Math.round(mas * 100)} %</b><small>coverage × accuracy, all ${IX.T.length} topics</small></div>
+      ${exTile('GATE', 'GATE EE')}${exTile('TANGEDCO', 'TANGEDCO AE')}${exTile('TNPSC', 'TNPSC Code 400')}
+      <div class="ov"><span>Practice so far</span><b class="big">${nq.toLocaleString('en-IN')}</b><small>questions · ${nf} formulas tested · ${S.a ? pct(S.r, S.a) + ' % correct' : 'no answers yet'}${due ? ` · ${due} revisions due` : ''}</small></div></section>`;
+  }
+  function recoHtml() {
+    const rec = studyNext().slice(0, 5), wf = weakFormulas().length, stale = IX.T.filter(t => P.seen[t.id] && (now() - P.seen[t.id]) / 1440 > 10).sort((a, b) => P.seen[a.id] - P.seen[b.id]).slice(0, 3);
+    return `<section class="subj reco"><h2>🎯 Recommended for you <small>from your answers and your revision history</small></h2><div class="recs">
+      ${rec.map((r, i) => `<div class="rc"><i>${i + 1}</i><span><b>${esc(short(r.t))}</b><small>${r.t.pr ? r.t.pr + ' priority · ' : ''}${esc(r.why)}</small></span><span class="acts"><a class="btn" href="#t-${r.t.id}">Study</a><a class="btn go" href="#t-${r.t.id}-prac">Practise</a></span></div>`).join('')}</div>
+      <div class="acts">${stale.length ? `<span class="pg">Not revised for 10+ days: ${stale.map(t => `<a href="#t-${t.id}-prac">${esc(short(t))}</a>`).join(', ')}</span>` : ''}</div>
+      <div class="acts"><button class="btn go" data-h="today">📅 Today's 20</button>${wf ? `<a class="btn" href="#progress">✍ ${wf} formulas to revise</a>` : ''}<button class="btn" data-h="weakmock">⏱ Next mock: 25 questions on your weakest topics</button><a class="btn" href="#drill">🔢 Numericals drill</a></div></section>`;
+  }
+  // the topics you opened last, with how much of each topic's questions you have tried
+  function contHtml() {
+    const L = Object.entries(P.seen).filter(([id]) => T(id)).sort((a, b) => b[1] - a[1]).slice(0, 3); if (!L.length) return '';
+    const tried = {}; for (const id in P.q) { const t = topicOf(id); if (t && /^[bpqud]/.test(id)) tried[t] = (tried[t] || 0) + 1; }
+    return `<section class="subj cont"><h2>▶ Continue learning <small>the topics you practised last</small></h2><div class="tcards">${L.map(([id, ts]) => { const t = T(id), tot = t.n.u + t.n.book + t.n.pyq + t.n.qb, n = Math.min(tried[id] || 0, tot), p = accOf(id);
+      return `<a class="tc ccard" href="#t-${id}" style="--c:${SC[t.s]}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta"><span>${n} of ${tot} questions tried</span><span>${p == null ? 'not scored yet' : p + ' % correct'}</span><span>${ago(ts)}</span></div>
+        <div class="cbar"><i style="width:${tot ? Math.max(4, n / tot * 100) : 0}%"></i></div></a>`; }).join('')}</div></section>`;
+  }
   function viewHome(tok, keep) {
     setShell('home'); document.title = 'TNEB AE Study Site';
     const S = stats(), tried = IX.T.filter(t => S.by[t.id]), weak = tried.filter(t => S.by[t.id].a >= 3 && accOf(t.id) < 70).sort((x, y) => accOf(x.id) - accOf(y.id));
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    const tot = IX.totals;
-    main.innerHTML = `<section class="hero"><h1>Every topic of your Complete Book</h1>
+    const tot = IX.totals, TP = topicProgress(), SN = studyNext();
+    main.innerHTML = `<section class="hero dashh"><h1>Every topic of your Complete Book</h1>
       <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><a class="btn go" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a><a class="btn" href="#qbook">📘 Question Book (2,620)</a><a class="btn" href="#practice">📝 Practice papers & drills</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}</div>
+      <div class="acts"><button class="btn go" data-h="today">📅 ${todayLeft() == null ? "Today's 20" : todayLeft() ? `Today's 20 · ${todayLeft()} left` : "Today's 20 ✓ done"}</button><a class="btn" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a><a class="btn" href="#qbook">📘 Question Book (2,620)</a><a class="btn" href="#practice">📝 Practice papers & drills</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}<a class="btn" href="#starred">⭐ My starred${Object.keys(P.star).length ? ` (${Object.keys(P.star).length})` : ''}</a></div>
       ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
-      ${IX.S.map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2><div class="tcards">${g[k].map(topicCard).join('')}</div></section>`).join('')}
+      ${overviewHtml()}${contHtml()}${recoHtml()}
+      ${IX.S.map(([k, n]) => { const ts = g[k].map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / ts.length * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null, wk = ts.filter(x => x.weak).length, nx = SN.find(r => r.t.s === k);
+        return `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2>
+        <div class="sstat"><span><b>${cov} %</b> covered</span><div class="bar" style="--col:${SC[k]}"><i style="width:${Math.max(cov ? 3 : 0, cov)}%"></i></div><span>${acc == null ? 'not practised yet' : `<b>${acc} %</b> correct`}</span>${wk ? `<span class="wk">⚠ ${wk} weak topic${wk > 1 ? 's' : ''}</span>` : ''}${nx ? `<a class="btn go" href="#t-${nx.t.id}-prac">Continue: ${esc(short(nx.t))} →</a>` : ''}</div>
+        <div class="tcards">${g[k].map(topicCard).join('')}</div></section>`; }).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
       <a class="tc" href="#ref" style="--c:#a86a00"><h3>📚 Look-up shelf</h3><div class="meta"><span>The book's look-up pages: visual tricks, geometry, mensuration, magic numbers, exam values, mental maths, unit conversions, ready-reckoner, look-alike numbers & trap factors, symbols A–Z, the A–Z formula table, comparisons, analogies and every GATE multi-concept sum</span></div></a>
       <a class="tc" href="#sims" style="--c:#0f766e"><h3>⚙ Formula & concept simulators</h3><div class="meta"><span>${Object.values(LABN).reduce((a, b) => a + b, 0)} live labs on ${Object.keys(LABN).length} topics — every EE subject and Maths; graphs, what-if tables and the book's worked numbers as checks</span></div></a>
       <a class="tc" href="${SIM_URL}"${SIM_TGT} style="--c:#2e8b57"><h3>⚙ Transformer simulator</h3><div class="meta"><span>Change voltage, frequency, load or turns and watch flux, currents, losses, efficiency and regulation respond; phasors, 3-phase, parallel operation, saturation and inrush</span></div></a>
       ${offlineCard()}</div></section>
       <footer class="foot">From your TNEB AE (EEE) Question Book (all exams: Parts 2–3, all 2,620 past questions) and Complete Book: Study Notes (Vols 2–4), previous-year questions, question bank and mock test (Vol 5), Formula Self-Test and A–Z table (Vol 6), GATE multi-concept sums (Vols 7–9), past-question rows (Appendix A–C, Vol 4). Volume 1 (Maths and Basic Engineering notes, p 106–295) is not loaded yet, so those ${IX.T.filter(t => t.v === 1).length} topics have formulas, past questions and GATE sums but no chapter notes.</footer>`;
-    main.onclick = e => { if (e.target.closest('[data-h="rev"]')) reviseMistakes(); };
+    main.onclick = e => { if (e.target.closest('[data-h="rev"]')) reviseMistakes(); if (e.target.closest('[data-h="today"]')) startToday();
+      if (e.target.closest('[data-h="weakmock"]')) loadAll().then(() => { const ids = studyNext().slice(0, 8).map(r => r.t.id); mockStart(ids, 25, 60, true, 0.2); }); };
+    offlineStatus();
+    if (!UEX) loadUex().then(() => { if (tok === RT && $('#ovw')) $('#ovw').outerHTML = overviewHtml(); }).catch(() => {});
     if (!keep) toTop();
   }
+  /* ---------- any question by its id, as a quiz item ---------- */
+  let DBY = null, ZBY = null;
+  const loadEvery = () => Promise.all([loadAll(), loadDrill(), loadPred()]).then(() => {
+    DBY ||= Object.fromEntries(DRILL.T.flatMap(t => t.q.map(x => [drillId(t, x), [t, x]])));
+    ZBY ||= Object.fromEntries(['gate', 'tneb'].flatMap(p => PRED[p].q.map(x => [x.id, [p, x]])));
+  });
+  const drillQ = (t, x) => ({ id: drillId(t, x), t: t.t, ty: 'self', src: `Numericals drill · ${t.k}.${x.n} · ${t.n}`, q: `<div class="dq">${x.q}</div>`, opts: [], ex: `${x.m ? spu(x.m, 'Method') : ''}<p class="dans">Answer: <b>${x.a}</b></p>` });
+  function itemFor(id) {
+    if (QBY[id]) return QBY[id].r != null ? mcqQ(QBY[id]) : null;
+    if (UBY[id]) return uItem(UBY[id]);
+    if (DBY[id]) return drillQ(...DBY[id]);
+    if (ZBY[id]) { const [p, x] = ZBY[id]; return uItem({ ...x, qsrc: `${PRED[p].t} · ${x.lab} (practice paper)` }); }
+    if (FBY[id]) { const it = mlItems([FBY[id]])[0]; return it ? mlQuestion(it) : null; }
+    return null;
+  }
+  // every question you got wrong last time: book MCQs, Question Book (MCQ, MSQ, numerical), numericals drill, predicted papers
   function reviseMistakes(tid) {
-    loadAll().then(() => {
-      const ids = mistakes().filter(id => !tid || topicOf(id) === tid);
-      const L = ids.map(id => QBY[id] ? mcqQ(QBY[id]) : UBY[id] && UBY[id].ty === 'mcq' ? uQ(UBY[id]) : null).filter(Boolean).slice(0, 30);
+    loadEvery().then(() => {
+      const L = mistakes().filter(id => !tid || topicOf(id) === tid).map(itemFor).filter(Boolean).slice(0, 30);
       quiz(shuffle(L), tid ? `Revise my mistakes · ${T(tid).t}` : 'Revise my mistakes');
+    });
+  }
+  /* ---------- Today's 20: one set a day — your mistakes, drill sums due again, weak formulas, then your weakest topics ---------- */
+  const doneToday = id => { const e = (isF(id) ? P.f : P.q)[id]; return !!e && e[3] >= dayStart(); };
+  const todayKey = () => dayOf(Date.now());
+  const todayLeft = () => P.day && P.day.d === todayKey() ? P.day.ids.filter(id => !doneToday(id)).length : null;
+  // what to study next: weakness × exam priority, plus topics never started and topics not revised for a while
+  function studyNext() {
+    const by = stats().by;
+    return IX.T.map(t => {
+      const s = by[t.id], w = 1 + (PRW[t.pr] || (t.v === 1 ? 1.5 : 0.8)), p = s && s.a ? pct(s.r, s.a) : null, d = P.seen[t.id] ? (now() - P.seen[t.id]) / 1440 : null;
+      let sc, why;
+      if (!s || !s.a) { sc = 0.45 * w; why = 'not started yet'; }
+      else if (s.a < 3) { sc = 0.5 * w; why = `only ${s.a} answer${s.a > 1 ? 's' : ''} so far`; }
+      else if (p < 70) { sc = (1 - p / 100) * w + 0.2; why = `${p} % correct in ${s.a} answers`; }
+      else if (d != null && d > 10) { sc = 0.3 * w; why = `${p} % correct, but last practised ${Math.floor(d)} days ago`; }
+      else { sc = (1 - p / 100) * w * 0.6; why = `${p} % correct in ${s.a} answers`; }
+      return { t, sc, why, p };
+    }).sort((x, y) => y.sc - x.sc);
+  }
+  function buildToday() {
+    const pick = [], has = new Set(), n = now();
+    const add = id => { if (pick.length < 20 && !has.has(id) && !doneToday(id) && itemFor(id)) { has.add(id); pick.push(id); } };
+    for (const [id] of dueList()) { if (pick.length >= 14) break; add(id); }              // 1. revisions due (wrong ones first)
+    mistakes().slice(0, 4).forEach(add);                                                   // 2. recent mistakes not yet due
+    weakFormulas().slice(0, 3).forEach(([id]) => add(id));                                  // 3. weak formulas
+    // 4. new questions from the weakest topics, round-robin
+    const pools = studyNext().slice(0, 5).map(r => shuffle([...UA.filter(x => x.t === r.t.id && /^(mcq|msq|nat)$/.test(x.ty)).map(x => x.id), ...QA.filter(x => x.t === r.t.id && x.r != null).map(x => x.id),
+      ...Object.keys(DBY).filter(id => topicOf(id) === r.t.id)].filter(id => !P.q[id])));
+    for (let k = 0; pick.length < 20 && pools.some(L => L.length); k++) { const L = pools[k % pools.length]; if (L.length) add(L.pop()); }
+    P.day = { d: todayKey(), ids: pick }; changed();
+    return pick;
+  }
+  function startToday(fresh) {
+    loadEvery().then(() => {
+      const ids = !fresh && P.day && P.day.d === todayKey() ? P.day.ids : buildToday(), left = ids.filter(id => !doneToday(id));
+      if (!left.length) { toast("Today's 20 is done ✓ — tap “Another 20” for more, or come back tomorrow."); if (location.hash === '#home' || !location.hash) route(true); return; }
+      quiz(left.map(itemFor).filter(Boolean), `📅 Today's ${ids.length} · ${left.length} left`);
     });
   }
 
@@ -493,7 +671,7 @@
             ${k.tables.map(tb => table(tb, 'qv')).join('')}${k.notes.map(n => /^⚠/.test(plain(n)) ? `<p class="trap">${n.replace(/^\s*⚠\s*(Trap:)?/, '<b>⚠ Trap:</b>')}</p>` : `<p class="knote">${n}</p>`).join('')}<span class="pg">${vn} · p ${k.pg}</span>`, '', 'Key formula ' + s.n);
         }
         else if (s.kind === 'learn') sec('learn', sid, s.n, title, cls, `<p class="lead">All ${ch.formulas.length} formulas of this chapter, exactly as printed, each with its letters, a tip and the past papers that asked it.</p>` +
-          ch.formulas.map(f => `<div class="lf" data-s="${esc(f.name + ' ' + plain(f.f.join(' ')) + ' ' + plain(f.notes.join(' ')))}"><div class="box l"><h3>${f.n}. <b>${esc(f.name)}</b></h3>${spr(f.sp, D, f.name)}</div><div class="r" style="background:${f.nfill}">${f.notes.map(n => `<p>${lab(n)}</p>`).join('')}<p class="pg">${vn} · p ${f.pg}</p></div></div>`).join(''), `${ch.formulas.length} formulas`, 'Formulas');
+          ch.formulas.map(f => `<div class="lf" data-s="${esc(f.name + ' ' + plain(f.f.join(' ')) + ' ' + plain(f.notes.join(' ')))}"><div class="box l"><h3>${starBtn(`f${id}.${f.n}`, 'formula')}${f.n}. <b>${esc(f.name)}</b></h3>${spr(f.sp, D, f.name)}</div><div class="r" style="background:${f.nfill}">${f.notes.map(n => `<p>${lab(n)}</p>`).join('')}<p class="pg">${vn} · p ${f.pg}</p></div></div>`).join(''), `${ch.formulas.length} formulas`, 'Formulas');
         else if (s.kind === 'also') sec('learn', sid, s.n, title, cls, ch.also.map(r => `<div class="au" data-s="${esc(plain(r.t + ' ' + r.m))}"><div class="box t">${r.t}</div><span class="m">${r.m}</span></div>`).join(''), '', 'Also used');
         else if (s.kind === 'words') sec('learn', sid, s.n, title, cls, `<div class="kw">${ch.terms.map(w => `<div class="box" data-s="${esc(plain(w.term + ' ' + w.mean))}"><b>${w.term}</b><span>${w.mean}</span></div>`).join('')}</div>`, `${ch.terms.length} terms`, 'Key words');
         else if (s.kind === 'why') sec('learn', sid, s.n, title, cls, `<div class="why">${ch.why.map(w => `<div class="c">${w.cause}</div><div class="e">${w.effect}</div>`).join('')}${ch.mistakes.map(m => `<div class="m"><b>✗ Common mistake</b>${m.m}</div><div class="k"><b>✓ Correct idea</b>${m.c}</div>`).join('')}</div>`, '', 'Why?');
@@ -552,7 +730,7 @@
     const i = IX.T.indexOf(t), prev = IX.T[i - 1], nxt = IX.T[i + 1];
     const subj = IX.S.find(s => s[0] === t.s)[1];
     main.dataset.tid = id;
-    main.innerHTML = `<nav class="crumbs" aria-label="Breadcrumb"><a href="#home">All topics</a> › ${esc(subj)} › ${esc(t.t)}</nav>
+    main.innerHTML = `<nav class="crumbs" aria-label="Breadcrumb"><a href="#home">All topics</a> › ${esc(subj)} › ${esc(t.t)} ${starBtn(`t/${id}`, 'topic')}</nav>
       <div class="ptitle"><div class="trow">${bulb}<div class="tband"><h1>${esc(t.t)}</h1></div><div class="tbadge" title="Topic number in the book">${esc(ch && ch.badge || '–')}</div></div>
         ${ch && ch.sub ? `<div class="tsub">${esc(ch.sub)}</div>` : `<div class="tsub">${D.st.length} formulas · ${myQ.length} MCQs · ${D.rows.length} past questions · ${D.gate.length} GATE sums</div>`}
         ${ch && ch.stats.length ? `<div class="stats">${ch.stats.map(([n, l, c]) => `<div class="stat"><b style="color:${c}">${n}</b><span>${esc(l)}</span></div>`).join('')}${ch.priority[0] ? `<div class="stat pr ${ch.priority[0].split(' ')[0]}"><b>${esc(ch.priority[0])}</b><span>${esc(ch.priority[1])}</span></div>` : ''}</div>` : ''}
@@ -618,7 +796,7 @@
     // every formula
     let ev = 'st';
     const rEvery = () => {
-      const rows = ev === 'st' ? D.st.filter(f => hit(f[1] + ' ' + f[3])).map(f => `<div class="ef"><div class="nm">${f[0]}. ${f[1]}${f[2] ? `<small>${f[2]}</small>` : ''}<small>Vol 6 · question p ${f[4]} · answer p ${f[5]}</small></div><div class="fx">${f[3]}</div></div>`)
+      const rows = ev === 'st' ? D.st.filter(f => hit(f[1] + ' ' + f[3])).map(f => `<div class="ef"><div class="nm">${starBtn(`s${id}.${f[0]}`, 'formula')}${f[0]}. ${f[1]}${f[2] ? `<small>${f[2]}</small>` : ''}<small>Vol 6 · question p ${f[4]} · answer p ${f[5]}</small></div><div class="fx">${f[3]}</div></div>`)
         : D.az.filter(a => hit(a[0] + ' ' + a[1])).map(a => `<div class="ef"><div class="nm">${a[0]}<small>Vol 6 · p ${a[2]}</small></div><div class="fx">${a[1]}</div></div>`);
       $('#evl').innerHTML = rows.join('') || '<div class="empty">No formula matches this search.</div>';
       return rows.length;
@@ -660,7 +838,7 @@
       const rows = D.gate.filter(g => (!gm || g.m === gm) && hit(g.src + ' q' + g.q + ' ' + g.a + ' ' + plain(g.l.join(' ')))).sort((a, b) => +(b.src.match(/\d{4}/) || [0])[0] - +(a.src.match(/\d{4}/) || [0])[0]);
       nG = rows.length;
       $('#glist').innerHTML = rows.slice(0, gshown).map(g => { const e = P.q[`g${id}.${g.i}`];
-        return `<article class="box gs" data-g="${g.i}"><header><b>${esc(g.src)} · Q.${esc(g.q)}</b><span class="mk ${g.m === 2 ? 'two' : ''}">${g.m} mark${g.m > 1 ? 's' : ''}</span><span class="pg">p ${g.pg}</span></header>
+        return `<article class="box gs" data-g="${g.i}"><header>${starBtn(`g${id}.${g.i}`, 'GATE sum')}<b>${esc(g.src)} · Q.${esc(g.q)}</b><span class="mk ${g.m === 2 ? 'two' : ''}">${g.m} mark${g.m > 1 ? 's' : ''}</span><span class="pg">p ${g.pg}</span></header>
         <div class="im">${spr(g.qs, D, `${g.src} Q.${g.q}`, 'g')}</div>
         <div class="chain" hidden>${flowHtml(g.l.map((c, k) => [k + 1, g.lr ? c + (g.lr[k] ? `<span class="fr">${g.lr[k]}</span>` : '') : esc(c)]).concat([['✓', 'Answer: tap “Answer”', 'end']]))}</div>
         <div class="acts"><button class="btn gt" data-k="chain">🧭 Solution flow</button><button class="btn gt" data-k="ans">Answer</button><button class="btn gt" data-k="sol">Full solution</button>
@@ -741,7 +919,7 @@
     const ui = x.ty === 'mcq' || x.ty === 'msq' ? x.L.map(l => `<button class="btn uo" data-l="${l}">${l}</button>`).join('') + (x.ty === 'msq' ? '<button class="btn go" data-uact="chk">Check</button><span class="pg">select every correct option</span>' : '')
       : x.ty === 'nat' ? '<input class="unum" type="text" inputmode="decimal" placeholder="Your answer" aria-label="Your numerical answer"><button class="btn go" data-uact="chk">Check</button>'
       : `<span class="pg">${/^MTA/.test(x.ans) ? 'Marks to all — the official key gave every candidate the marks.' : 'No option is correct as printed.'} Not scored.</span>`;
-    return `<article class="box gs ub" data-u="${x.id}"><header><b>${x.lab}</b><span class="ex ex-${x.ex}">${esc(x.src)}</span>${uState(x)}<span class="pg">p ${x.pg}</span></header>
+    return `<article class="box gs ub" data-u="${x.id}"><header>${starBtn(x.id)}<b>${x.lab}</b><span class="ex ex-${x.ex}">${esc(x.src)}</span>${uState(x)}${x.pg ? `<span class="pg">p ${x.pg}</span>` : ''}</header>
       ${sub[0] ? `<div class="usub"><b>${esc(sub[0])}</b>${sub[1] ? ` · ${esc(sub[1])}` : ''}</div>` : ''}
       ${x.qh != null ? `<div class="uq">${x.qh}${x.oh && x.oh.length ? `<ol class="uopts">${x.oh.map(([l, h]) => `<li><b>(${l})</b> ${h}</li>`).join('')}</ol>` : ''}</div>
         <div class="im print${x.wide ? ' wide' : ''}" hidden>${spu(x.qs, x.src)}</div>` : `<div class="im${x.wide ? ' wide' : ''}">${spu(x.qs, x.src)}<span class="zoomhint">${x.wide ? 'Swipe sideways to read the whole line · tap to zoom' : 'Tap the picture to zoom'}</span></div>`}
@@ -766,9 +944,8 @@
       ok = sel.length === x.ok.length && sel.every(l => x.ok.includes(l));
       $$('.uo', card).forEach(o => { if (x.ok.includes(o.dataset.l)) o.classList.add('right'); else if (o.classList.contains('sel')) o.classList.add('wrong'); });
     } else if (b.dataset.uact === 'chk' && x.ty === 'nat') {
-      const v = parseFloat($('.unum', card).value.replace('−', '-').replace(/,/g, '')); if (!Number.isFinite(v)) { toast('Type a number first.'); return; }
-      const [val, lo, hi] = x.ok;
-      ok = lo != null ? v >= Math.min(lo, hi) - 1e-9 && v <= Math.max(lo, hi) + 1e-9 : Math.abs(v - val) <= Math.max(Math.abs(val) * 0.01, 0.01);
+      const v = numIn($('.unum', card).value); if (!Number.isFinite(v)) { toast('Type a number first.'); return; }
+      ok = natOk(x.ok, v);
     } else return;
     card.dataset.done = 1; record(x.id, ok);
     fb.innerHTML = ok ? '<b class="up">Correct!</b>' : `<b class="dn">Not quite.</b> The answer is <b>${esc(x.ans)}</b>.`; fb.hidden = false;
@@ -801,17 +978,7 @@
     const S = stats(), by = S.by, tried = IX.T.filter(t => by[t.id] && by[t.id].a), wf = weakFormulas(), mis = mistakes();
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const nF = Object.keys(P.f).filter(k => /^[fks]/.test(k)).length;
-    // what to study next: weakness × exam priority, plus topics never started and topics not revised for a while
-    const rec = IX.T.map(t => {
-      const s = by[t.id], w = 1 + (PRW[t.pr] || (t.v === 1 ? 1.5 : 0.8)), p = s && s.a ? pct(s.r, s.a) : null, d = P.seen[t.id] ? (now() - P.seen[t.id]) / 1440 : null;
-      let sc, why;
-      if (!s || !s.a) { sc = 0.45 * w; why = 'not started yet'; }
-      else if (s.a < 3) { sc = 0.5 * w; why = `only ${s.a} answer${s.a > 1 ? 's' : ''} so far`; }
-      else if (p < 70) { sc = (1 - p / 100) * w + 0.2; why = `${p} % correct in ${s.a} answers`; }
-      else if (d != null && d > 10) { sc = 0.3 * w; why = `${p} % correct, but last practised ${Math.floor(d)} days ago`; }
-      else { sc = (1 - p / 100) * w * 0.6; why = `${p} % correct in ${s.a} answers`; }
-      return { t, sc, why, p };
-    }).sort((x, y) => y.sc - x.sc).slice(0, 6);
+    const rec = studyNext().slice(0, 6);
     const kpi = (b, s) => `<div class="kpi"><b>${b}</b><span>${s}</span></div>`;
     const subj = IX.S.map(([k, n]) => { let a = 0, r = 0, c = 0; g[k].forEach(t => { if (by[t.id]) { a += by[t.id].a; r += by[t.id].r; c++; } }); return { k, n, a, r, c, tot: g[k].length }; });
     const rowsT = tried.map(t => ({ t, s: by[t.id], p: pct(by[t.id].r, by[t.id].a) })).sort((x, y) => x.p - y.p || y.s.a - x.s.a);
@@ -828,6 +995,7 @@
     <div class="con">
       <section class="panel"><h2>📊 My progress console <small>where and which topics to improve</small></h2>
         <p class="status">${where === 'account' ? '✓ Saved to your account — private to you and kept on every device you open this site on.' : '✓ Saved in this browser. Open the site on claude.ai while signed in to keep it in your account.'}</p>
+        ${dashHtml(S)}
         <div class="kpis">${kpi(S.a, 'answers')}${kpi(S.a ? pct(S.r, S.a) + ' %' : '–', 'correct overall')}${kpi(`${tried.length}/${IX.T.length}`, 'topics practised')}${kpi(nF, 'formulas tested')}${kpi(mis.length, 'mistakes to revise')}${kpi(P.mocks.length ? Math.max(...P.mocks.map(m => m.pc)) + ' %' : '–', `best mock · ${P.mocks.length} taken`)}</div>
         <div class="acts"><a class="btn go" href="#mock">⏱ Start a mock test</a>${mis.length ? `<button class="btn" data-c="rev">↻ Revise my ${mis.length} mistakes</button>` : ''}${wf.length ? `<button class="btn" data-c="wf">✍ Practise my ${wf.length} weak formulas</button>` : ''}${rec.length ? `<button class="btn" data-c="weakmix">🎯 20 questions from my weakest topics</button>` : ''}</div>
         ${!S.a ? '<p>Nothing answered yet. Every MCQ, missing-letter question, flashcard, GATE self-check and mock test you do on any topic page lands here, so this console can show where you are weak.</p>' : ''}</section>
@@ -864,9 +1032,13 @@
           return `<tr><td data-l="Date">${new Date(m.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td class="num" data-l="Score"><b>${m.score} / ${m.n}</b> (${m.pc} %)</td><td class="num" data-l="Right / wrong / blank">${m.r} · ${m.w} · ${m.n - m.r - m.w}</td>
           <td data-l="Weakest"><div class="srcs">${w.map(([tid, v]) => T(tid) ? `<span class="${v[1] / v[0] < 0.7 ? 'bad' : ''}">${esc(short(T(tid)))} ${v[1]}/${v[0]}</span>` : '').join('') || '<span>—</span>'}</div></td></tr>`; }).join('')}</tbody></table>` : '<p>No mock test yet.</p>'}
         <div class="acts"><a class="btn go" href="#mock">Start a mock test</a></div></section>
+      <section class="panel" id="backup"><h2>💾 Back up my progress <small>a file on this phone — nothing is sent anywhere</small></h2>
+        <p>Save your answers, mock results, stars and study calendar as a small file. Restore it on a new phone or after clearing the browser: it is combined with what is already here, keeping the fuller record of each question.</p>
+        <div class="acts"><button class="btn go" data-c="exp">⬇ Save a backup file</button><label class="btn" for="impf">⬆ Restore from a backup file</label><input type="file" id="impf" accept=".json,application/json" hidden></div><p class="pg" id="bkst"></p></section>
       <button class="btn" data-c="reset" style="justify-self:start;font-size:12px;color:var(--ink-2)">Reset all my progress</button>
     </div>`;
     main.onclick = e => {
+      const dd = e.target.closest('[data-day]'); if (dd) { dayRead(dd); return; }
       const c = e.target.closest('[data-c]'); if (!c) return;
       const k = c.dataset.c;
       if (k === 'rev') reviseMistakes();
@@ -875,10 +1047,125 @@
       if (k === 'wf') quiz(shuffle(wf.slice(0, 25).map(([fid]) => FBY[fid] && mlItems([FBY[fid]])[0]).filter(Boolean).map(mlQuestion)), 'My weak formulas');
       if (k === 'weakmix') { const ts = rec.slice(0, 4).map(r => r.t.id); quiz(shuffle(ts.flatMap(tid => topicMix(tid, 5))).slice(0, 20), 'My weakest topics'); }
       if (k === 'reset') { c.outerHTML = '<span class="confirm">Clear all your saved progress and mock results? <button class="btn no" data-c="reset2">Yes, clear it</button> <button class="btn" data-c="keep">No</button></span>'; }
-      if (k === 'reset2') { P = EMPTY(); changed(); viewConsole(RT, true); }
+      if (k === 'reset2') { P = EMPTY(); fixP(); changed(); viewConsole(RT, true); }
+      if (k === 'exp') exportProgress();
+      if (k === 'today') startToday(c.dataset.fresh === '1');
       if (k === 'keep') viewConsole(RT, true);
     };
+    $('#impf').onchange = e => { const f = e.target.files[0]; if (f) importProgress(f); e.target.value = ''; };
+    main.onpointerover = e => { const d = e.target.closest('[data-day]'); if (d) dayRead(d); };
     if (keep) scrollTo(0, y); else toTop();
+  }
+  /* the dashboard at the top of the console: streak, today, daily answers (30 days), study calendar, badges */
+  const fmtDay = k => new Date(k + 'T12:00').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  function streaks() {
+    const has = k => P.days[k] && P.days[k][0] > 0, d = new Date(); d.setHours(12, 0, 0, 0);
+    if (!has(dayOf(d))) d.setDate(d.getDate() - 1);          // today not started yet: the streak still counts up to yesterday
+    let cur = 0; while (has(dayOf(d))) { cur++; d.setDate(d.getDate() - 1); }
+    const ks = Object.keys(P.days).filter(has).sort(); let best = 0, run = 0, prev = null;
+    for (const k of ks) { const t = new Date(k + 'T12:00'); run = prev && Math.round((t - prev) / 864e5) === 1 ? run + 1 : 1; best = Math.max(best, run); prev = t; }
+    return { cur, best, days: ks.length };
+  }
+  function badges(S, st) {
+    const nd = Object.keys(P.q).filter(id => id[0] === 'd').length, nz = Object.keys(P.q).filter(id => id[0] === 'z').length, nu = Object.keys(P.q).filter(id => id[0] === 'u').length;
+    const topics = Object.keys(S.by).length, bestMock = P.mocks.length ? Math.max(...P.mocks.map(m => m.pc)) : 0;
+    return [['🌱', 'First answer', S.a, 1], ['💯', '100 answers', S.a, 100], ['🏅', '1,000 answers', S.a, 1000], ['🔥', '3-day streak', st.best, 3], ['⚡', '7-day streak', st.best, 7], ['🏆', '30-day streak', st.best, 30],
+      ['📘', '100 Question Book', nu, 100], ['🔢', '50 drill numericals', nd, 50], ['🎯', 'Predicted paper: 50 Qs', nz, 50], ['⏱', 'First mock test', P.mocks.length, 1], ['🥇', 'Mock score 70 %+', bestMock, 70], ['🗺', 'All 46 topics tried', topics, IX.T.length]];
+  }
+  // XP: 10 for a right answer, 2 for trying, 50 per mock; a level every 500 XP
+  const xpOf = S => S.r * 10 + (S.a - S.r) * 2 + P.mocks.length * 50;
+  const weekRow = () => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); const tk = todayKey();
+    return ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((l, i) => { const k = dayOf(new Date(d.getFullYear(), d.getMonth(), d.getDate() + i, 12)), on = P.days[k] && P.days[k][0] > 0;
+      return `<span class="wd${on ? ' on' : ''}${k === tk ? ' now' : ''}${k > tk ? ' fut' : ''}" title="${fmtDay(k)}${on ? ` · ${P.days[k][0]} answers` : ''}"><b>${l}</b><i>${on ? '✓' : ''}</i></span>`; }).join(''); };
+  // answers by weekday over the last 4 weeks, as columns of dots (one dot = a step of answers)
+  function dotMatrix() {
+    const W = [0, 0, 0, 0, 0, 0, 0], d = new Date(); d.setHours(12, 0, 0, 0);
+    for (let i = 0; i < 28; i++) { const k = dayOf(d); W[(d.getDay() + 6) % 7] += (P.days[k] || [0])[0]; d.setDate(d.getDate() - 1); }
+    const mx = Math.max(...W), step = mx <= 12 ? 1 : Math.ceil(mx / 12), rows = 12;
+    return `<div class="dots" role="img" aria-label="Answers by weekday, last 4 weeks: ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((n, i) => `${n} ${W[i]}`).join(', ')}">${W.map((v, i) => { const n = Math.ceil(v / step);
+      return `<div class="dcol${v && v === mx ? ' top' : ''}" title="${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}: ${v} answers">${Array.from({ length: rows }, (_, r) => `<i class="${rows - r <= n ? (rows - r === n ? 'hd' : 'on') : ''}"></i>`).join('')}<b>${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</b><small>${v}</small></div>`; }).join('')}</div><p class="pg">one dot = ${step} answer${step > 1 ? 's' : ''}</p>`;
+  }
+  function dashHtml(S) {
+    const st = streaks(), tk = todayKey(), td = P.days[tk] || [0, 0], left = todayLeft(), tot = P.day && P.day.d === tk ? P.day.ids.length : 20;
+    // daily answers, last 30 days: one series, bars from the baseline
+    const D = []; for (let i = 29; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); const k = dayOf(d); D.push([k, ...(P.days[k] || [0, 0])]); }
+    const mx = Math.max(10, ...D.map(d => d[1])), nice = mx <= 10 ? 10 : mx <= 20 ? 20 : mx <= 50 ? 50 : Math.ceil(mx / 50) * 50;
+    const W = 600, H = 170, X0 = 34, Y0 = 10, Y1 = H - 24, bw = (W - X0 - 4) / 30;
+    const yy = v => Y1 - (Y1 - Y0) * v / nice;
+    const bars = D.map(([k, a, r], i) => { const x = X0 + i * bw, h = Y1 - yy(a);
+      return `<g data-day="${k}" data-a="${a}" data-r="${r}"><rect class="hit" x="${x}" y="${Y0}" width="${bw}" height="${Y1 - Y0}"/>${a ? `<path class="bar${k === tk ? ' today' : ''}" d="M${x + 2},${Y1} v${-(h - 4)} q0,-4 4,-4 h${bw - 12} q4,0 4,4 v${h - 4} z"/>` : ''}</g>`; }).join('');
+    const grid = [0, nice / 2, nice].map(v => `<line class="gl" x1="${X0}" x2="${W - 4}" y1="${yy(v)}" y2="${yy(v)}"/><text class="ax" x="${X0 - 6}" y="${yy(v) + 4}" text-anchor="end">${v}</text>`).join('');
+    const xl = [0, 10, 20, 29].map(i => `<text class="ax" x="${X0 + i * bw + bw / 2}" y="${H - 6}" text-anchor="middle">${i === 29 ? 'today' : new Date(D[i][0] + 'T12:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</text>`).join('');
+    const sum30 = D.reduce((a, d) => a + d[1], 0), r30 = D.reduce((a, d) => a + d[2], 0), act30 = D.filter(d => d[1]).length;
+    // this month's calendar: shade = answers that day; ahead: drill sums coming due (3 days after you got them)
+    const now0 = new Date(), y = now0.getFullYear(), m = now0.getMonth(), first = new Date(y, m, 1), nDays = new Date(y, m + 1, 0).getDate(), lead = (first.getDay() + 6) % 7;
+    // revisions coming due, by day (spaced revision: day 1, 3, 7, 15, 30)
+    const due = {}, lev = [0, 0, 0, 0, 0, 0, 0]; let dueNow = 0, dueWrong = 0, week = 0; const end = dayStart() + 1440;
+    for (const m of [P.q, P.f]) for (const id in m) { if (!SRK.test(id)) continue; const e = m[id], d = srDue(id, e), l = Math.min(srLevel(id, e), 6); lev[l]++;
+      if (d <= end) { dueNow++; if (!l) dueWrong++; } else { const k = dayOf(d * 60000); due[k] = (due[k] || 0) + 1; if (d <= end + 6 * 1440) week++; } }
+    const lvl = a => !a ? 0 : a < 10 ? 1 : a < 25 ? 2 : a < 50 ? 3 : 4;
+    const cells = [...Array(lead).fill('<span></span>'), ...Array.from({ length: nDays }, (_, i) => { const k = dayOf(new Date(y, m, i + 1, 12)), a = (P.days[k] || [0])[0], fut = k > tk;
+      return `<button class="cd l${fut ? 0 : lvl(a)}${k === tk ? ' today' : ''}" data-day="${k}" data-a="${a}" data-r="${(P.days[k] || [0, 0])[1]}" data-due="${due[k] || 0}" aria-label="${fmtDay(k)}: ${a} answers${fut && due[k] ? `, ${due[k]} revisions due` : ''}">${i + 1}${fut && due[k] ? `<i>${due[k]}</i>` : ''}</button>`; })].join('');
+    const B = badges(S, st), got = B.filter(b => b[2] >= b[3]).length;
+    return `<div class="dash">
+      <div class="dt streak"><span class="dl">🔥 Study streak</span><b>${st.cur} day${st.cur === 1 ? '' : 's'}</b><small>best ${st.best} · ${st.days} study days in all</small><div class="week">${weekRow()}</div></div>
+      <div class="dt level"><span class="dl">⭐ Level ${Math.floor(xpOf(S) / 500) + 1}</span><b>${xpOf(S).toLocaleString('en-IN')} XP</b><small>${500 - xpOf(S) % 500} XP to level ${Math.floor(xpOf(S) / 500) + 2} · 10 XP a right answer, 2 a try, 50 a mock</small><div class="bar" style="--col:var(--pur)"><i style="width:${xpOf(S) % 500 / 5}%"></i></div></div>
+      <div class="dt today"><span class="dl">📅 Today</span><b>${td[0]} answer${td[0] === 1 ? '' : 's'}</b><small>${td[0] ? pct(td[1], td[0]) + ' % correct' : 'nothing yet today'}</small>
+        <div class="acts">${left == null ? `<button class="btn go" data-c="today">Start Today's 20</button>` : left ? `<button class="btn go" data-c="today">Today's ${tot} · ${left} left</button>` : `<span class="up">✓ Today's ${tot} done</span><button class="btn" data-c="today" data-fresh="1">Another 20</button>`}</div></div>
+      <div class="dt wide"><span class="dl">📈 Daily progress <small>answers per day, last 30 days · ${sum30} answers on ${act30} days${sum30 ? ` · ${pct(r30, sum30)} % correct` : ''}</small></span>
+        <svg class="dchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Answers per day for the last 30 days">${grid}${bars}${xl}</svg>
+        <p class="dread" aria-live="polite">Tap a bar to see that day.</p></div>
+      <div class="dt rev"><span class="dl">🔁 Revision schedule <small>day 1 · 3 · 7 · 15 · 30 — a wrong answer starts again</small></span>
+        <b>${dueNow} due today</b><small>${dueWrong ? `${dueWrong} of them were wrong last time (first in Today's 20) · ` : ''}${week} more in the next 7 days</small>
+        <div class="lv">${SRN.map((n, i) => `<span class="lv${i}" title="${esc(n)}"><b>${lev[i]}</b>${esc(n.replace(' — again tomorrow', ''))}</span>`).join('')}</div></div>
+      <div class="dt wk"><span class="dl">⏰ Most active days <small>answers by weekday, last 4 weeks</small></span>${dotMatrix()}</div>
+      <div class="dt cal"><span class="dl">🗓 ${now0.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} <small>shade = answers · <i class="duei">n</i> revisions due that day</small></span>
+        <div class="calg">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => `<b>${d}</b>`).join('')}${cells}</div>
+        <div class="calk"><span>fewer</span>${[0, 1, 2, 3, 4].map(l => `<i class="cd l${l}"></i>`).join('')}<span>more answers</span></div></div>
+      <div class="dt badges"><span class="dl">🏅 Achievement badges <small>${got} of ${B.length}</small></span>
+        <div class="bgs">${B.map(([ic, n, v, goal]) => `<div class="bg${v >= goal ? ' on' : ''}" title="${esc(n)}"><i>${ic}</i><span>${esc(n)}</span>${v >= goal ? '' : `<small>${Math.min(v, goal).toLocaleString('en-IN')} / ${goal.toLocaleString('en-IN')}</small>`}</div>`).join('')}</div></div>
+    </div>`;
+  }
+  function dayRead(el) {
+    const k = el.dataset.day, a = +el.dataset.a, r = +el.dataset.r, du = +(el.dataset.due || 0);
+    const out = el.closest('.dt').querySelector('.dread') || $('.dread', main); if (!out) return;
+    out.textContent = `${fmtDay(k)}: ${a ? `${a} answer${a === 1 ? '' : 's'} · ${pct(r, a)} % correct` : k > todayKey() ? (du ? `${du} revision${du === 1 ? '' : 's'} due` : 'nothing due yet') : 'no answers'}`;
+  }
+  /* ---------- progress backup: a JSON file kept by the reader; restoring combines it with what is here ---------- */
+  function exportProgress() {
+    const data = JSON.stringify({ app: 'tneb-ae-study', v: 1, saved: new Date().toISOString(), progress: P });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+    a.download = `tneb-ae-progress-${todayKey()}.json`; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    $('#bkst').textContent = `✓ Saved ${a.download} (${Math.ceil(data.length / 1024)} KB) to your downloads.`;
+  }
+  const ID = /^([a-z]\d+\.[A-Za-z0-9.]+|z(gate|tneb)\.\d+)$/;
+  const num = x => typeof x === 'number' && Number.isFinite(x) ? x : 0;
+  const rec4 = e => Array.isArray(e) && e.length === 4 && e.every(x => typeof x === 'number' && Number.isFinite(x) && x >= 0) ? [Math.round(e[0]), Math.round(e[1]), e[2] ? 1 : 0, Math.round(e[3])] : null;
+  async function importProgress(file) {
+    const st = $('#bkst');
+    try {
+      if (file.size > 5e6) throw new Error('this file is too large to be a progress backup');
+      const o = JSON.parse(await file.text()), B = o && o.app === 'tneb-ae-study' && o.progress;
+      if (!B || typeof B !== 'object') throw new Error('this is not a TNEB AE study-site backup');
+      let nq = 0;
+      for (const k of ['q', 'f']) for (const [id, e] of Object.entries(B[k] || {})) {
+        const r = rec4(e); if (!r || !ID.test(id) || isF(id) !== (k === 'f')) continue;
+        const m = P[k], cur = m[id]; if (!cur || r[0] > cur[0] || (r[0] === cur[0] && r[3] > cur[3])) { m[id] = r; nq++; const lv = (B.sr || {})[id]; if (Number.isInteger(lv) && lv >= 0 && lv <= 6) P.sr[id] = lv; else delete P.sr[id]; }
+      }
+      for (const [t, v] of Object.entries(B.seen || {})) if (/^(\d+|gen)$/.test(t) && Number.isFinite(v)) P.seen[t] = Math.max(P.seen[t] || 0, v);
+      for (const [k, v] of Object.entries(B.star || {})) if (STARKEY.test(k) && Number.isFinite(v)) P.star[k] = P.star[k] || v;
+      for (const [k, v] of Object.entries(B.days || {})) if (/^\d{4}-\d\d-\d\d$/.test(k) && Array.isArray(v)) { const a = Math.round(num(v[0])), r = Math.round(num(v[1])), c = P.days[k] || [0, 0]; if (a > c[0]) P.days[k] = [a, Math.min(r, a)]; }
+      const seenTs = new Set(P.mocks.map(m => m.ts));
+      for (const m of Array.isArray(B.mocks) ? B.mocks : []) {
+        if (!m || !Number.isFinite(m.ts) || seenTs.has(m.ts)) continue;
+        const by = {}; for (const [t, v] of Object.entries(m.by || {})) if (/^\d+$/.test(t) && Array.isArray(v)) by[t] = [Math.round(num(v[0])), Math.round(num(v[1]))];
+        P.mocks.push({ ts: m.ts, n: num(m.n), r: num(m.r), w: num(m.w), score: num(m.score), pc: num(m.pc), secs: num(m.secs), neg: !!m.neg, by });
+      }
+      P.mocks.sort((a, b) => b.ts - a.ts); P.mocks.length = Math.min(P.mocks.length, 30);
+      changed(); toast(`✓ Restored — ${nq} question records taken from the file.`);
+      viewConsole(RT, true);
+    } catch (err) { st.textContent = `Could not restore: ${err.message}.`; }
   }
 
   /* ---------- mock test ---------- */
@@ -892,6 +1179,8 @@
     const nU = UA.filter(x => x.ty === 'mcq').length;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Mock test</div><div class="con"><section class="panel"><h2>⏱ Mock test</h2>
       <p>Questions come from your Question Book (${nU} single-answer past questions from GATE, TNPSC, ESE, APGENCO and TANGEDCO, shown exactly as printed, with full solutions in the result) and the Complete Book's own MCQs (${QA.filter(x => x.r != null).length}), plus, if you like, missing-letter questions on the book's formulas. Every answer goes into your progress console, and the result shows your weak topics.</p>
+      <div class="mkpre"><b>Exam style</b><div class="seg" id="mkpre"><button type="button" data-pre="gate" aria-pressed="false">🎓 GATE EE</button><button type="button" data-pre="tneb" aria-pressed="false">⚡ TANGEDCO AE</button><button type="button" data-pre="tnpsc" aria-pressed="false">🏛 TNPSC</button><button type="button" data-pre="" aria-pressed="true">⚙ Custom</button></div>
+        <p class="pg" id="mkprei">A style only fills in the settings below — change any of them before you start. Every question here scores +1; negative marking is −⅓ of a mark per wrong answer when chosen.</p></div>
       <form class="mkset" id="mkf">
         <fieldset><legend>Which topics</legend>
           <label class="r"><input type="radio" name="sc" value="all" checked> All topics</label>
@@ -900,8 +1189,8 @@
           <label class="r"><input type="radio" name="sc" value="pick"> Choose topics</label>
           <div class="picks" id="mkp" hidden>${IX.S.map(([k, n]) => `<b>${esc(n)}</b>` + g[k].map(t => `<label><input type="checkbox" value="${t.id}">${esc(short(t))} <span class="pg">${avail(t.id)} MCQs</span></label>`).join('')).join('')}</div></fieldset>
         <fieldset><legend>Paper</legend><div class="mkrow">
-          <label>Questions <select id="mkn"><option>10</option><option selected>25</option><option>50</option><option>100</option></select></label>
-          <label>Time per question <select id="mkt"><option value="36">36 s</option><option value="60" selected>1 min</option><option value="72">1.2 min</option><option value="90">1.5 min</option></select></label>
+          <label>Questions <select id="mkn"><option>10</option><option selected>25</option><option>50</option><option>65</option><option>100</option></select></label>
+          <label>Time per question <select id="mkt"><option value="36">36 s</option><option value="60" selected>1 min</option><option value="72">1.2 min</option><option value="90">1.5 min</option><option value="166">2.8 min (3 h for 65)</option></select></label>
           <label>Marking <select id="mkm"><option value="1">+1, −⅓ per wrong (TNEB, ESE, GATE MCQ)</option><option value="0" selected>+1, no negative (TNPSC)</option></select></label>
           <label>Formula questions <select id="mkl"><option value="0.2" selected>About 1 in 5 missing-letter</option><option value="0">None — MCQs only</option><option value="0.5">About half</option></select></label></div>
           <div class="mkrow"><label>Questions from <select id="mksrc"><option value="all" selected>Question Book + book MCQs</option><option value="u">Question Book only (real past papers)</option><option value="b">Complete Book MCQs only</option></select></label>
@@ -909,6 +1198,13 @@
         <div class="acts"><button class="btn go" type="submit">Start the timer</button><span class="pg" id="mkinfo"></span></div></form></section></div>`;
     const f = $('#mkf'), picks = $('#mkp');
     f.onchange = () => { picks.hidden = f.sc.value !== 'pick'; };
+    // exam styles: they only fill in the form
+    const PRE = { gate: ['all', 65, 166, '1', '0', 'u', 'GATE', 'GATE EE style: 65 of your real GATE EE past questions, 3 hours (2.8 min each), −⅓ per wrong answer. (In GATE itself 2-mark MCQs lose ⅔ and numerical questions have no negative mark.)'],
+      tneb: ['all', 100, 72, '1', '0.2', 'all', '', 'TANGEDCO AE style: 100 questions from every topic, 2 hours, −⅓ per wrong answer (as the book’s TNEB / TANGEDCO 2027 predicted paper is set).'],
+      tnpsc: ['all', 100, 72, '0', '0', 'u', 'TNPSC', 'TNPSC style: 100 of your real TNPSC past questions, 1.2 min each, no negative marking.'] };
+    $('#mkpre').onclick = e => { const b = e.target.closest('[data-pre]'); if (!b) return; $$('#mkpre [data-pre]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      const p = PRE[b.dataset.pre]; if (!p) { $('#mkprei').textContent = 'Custom: choose the topics, length, time and marking yourself.'; return; }
+      f.sc.value = p[0]; $('#mkn').value = String(p[1]); $('#mkt').value = String(p[2]); $('#mkm').value = p[3]; $('#mkl').value = p[4]; $('#mksrc').value = p[5]; $('#mkex').value = p[6]; picks.hidden = true; $('#mkprei').textContent = p[7]; };
     f.onsubmit = e => {
       e.preventDefault();
       const sc = f.sc.value; let ids;
@@ -932,50 +1228,68 @@
     for (let k = 0; mcqs.length < n - nML && order.length; k++) { const t = order[k % order.length], L = byT[t]; if (L.length) mcqs.push(L.pop()); if (!order.some(o => byT[o].length)) break; }
     const fl = shuffle(mlItems(FA.filter(f => set.has(f.t)))), seen = new Set(), mls = [];
     for (const it of fl) { if (mcqs.length + mls.length >= n) break; if (!seen.has(it.id)) { seen.add(it.id); mls.push(mlQuestion(it)); } }
-    const qs = shuffle([...mcqs, ...mls]);
+    // the paper in subject order, so the palette's subject tabs read as sections
+    const SO = IX.S.map(x => x[0]), subjOf = q => (T(q.t) || {}).s;
+    const qs = shuffle([...mcqs, ...mls]).sort((a, b) => SO.indexOf(subjOf(a)) - SO.indexOf(subjOf(b)));
     if (!qs.length) { toast('No questions for these topics yet.'); return; }
-    M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), i: 0, end: Date.now() + qs.length * per * 1000, total: qs.length * per, neg, t0: Date.now() };
-    showMock();
-    clearInterval(tick); tick = setInterval(() => { if (!M) return clearInterval(tick); const left = Math.round((M.end - Date.now()) / 1000), el = $('.mk-time'); if (el) { el.textContent = clock(left); el.classList.toggle('low', left <= 60); } if (left <= 0) mockSubmit(); }, 1000);
+    qs.forEach(q => { const k = subjOf(q); q.sec = k ? IX.S.find(x => x[0] === k)[1] : 'Other'; });
+    M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), vis: qs.map(() => false), tq: qs.map(() => 0), tab: '', i: 0, end: Date.now() + qs.length * per * 1000, total: qs.length * per, neg, t0: Date.now() };
+    showMock(); startTick();
   }
-  const clock = s => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+  const startTick = () => { clearInterval(tick); tick = setInterval(() => { if (!M) return clearInterval(tick); const left = Math.round((M.end - Date.now()) / 1000); paintClock(left); if (left <= 0) mockSubmit(); }, 1000); };
+  const hms = s => { s = Math.max(0, s); return [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60]; };
+  const paintClock = left => { const el = $('.mk-clock'); if (!el) return; hms(left).forEach((v, k) => { el.children[k].firstChild.textContent = String(v).padStart(2, '0'); }); el.classList.toggle('low', left <= 60); };
+  // a question's state in the palette (the exam-hall colours)
+  const mkState = i => M.ans[i] >= 0 ? (M.flag[i] ? 'am' : 'an') : M.flag[i] ? 'mr' : M.vis[i] ? 'na' : 'nv';
+  const MKS = [['an', 'Answered'], ['na', 'Not answered'], ['nv', 'Not visited'], ['mr', 'Marked for review'], ['am', 'Answered & marked']];
   function showMock() {
     if (location.hash !== '#mock') { try { history.replaceState(null, '', '#mock'); } catch (e) {} setShell('mock'); }
-    const q = M.qs[M.i], left = Math.round((M.end - Date.now()) / 1000);
-    main.innerHTML = `<div class="mk-top"><b>Mock test</b><span class="mk-time${left <= 60 ? ' low' : ''}">${clock(left)}</span><span>${M.ans.filter(a => a >= 0).length} of ${M.qs.length} answered</span><button class="btn go" data-m="submit">Submit</button></div>
-      <div class="mk-pal">${M.qs.map((_, i) => `<button data-go="${i}" class="${M.ans[i] >= 0 ? 'ans' : ''}${M.flag[i] ? ' flag' : ''}${i === M.i ? ' cur' : ''}" aria-label="Question ${i + 1}">${i + 1}</button>`).join('')}</div>
-      <div class="box qcard" style="margin-top:10px"><div class="qs">Question ${M.i + 1} · ${esc(q.src || '')}</div><div class="qq">${q.q}</div>
-      ${optsHtml(q, 'data-mi', M.ans[M.i])}
-      <div class="acts"><button class="btn" data-m="prev" ${M.i ? '' : 'disabled'}>← Previous</button><button class="btn" data-m="flag">${M.flag[M.i] ? '★ Flagged' : '☆ Flag for review'}</button>${M.ans[M.i] >= 0 ? '<button class="btn" data-m="clear">Clear answer</button>' : ''}<button class="btn" data-m="next" ${M.i + 1 < M.qs.length ? '' : 'disabled'}>Next →</button></div></div>`;
+    M.vis[M.i] = true;
+    const tn = Date.now(); if (M.on != null) M.tq[M.on] += tn - M.ts; M.on = M.i; M.ts = tn;     // time spent on each question
+    const q = M.qs[M.i], left = Math.round((M.end - Date.now()) / 1000), secs = [...new Set(M.qs.map(x => x.sec || ''))].filter(Boolean);
+    const cnt = Object.fromEntries(MKS.map(([k]) => [k, 0])); M.qs.forEach((_, i) => cnt[mkState(i)]++);
+    const [h, m, sx] = hms(left), last = M.i + 1 >= M.qs.length;
+    main.innerHTML = `<div class="mk-top"><b>${esc(M.title || 'Mock test')}</b><div class="mk-clock${left <= 60 ? ' low' : ''}" role="timer" aria-label="Time remaining"><span><b>${String(h).padStart(2, '0')}</b><small>Hours</small></span><span><b>${String(m).padStart(2, '0')}</b><small>Minutes</small></span><span><b>${String(sx).padStart(2, '0')}</b><small>Seconds</small></span></div><button class="btn go" data-m="submit">Submit</button></div>
+      <div class="mk-wrap"><div class="mk-q"><div class="box qcard"><div class="mk-qh"><b>Question ${M.i + 1}</b><span class="qs">${esc(q.sec ? q.sec + ' · ' : '')}${esc(q.src || '')}</span><button class="btn mk-mark${M.flag[M.i] ? ' on' : ''}" data-m="flag" aria-pressed="${M.flag[M.i]}">${M.flag[M.i] ? '🔖 Marked for review' : '🔖 Mark for review'}</button></div>
+        <div class="qq">${q.q}</div>
+        ${optsHtml(q, 'data-mi', M.ans[M.i])}
+        <div class="acts mk-nav"><button class="btn" data-m="prev" ${M.i ? '' : 'disabled'}>← Previous</button>${M.ans[M.i] >= 0 ? '<button class="btn" data-m="clear">Clear answer</button>' : ''}<button class="btn" data-m="markn">Mark & next</button><button class="btn go" data-m="next">${last ? 'Save' : 'Save & next →'}</button></div></div></div>
+      <aside class="mk-side" aria-label="Question palette"><h3>Question palette <small>${M.ans.filter(a => a >= 0).length} of ${M.qs.length} answered</small></h3>
+        ${secs.length > 1 ? `<div class="seg mk-tabs"><button data-tab="" aria-pressed="${!M.tab}">All</button>${secs.map(x => `<button data-tab="${esc(x)}" aria-pressed="${M.tab === x}">${esc(x)}</button>`).join('')}</div>` : ''}
+        <div class="mk-pal">${M.qs.map((x, i) => !M.tab || x.sec === M.tab ? `<button data-go="${i}" class="s-${mkState(i)}${i === M.i ? ' cur' : ''}" aria-label="Question ${i + 1}: ${MKS.find(k => k[0] === mkState(i))[1]}">${i + 1}</button>` : '').join('')}</div>
+        <div class="mk-leg">${MKS.map(([k, n]) => `<span><i class="s-${k}">${cnt[k]}</i>${n}</span>`).join('')}</div></aside></div>`;
     lazy();
     main.onclick = e => {
       if (!M) return;
       const t = e.target, m = t.closest('[data-m]') && t.closest('[data-m]').dataset.m;
       const mo = t.closest('[data-mi]'); if (mo) { const i = +mo.dataset.mi; M.ans[M.i] = M.ans[M.i] === i ? -1 : i; showMock(); return; }
       const go = t.closest('[data-go]'); if (go) { M.i = +go.dataset.go; showMock(); return; }
+      const tb = t.closest('[data-tab]'); if (tb) { M.tab = tb.dataset.tab; const j = M.qs.findIndex(x => x.sec === M.tab); if (M.tab && j >= 0 && M.qs[M.i].sec !== M.tab) M.i = j; showMock(); return; }
       if (m === 'prev' && M.i) { M.i--; showMock(); }
-      else if (m === 'next' && M.i + 1 < M.qs.length) { M.i++; showMock(); }
+      else if (m === 'next') { if (M.i + 1 < M.qs.length) M.i++; else toast('That was the last question — check the palette, then Submit.'); showMock(); }
+      else if (m === 'markn') { M.flag[M.i] = true; if (M.i + 1 < M.qs.length) M.i++; showMock(); }
       else if (m === 'flag') { M.flag[M.i] = !M.flag[M.i]; showMock(); }
       else if (m === 'clear') { M.ans[M.i] = -1; showMock(); }
-      else if (m === 'submit') { const blank = M.ans.filter(a => a < 0).length; if (!blank) mockSubmit(); else t.closest('[data-m]').outerHTML = `<span class="confirm">${blank} not answered. <button class="btn go" data-m="submit2">Submit anyway</button> <button class="btn" data-m="back">Keep going</button></span>`; }
+      else if (m === 'submit') { const blank = M.ans.filter(a => a < 0).length, mk = M.flag.filter(Boolean).length; if (!blank && !mk) mockSubmit(); else t.closest('[data-m]').outerHTML = `<span class="confirm">${blank ? `${blank} not answered` : ''}${blank && mk ? ', ' : ''}${mk ? `${mk} marked for review` : ''}. <button class="btn go" data-m="submit2">Submit anyway</button> <button class="btn" data-m="back">Keep going</button></span>`; }
       else if (m === 'submit2') mockSubmit();
       else if (m === 'back') showMock();
     };
   }
   function mockSubmit() {
     if (!M) return; clearInterval(tick);
-    const X = M; M = null;
+    const X = M; M = null; if (X.on != null) X.tq[X.on] += Date.now() - X.ts;
     if (location.hash !== '#mock') { try { history.replaceState(null, '', '#mock'); } catch (e) {} setShell('mock'); toast('Time is up — your mock test was submitted.'); }
     const ok = X.qs.map((q, i) => X.ans[i] >= 0 && isRight(q, X.ans[i])), r = ok.filter(Boolean).length, w = X.qs.filter((q, i) => X.ans[i] >= 0 && !ok[i]).length, n = X.qs.length;
     const score = Math.round((r - (X.neg ? w / 3 : 0)) * 100) / 100, secs = Math.min(X.total, Math.round((Date.now() - X.t0) / 1000));
     const by = {};
     X.qs.forEach((q, i) => { const b = by[q.t] || (by[q.t] = [0, 0]); b[0]++; if (ok[i]) b[1]++; });
     // every question is recorded (a blank counts as not known)
-    X.qs.forEach((q, i) => { const m = isF(q.id) ? P.f : P.q, e = m[q.id] || (m[q.id] = [0, 0, 0, 0]); e[0]++; if (ok[i]) e[1]++; e[2] = ok[i] ? 1 : 0; e[3] = now(); P.seen[q.t] = now(); });
+    X.qs.forEach((q, i) => { const m = isF(q.id) ? P.f : P.q; srStep(q.id, m[q.id], ok[i]); const e = m[q.id] || (m[q.id] = [0, 0, 0, 0]); e[0]++; if (ok[i]) e[1]++; e[2] = ok[i] ? 1 : 0; e[3] = now(); if (q.t) P.seen[q.t] = now(); logDay(ok[i]); });
     P.mocks.unshift({ ts: Date.now(), n, r, w, score, pc: Math.round(Math.max(0, score) / n * 100), secs, neg: X.neg, by }); P.mocks.length = Math.min(P.mocks.length, 30); changed();
     const rowsT = Object.entries(by).map(([tid, [a, rr]]) => ({ t: T(tid), a, r: rr })).filter(x => x.t).sort((x, y) => x.r / x.a - y.r / y.a);
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Mock test result</div><div class="con">
-      <section class="panel"><h2>Mock test result</h2><div class="kpis">${[[`${score} / ${n}`, 'score' + (X.neg ? ' (−⅓ per wrong)' : '')], [Math.round(Math.max(0, score) / n * 100) + ' %', 'percent'], [r, 'right'], [w, 'wrong'], [n - r - w, 'blank'], [`${Math.floor(secs / 60)} min ${secs % 60} s`, 'time used']].map(([b, s]) => `<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('')}</div>
+      <section class="panel"><h2>Mock test result</h2><div class="kpis">${[[`${score} / ${n}`, 'score' + (X.neg ? ' (−⅓ per wrong)' : '')], [Math.round(Math.max(0, score) / n * 100) + ' %', 'percent'], [r, 'right'], [w, 'wrong'], [n - r - w, 'not attempted'], [X.neg ? `−${Math.round(w / 3 * 100) / 100}` : '0', 'negative marks'], [r + w ? pct(r, r + w) + ' %' : '–', 'accuracy (of attempted)'], [`${Math.floor(secs / 60)} min ${secs % 60} s`, 'time used'], [`${Math.round(X.tq.reduce((a, b) => a + b, 0) / 1000 / Math.max(1, X.tq.filter(Boolean).length))} s`, 'average per question seen']].map(([b, s]) => `<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('')}</div>
+        ${X.tq.some(Boolean) ? `<p class="pg">Slowest: ${X.tq.map((t, i) => [t, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([t, i]) => `Q${i + 1} (${Math.round(t / 1000)} s, ${ok[i] ? 'right' : X.ans[i] < 0 ? 'not answered' : 'wrong'})`).join(' · ')}</p>` : ''}
         <div class="acts"><a class="btn go" href="#progress">📊 See it in my progress console</a><button class="btn" data-r="again">Another mock test</button></div></section>
       <section class="panel"><h2>By topic <small>weakest first — this is where to improve</small></h2><table class="ttab"><thead><tr><th>Topic</th><th>Right</th><th></th></tr></thead><tbody>${rowsT.map(x => `<tr><td data-l="Topic"><a href="#t-${x.t.id}">${esc(x.t.t)}</a></td><td class="num" data-l="Right"><span class="bar" style="--col:${tone(pct(x.r, x.a))[2]}"><i style="width:${Math.max(3, pct(x.r, x.a))}%"></i></span>${x.r}/${x.a}</td><td><span class="acts"><a class="btn" href="#t-${x.t.id}">Study</a><button class="btn go" data-r="prac" data-t="${x.t.id}">Practise</button></span></td></tr>`).join('')}</tbody></table></section>
       <section class="panel"><h2>Every question, with the answer</h2>${X.qs.map((q, i) => `<details class="rv"><summary><b class="${ok[i] ? 'up' : 'dn'}">${ok[i] ? '✓' : X.ans[i] < 0 ? '–' : '✗'} Q${i + 1}</b><span>${esc(q.ml ? 'Missing letter — ' + q.nm : plain(q.q).slice(0, 120))}</span></summary><div><div class="qs pg">${esc(q.src)}</div><div class="qq">${q.q}</div>
@@ -993,7 +1307,7 @@
   const partImg = ([f, W, H, y, w, h, mw], alt) => `<div class="sp rpi" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${mw}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${H > h ? (y / (H - h) * 100).toFixed(4) : 0}%"></div>`;
   // a book page re-set for reading: its text as text (tables become one card per row on a phone), its picture cards
   // and drawings cut out one per row; the printed page stays one tap away
-  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption><span class="pgt">${volOf(g)} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
+  const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption>${starBtn(`ref/${g.id}/${e[0]}`, 'page')}<span class="pgt">${volOf(g)} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
     ${rh ? `<div class="rp">${rh[0].replace(/<i data-k="(\d+)"><\/i>/g, (_, k) => partImg(rh[1][k], `${g.n}, p ${e[0]}, picture ${+k + 1}`))}</div><div class="pp" hidden>${pgImg(e, `${g.n}, book page ${e[0]}`)}</div>` : pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`;
   document.addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (!b) return; const f = b.closest('figure'), pp = $('.pp', f), rp = $('.rp', f); if (!pp) return;
     const on = pp.hidden; pp.hidden = !on; rp.hidden = on; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '📖 Readable' : '🖼 As printed'; });
@@ -1109,7 +1423,7 @@
   /* ---------- practice papers & drills (Question Book Parts 4, 6 and 7) ---------- */
   const drillId = (T_, x) => `d${T_.t}.${x.n}`;
   const drillCard = (T_, x) => { const id = drillId(T_, x), e = P.q[id];
-    return `<article class="box dr" data-d="${id}"><header><b>${T_.k}.${x.n}</b><span>${esc(T_.n)}</span>${e ? `<span class="pg ${e[2] ? 'up' : 'dn'}">${e[2] ? '✓ got it last time' : '✗ missed last time'}</span>` : ''}</header>
+    return `<article class="box dr" data-d="${id}"><header>${starBtn(id)}<b>${T_.k}.${x.n}</b><span>${esc(T_.n)}</span>${e ? `<span class="pg ${e[2] ? 'up' : 'dn'}">${e[2] ? '✓ got it last time' : '✗ missed last time'}</span>` : ''}</header>
       <div class="dq">${x.q}</div><div class="acts"><button class="btn" data-dr="show">Show method & answer</button></div>
       <div class="da" hidden>${x.m ? spu(x.m, 'Method') : ''}<p class="dans">Answer: <b>${x.a}</b></p><div class="acts"><span class="pg">Did you get it?</span><button class="btn" data-dr="ok">✓ Got it</button><button class="btn" data-dr="no">✗ Missed</button></div></div></article>`; };
   document.addEventListener('click', e => {
@@ -1158,7 +1472,9 @@
       <p class="tnote" style="margin-top:16px">The two predicted papers are practice questions the book wrote from past-paper trends — they are not real past papers.</p>`;
     toTop();
   }
-  async function viewDrill(k, tok) {
+  // scroll to one card and flash it
+  const goCard = el => { if (!el) return false; requestAnimationFrame(() => el.scrollIntoView({ block: 'center' })); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 2400); return true; };
+  async function viewDrill(k, tok, qn) {
     setShell('home'); document.title = 'Numericals drill · TNEB AE Study Site';
     const DR = await loadDrill(); if (tok !== RT) return;
     const n = DR.T.reduce((a, t) => a + t.q.length, 0);
@@ -1166,10 +1482,11 @@
       <section class="hero shelfh" style="--c:#2563eb"><h1><span class="shi">🔢</span> Numericals drill</h1><p>${n} quick numericals in 25 EEE topics (Question Book Part 4, p 1203–1229). Aim for one minute each: solve on paper, then show the method and the answer, and mark yourself — it counts in your progress console. Every answer was computed by the book from the formula shown.</p>
       <nav class="pgchips" aria-label="Topics">${DR.T.map(t => `<a href="#drill-${t.k}">${t.k}. ${esc(t.n)}</a>`).join('')}</nav></section>
       ${DR.T.map(t => `<section class="panel drs" id="dk${t.k}"><h2>${t.k}. ${esc(t.n)} <small>${t.q.length} numericals · p ${t.p}${t.t ? ` · <a href="#t-${t.t}">open the topic</a>` : ''}</small></h2><div class="drl">${t.q.map(x => drillCard(t, x)).join('')}</div></section>`).join('')}`;
-    const el = k && document.getElementById('dk' + k);
+    const el = k && document.getElementById('dk' + k), T_ = k && DR.T.find(t => String(t.k) === k);
+    if (qn && T_ && goCard(main.querySelector(`[data-d="${drillId(T_, { n: +qn })}"]`))) return;
     if (el) requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); else toTop();
   }
-  async function viewPred(pid, tok) {
+  async function viewPred(pid, tok, n) {
     setShell('home');
     const PR = await loadPred(); if (tok !== RT) return;
     const X = PR[pid], U = { subs: [], q: X.q }; document.title = X.t + ' · TNEB AE Study Site';
@@ -1190,15 +1507,46 @@
       uAnswer(e, U);
     };
     main.onkeydown = e => { if (e.key === 'Enter' && e.target.classList.contains('unum')) { e.preventDefault(); uAnswer({ target: e.target.closest('.ub').querySelector('[data-uact="chk"]') }, U); } };
-    toTop();
+    if (!(n && goCard(main.querySelector(`[data-u="z${pid}.${+n}"]`)))) toTop();
+  }
+  /* ---------- My starred: everything you starred, in one place ---------- */
+  async function viewStarred(tok) {
+    setShell('home'); document.title = 'My starred · TNEB AE Study Site'; main.innerHTML = '<p class="loading">Loading your starred list…</p>';
+    await Promise.all([loadEvery(), loadRef()]); if (tok !== RT) return;
+    const K = Object.entries(P.star).sort((a, b) => b[1] - a[1]).map(([k]) => k);
+    // Question Book questions: their topic files carry the sub-topic and page
+    const uts = [...new Set(K.filter(k => k[0] === 'u' && UBY[k]).map(k => UBY[k].t))], UT = {};
+    await Promise.all(uts.map(t => get(`data/u/${t}.json`).then(d => { UT[t] = d; }).catch(() => {}))); if (tok !== RT) return;
+    const gts = [...new Set(K.filter(k => /^g\d+\./.test(k)).map(topicOf))], GT = {};
+    await Promise.all(gts.map(t => topic(t).then(d => { GT[t] = d; }).catch(() => {}))); if (tok !== RT) return;
+    const gOf = k => { const d = GT[topicOf(k)], i = +k.split('.')[1]; return d && d.gate.find(g => g.i === i); };
+    const uFull = k => { const x = UBY[k], d = UT[x.t], y = d && d.q.find(q => q.id === k); return { ...(y || {}), ...x, sub: y ? y.sub : -1 }; };
+    const G = Object.fromEntries(REF.g.map(g => [g.id, g]));
+    const tops = K.filter(k => k.startsWith('t/') && T(k.slice(2))), pages = K.filter(k => k.startsWith('ref/')).map(k => k.split('/')).filter(([, g]) => G[g]);
+    const forms = K.filter(k => /^[fks]/.test(k) && FBY[k]), qb = K.filter(k => k[0] === 'u' && UBY[k]), pr = K.filter(k => ZBY[k]), mc = K.filter(k => QBY[k]), dr = K.filter(k => DBY[k]), gs = K.filter(k => /^g\d+\./.test(k));
+    const UQ = { subs: [], q: [...qb.map(uFull), ...pr.map(k => ZBY[k][1])] };
+    const sec = (t, n, body) => n ? `<section class="panel"><h2>${t} <small>${n}</small></h2>${body}</section>` : '';
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › My starred</div>
+      <section class="hero shelfh" style="--c:#d97706"><h1><span class="shi">⭐</span> My starred</h1><p>${K.length ? `${K.length} things you starred. Tap ☆ on any question, formula, look-up page or topic to add it here; tap ★ to remove it.` : 'Nothing starred yet. Tap ☆ on any question, formula, look-up page or topic and it shows here — your own revision list, saved with your progress.'}</p></section>
+      <div class="con">
+      ${sec('📚 Topics', tops.length, `<div class="tcards">${tops.map(k => topicCard(T(k.slice(2)))).join('')}</div>`)}
+      ${sec('📄 Look-up pages', pages.length, `<div class="gsl">${pages.map(([, g, p]) => `<a class="gsr" href="#ref-${g}-${p}"><b>${G[g].ic} ${esc(G[g].n)} · p ${p}</b><small>${volOf(G[g])} · book page ${p}</small></a>`).join('')}</div>`)}
+      ${sec('📐 Formulas', forms.length, `<div class="wf">${forms.map(k => { const f = FBY[k], t = T(f.t); return `<div class="wfi"><span>${starBtn(k, 'formula')}<b>${esc(f.nm)}</b><small>${esc(t ? t.t : '')} · ${esc(f.src)}</small></span><a class="btn" href="#t-${f.t}">Open topic</a><div class="fx">${f.h.join('<br>')}</div></div>`; }).join('')}</div>`)}
+      ${sec('📘 Question Book & predicted papers', UQ.q.length, `<div id="squ" style="display:grid;gap:12px">${UQ.q.map(x => uCard(x.id[0] === 'z' ? { ...x, src: `${PRED[ZBY[x.id][0]].t} · ${x.lab}` } : x, x.id[0] === 'u' && UT[x.t] ? UT[x.t] : UQ)).join('')}</div>`)}
+      ${sec('✅ Book MCQs', mc.length, mc.map(k => mcqCard(QBY[k])).join(''))}
+      ${sec('🔢 Numericals drill', dr.length, `<div class="drl">${dr.map(k => drillCard(...DBY[k])).join('')}</div>`)}
+      ${sec('🎓 GATE sums', gs.length, `<div class="gsl">${gs.map(k => { const t = T(topicOf(k)); return t ? `<a class="gsr" href="#t-${t.id}-prac" data-gt><b>${starBtn(k, 'GATE sum')}${gOf(k) ? `${esc(gOf(k).src)} · Q.${esc(gOf(k).q)}` : 'GATE sum'}</b><small>${esc(t.t)} · Practice tab → GATE sums${gOf(k) ? ` · Answer behind the button there` : ''}</small></a>` : ''; }).join('')}</div>`)}
+      </div>`;
+    main.onclick = e => { if (e.target.closest('[data-gt]')) GOSEC = 'gate'; uAnswer(e, UQ); };
+    main.onkeydown = e => { if (e.key === 'Enter' && e.target.classList.contains('unum')) { e.preventDefault(); uAnswer({ target: e.target.closest('.ub').querySelector('[data-uact="chk"]') }, UQ); } };
+    lazy(); toTop();
   }
   function predTimed(X) {
     const qs = X.q.filter(x => x.ty === 'mcq').map(x => { const oh = x.qh != null ? Object.fromEntries(x.oh) : null;
-      return { id: x.id, t: '', src: `${X.t} · ${x.lab}`, q: oh ? `<div class="uq">${x.qh}</div>` : `<div class="im wide">${spu(x.qs, x.lab)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>`,
+      return { id: x.id, t: '', sec: x.sec.replace(/^Part [IVX]+ — /, ''), src: x.topic || x.lab, q: oh ? `<div class="uq">${x.qh}</div>` : `<div class="im wide">${spu(x.qs, x.lab)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>`,
         opts: x.L.map(l => ({ l, h: oh && oh[l] || '' })), r: x.L.indexOf(x.ok[0]), ex: x.sh ? solHtml(x) : spu(x.ss, 'Answer and working') }; });
-    M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), i: 0, end: Date.now() + 120 * 60 * 1000, total: 7200, neg: true, t0: Date.now() };
-    showMock();
-    clearInterval(tick); tick = setInterval(() => { if (!M) return clearInterval(tick); const left = Math.round((M.end - Date.now()) / 1000), el = $('.mk-time'); if (el) { el.textContent = clock(left); el.classList.toggle('low', left <= 60); } if (left <= 0) mockSubmit(); }, 1000);
+    M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), vis: qs.map(() => false), tq: qs.map(() => 0), tab: '', i: 0, end: Date.now() + 120 * 60 * 1000, total: 7200, neg: true, t0: Date.now(), title: X.t };
+    showMock(); startTick();
   }
   function viewMore() {
     setShell('home'); document.title = 'Other past questions · TNEB AE Study Site';
@@ -1215,7 +1563,7 @@
   const norm = t => t.toLowerCase().replace(/\s+/g, ' ');
   async function gsIndex() {
     if (GSI) return GSI;
-    await Promise.all([loadAll(), loadRef(), loadSym(), loadAzt()]);
+    await Promise.all([loadEvery(), loadRef(), loadSym(), loadAzt()]);
     GSI = {
       r: REF.g.flatMap(g => g.p.map(e => [{ g, p: e[0], x: e[7] }, norm(g.n + ' ' + e[7])])),
       s: SYM.e.map(e => [e, norm(plain([e[1], e[2], e[3], e[4], e[5], e[6].join(' ')].join(' ')))]),
@@ -1223,6 +1571,8 @@
       f: FA.map(f => [f, norm(f.nm + ' ' + plain(f.h.join(' ')) + ' ' + (T(f.t) || {}).t)]),
       u: UA.map(x => [x, norm([x.lab, x.src, x.c, x.sb, x.ans, plain(x.qh || ''), (x.oh || []).map(o => plain(o[1])).join(' '), x.x || '', (T(x.t) || {}).t].join(' '))]),
       q: QA.map(x => [x, norm(plain(x.q + ' ' + x.o.join(' ')) + ' ' + x.src + ' ' + (T(x.t) || {}).t)]),
+      d: DRILL.T.flatMap(t => t.q.map(x => [{ t, x }, norm(plain(x.q + ' ' + x.a) + ' ' + t.n + ' drill numerical')])),
+      z: ['gate', 'tneb'].flatMap(p => PRED[p].q.map(x => [{ p, x }, norm([PRED[p].t, 'predicted', x.lab, x.sec, x.topic, x.ans, plain(x.qh || ''), (x.oh || []).map(o => plain(o[1])).join(' '), (x.sh || []).map(e => plain(e[1])).join(' ')].join(' '))])),
     };
     return GSI;
   }
@@ -1238,7 +1588,8 @@
     const us = I.u.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
     const qs = I.q.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
     const rs = I.r.filter(([, s]) => hitAll(s, W)).map(([x]) => x), ss = I.s.filter(([, s]) => hitAll(s, W)).map(([x]) => x), as = I.a.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
-    const n = tp.length + fs.length + us.length + qs.length + rs.length + ss.length + as.length;
+    const ds = I.d.filter(([, s]) => hitAll(s, W)).map(([x]) => x), zs = I.z.filter(([, s]) => hitAll(s, W)).map(([x]) => x);
+    const n = tp.length + fs.length + us.length + qs.length + rs.length + ss.length + as.length + ds.length + zs.length;
     const grp = (id, title, L, row, k = 8) => L.length ? `<section class="panel"><h2>${title} <small>${L.length}</small></h2><div class="gsl">${L.slice(0, k).map(row).join('')}</div>${L.length > k ? `<button class="more" data-gs="${id}">Show all ${L.length}</button>` : ''}</section>` : '';
     const tn = id => esc((T(id) || {}).t || '');
     const go = (id, pane) => `data-go="${id}" data-pane="${pane || ''}"`;
@@ -1246,16 +1597,18 @@
       t: t => `<a class="gsr" href="#t-${t.id}"><b>${esc(t.t)}</b><small>${esc(IX.S.find(s => s[0] === t.s)[1])}</small></a>`,
       f: f => `<a class="gsr" href="#t-${f.t}" ${go(f.t, '')}><b>${esc(f.nm)}</b><span class="fx">${f.h[0]}</span><small>${tn(f.t)} · ${esc(f.src)}</small></a>`,
       u: x => `<a class="gsr" href="#t-${x.t}-prac" ${go(x.t, 'prac')}><b><span class="ex ex-${x.ex}">${esc(x.src)}</span></b><span>${esc((plain(x.qh || '') || x.x || x.sb || '').slice(0, 160))}…</span><small>${tn(x.t)} · ${esc(x.sb || '')} · Answer: ${esc(x.ans)}</small></a>`,
-      r: x => { const i = x.x.toLowerCase().indexOf(W[0]), sn = x.x.slice(Math.max(0, i - 60), i + 120); return `<a class="gsr" href="#ref-${x.g.id}-${x.p}"><b>${x.g.ic} ${esc(x.g.n)} · p ${x.p}</b><span>${i > 60 ? '…' : ''}${esc(sn)}…</span><small>Look-up shelf · Vol ${x.g.v} · book page ${x.p}</small></a>`; },
+      r: x => { const i = x.x.toLowerCase().indexOf(W[0]), sn = x.x.slice(Math.max(0, i - 60), i + 120); return `<a class="gsr" href="#ref-${x.g.id}-${x.p}"><b>${x.g.ic} ${esc(x.g.n)} · p ${x.p}</b><span>${i > 60 ? '…' : ''}${esc(sn)}…</span><small>Look-up shelf · ${volOf(x.g)} · book page ${x.p}</small></a>`; },
+      d: ({ t, x }) => `<a class="gsr" href="#drill-${t.k}-${x.n}"><b>🔢 ${t.k}.${x.n} · ${esc(t.n)}</b><span>${esc(plain(x.q).slice(0, 170))}</span><small>Numericals drill · Question Book p ${t.p}</small></a>`,
+      z: ({ p, x }) => `<a class="gsr" href="#pred-${p}-${x.n}"><b>${p === 'gate' ? '🎓' : '⚡'} ${esc(PRED[p].t)} · ${esc(x.lab)}</b><span>${esc((plain(x.qh || '') || x.topic || '').slice(0, 170))}</span><small>Predicted practice paper · ${esc(x.sec.replace(/^Part [IV]+ — /, ''))}${x.topic ? ' · ' + esc(x.topic) : ''}</small></a>`,
       s: e => `<a class="gsr" href="#ref-sym"><b><span class="fx">${e[1]}</span> — ${e[2]}</b><span>${e[3]}${e[5] ? ' · ' + e[5] : ''}</span><small>Symbols A–Z · Vol 6 p ${e[7]}</small></a>`,
       a: x => `<a class="gsr" href="#ref-az"><b>${x.r[0]}</b><span class="fx">${x.r[1][0] || ''}</span><small>A–Z formula table · ${esc(x.t)} · ${esc(x.r[2])} · Vol 6 p ${x.r[3]}</small></a>`,
       q: x => `<a class="gsr" href="#t-${x.t}${x.k === 'book' ? '' : '-prac'}" ${go(x.t, x.k === 'book' ? '' : 'prac')}><b>${esc(plain(x.q).slice(0, 140))}</b><small>${tn(x.t)} · ${esc(x.src)}</small></a>`,
     };
-    const L = { t: tp, f: fs, u: us, q: qs, r: rs, s: ss, a: as };
+    const L = { t: tp, f: fs, u: us, q: qs, r: rs, s: ss, a: as, d: ds, z: zs };
     const render = (all = '') => {
       main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Search</div><div class="con">
         <section class="panel"><h2>🔎 “${esc(q)}” <small>${n ? `${n} results` : 'nothing found — try fewer or different words'}</small></h2><p>Every word must appear. Tap a result to open its topic with these words already searched there.</p></section>
-        ${grp('t', 'Topics', tp, rows.t, all === 't' ? 1e9 : 8)}${grp('f', 'Formulas', fs, rows.f, all === 'f' ? 1e9 : 8)}${grp('u', 'Question Book — past questions', us, rows.u, all === 'u' ? 1e9 : 8)}${grp('q', 'Book MCQs', qs, rows.q, all === 'q' ? 1e9 : 8)}${grp('r', '📚 Look-up shelf pages', rs, rows.r, all === 'r' ? 1e9 : 6)}${grp('s', '🔤 Symbols A–Z', ss, rows.s, all === 's' ? 1e9 : 6)}${grp('a', '📒 A–Z formula table', as, rows.a, all === 'a' ? 1e9 : 6)}</div>`;
+        ${grp('t', 'Topics', tp, rows.t, all === 't' ? 1e9 : 8)}${grp('f', 'Formulas', fs, rows.f, all === 'f' ? 1e9 : 8)}${grp('u', 'Question Book — past questions', us, rows.u, all === 'u' ? 1e9 : 8)}${grp('q', 'Book MCQs', qs, rows.q, all === 'q' ? 1e9 : 8)}${grp('d', '🔢 Numericals drill', ds, rows.d, all === 'd' ? 1e9 : 6)}${grp('z', '🎯 Predicted papers (practice)', zs, rows.z, all === 'z' ? 1e9 : 6)}${grp('r', '📚 Look-up shelf pages', rs, rows.r, all === 'r' ? 1e9 : 6)}${grp('s', '🔤 Symbols A–Z', ss, rows.s, all === 's' ? 1e9 : 6)}${grp('a', '📒 A–Z formula table', as, rows.a, all === 'a' ? 1e9 : 6)}</div>`;
     };
     render();
     main.onclick = e => {

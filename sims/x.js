@@ -51,10 +51,24 @@
     o: [['P', 'Rotational loss', 'W', v => v.J * (2 * PI * v.N / 60) * (2 * PI * v.dN / 60)]], ck: [] });
 
   /* ---------- Transformers ---------- */
-  lab(497, { n: 'Turns ratio — voltage and current', rf: 'Turns ratio', c: 'V₁/V₂ = N₁/N₂ = I₂/I₁. More secondary turns → step-up.',
-    i: [['V1', 'Primary V₁', 'V', 1100, 1, 100000, 1], ['N1', 'Primary turns N₁', '', 500, 1, 10000, 1], ['N2', 'Secondary turns N₂', '', 100, 1, 10000, 1], ['I1', 'Primary current I₁', 'A', 10, 0.01, 1000, 0.01]],
-    o: [['V2', 'Secondary V₂', 'V', v => v.V1 * v.N2 / v.N1], ['I2', 'Secondary I₂', 'A', v => v.I1 * v.N1 / v.N2], ['ty', 'Type', '', v => v.N2 > v.N1 ? 'step-up' : v.N2 < v.N1 ? 'step-down' : '1 : 1']],
-    ck: [[{ V1: 1100, N1: 500, N2: 100 }, { V2: 220 }, 'Vol 2 p 514 · Sum 1'], [{ V1: 2200, N1: 1000, N2: 100 }, { V2: 220 }, 'Vol 2 p 497 · quick check'], [{ V1: 230, N1: 200, N2: 800 }, { V2: 920, ty: 'step-up' }, 'Vol 2 p 499 · quick check']] });
+  lab(497, { n: 'Turns ratio — step-up or step-down, live circuit', rf: 'Turns ratio', c: 'V₁/V₂ = N₁/N₂ = I₂/I₁ = a. More secondary turns → step-up (a < 1): the voltage rises and the current falls in the same ratio, so the power is the same on both sides (ideal transformer).',
+    i: [['V1', 'Primary V₁', 'V', 1100, 1, 100000, 1], ['N1', 'Primary turns N₁', '', 500, 1, 10000, 1], ['N2', 'Secondary turns N₂', '', 100, 1, 10000, 1], ['RL', 'Load resistance R_L', 'Ω', 50, 0.1, 100000, 0.1, 'log']],
+    o: [['a', 'Turns ratio a = N₁/N₂', '', v => v.N1 / v.N2], ['ty', 'Type', '', v => v.N2 > v.N1 ? 'step-up' : v.N2 < v.N1 ? 'step-down' : '1 : 1'], ['V2', 'Secondary V₂', 'V', v => v.V1 * v.N2 / v.N1],
+      ['I2', 'Secondary I₂ = V₂/R_L', 'A', v => v.V2 / v.RL], ['I1', 'Primary I₁ = I₂/a', 'A', v => v.I2 / v.a], ['P', 'Power in = power out', 'W', v => v.V2 * v.I2]],
+    ck: [[{ V1: 1100, N1: 500, N2: 100 }, { V2: 220 }, 'Vol 2 p 514 · Sum 1'], [{ V1: 2200, N1: 1000, N2: 100 }, { V2: 220 }, 'Vol 2 p 497 · quick check'], [{ V1: 230, N1: 200, N2: 800 }, { V2: 920, ty: 'step-up' }, 'Vol 2 p 499 · quick check']],
+    fig: (v, F) => {
+      const O = '#ea580c', B = '#2563eb', up = v.N2 > v.N1, sp1 = Math.log10(1 + v.I1) * 1.6, sp2 = Math.log10(1 + v.I2) * 1.6, n1 = 3 + 9 * v.N1 / Math.max(v.N1, v.N2), n2 = 3 + 9 * v.N2 / Math.max(v.N1, v.N2);
+      return F.svg(640, 330, `
+        ${F.txt(16, 24, `${up ? '▲ Step-up' : v.N2 < v.N1 ? '▼ Step-down' : '■ 1 : 1'} transformer`, { c: 'fh', col: up ? '#16a34a' : v.N2 < v.N1 ? O : 'currentColor' })}${F.txt(624, 24, `a = ${F.t(v.a)}`, { a: 'end', c: 'fh' })}${F.txt(624, 42, 'ideal (lossless)', { a: 'end', c: 'fs' })}
+        <rect x="250" y="52" width="140" height="170" rx="6" class="fcore"/><rect x="282" y="84" width="76" height="106" rx="3" fill="var(--paper)"/>${F.txt(320, 142, 'iron core', { a: 'middle', c: 'fs' })}
+        ${F.arrow(300, 68, 340, 68, '#94a3b8', 1.6)}${F.arrow(374, 120, 374, 156, '#94a3b8', 1.6)}${F.arrow(340, 206, 300, 206, '#94a3b8', 1.6)}${F.arrow(266, 156, 266, 120, '#94a3b8', 1.6)}
+        ${F.wire('M90,137 V70 H266 V92', O, sp1)}${F.wire('M266,182 V204 H90 V163', O, sp1)}${F.coil(266, 92, 182, n1, O, 1)}
+        ${F.wire('M374,92 V70 H560 V100', B, sp2)}${F.wire('M560,174 V204 H374 V182', B, sp2)}${F.coil(374, 92, 182, n2, B, -1)}${F.resV(560, 100, 174, B)}
+        ${F.src(90, 150, 22, O)}${F.txt(56, 154, 'V₁', { a: 'end', c: 'fl' })}${F.txt(90, 196, `${F.t(v.V1)} V`, { a: 'middle', c: 'fv', col: O })}
+        ${F.txt(130, 62, `I₁ = ${F.t(v.I1)} A →`, { c: 'fv', col: O })}${F.txt(266, 242, `N₁ = ${F.t(v.N1)}`, { a: 'end', c: 'fv', col: O })}${F.txt(374, 242, `N₂ = ${F.t(v.N2)}`, { c: 'fv', col: B })}
+        ${F.txt(548, 124, `R_L = ${F.t(v.RL)} Ω`, { a: 'end', c: 'fs' })}${F.txt(548, 146, `V₂ = ${F.t(v.V2)} V`, { a: 'end', c: 'fv', col: B })}${F.txt(400, 62, `I₂ = ${F.t(v.I2)} A →`, { c: 'fv', col: B })}
+        ${F.waves(16, 252, 608, 70, [{ a: v.V1, col: O, l: `V₁ = ${F.t(v.V1)} V` }, { a: v.V2, col: B, l: `V₂ = ${F.t(v.V2)} V` }], 2)}`, `Transformer circuit: V1 ${v.V1} V, N1 ${v.N1}, N2 ${v.N2}, V2 ${F.t(v.V2)} V`);
+    } });
   lab(497, { n: 'EMF equation', rf: 'EMF equation', c: 'E = 4.44 f N ϕm.',
     i: [['f', 'Frequency', 'Hz', 50, 1, 400, 1], ['N', 'Turns N', '', 200, 1, 10000, 1], ['phi', 'Peak flux ϕm', 'Wb', 0.01, 0.0001, 1, 0.0001, 'log']],
     o: [['E', 'RMS EMF', 'V', v => 4.44 * v.f * v.N * v.phi]],
