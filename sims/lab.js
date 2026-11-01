@@ -293,6 +293,93 @@
   const goalsDone = r => GOALS.filter(([k]) => k === 'p' ? (r.pk || []).length >= 3 || (r.p || 0) >= 3 : k === 'q' ? ((r.q || [0, 0])[1] >= 2) : (r.k || {})[k]).length;
   LX.goalsDone = goalsDone; LX.GOALS = GOALS;
 
+  /* ---------- the book's worked examples: the model run on the book's numbers, beside the printed answer ---------- */
+  function ckHtml(S) {
+    const L = (S.ck || []).map(([inp, out, src, tol]) => {
+      const v = run(S, { ...defaults(S), ...inp });
+      return Object.keys(out).filter(k => outOf(S, k)).map(k => { const want = out[k], got = v[k], o = outOf(S, k);
+        const ok = typeof want === 'string' ? String(got) === want : Number.isFinite(got) && Math.abs(got - want) <= Math.max(Math.abs(want) * (tol || 0.012), 1e-12);
+        const give = Object.keys(inp).map(j => { const s = inOf(S, j); return s ? `${esc(s[1])} = ${isCh(s) ? esc(chText(s, inp[j])) : fx(inp[j]) + (s[2] ? ' ' + esc(s[2]) : '')}` : ''; }).filter(Boolean).join(', ');
+        return `<li class="${ok ? 'ok' : 'no'}"><span>${ok ? '✓' : '✗'} <b>${esc(o[1])}</b> = ${typeof want === 'string' ? esc(want) : fx(want / (o[5] || 1))}${o[2] ? ' ' + esc(o[2]) : ''}</span><small>${esc(src || '')}${give ? ` · ${give}` : ''}</small></li>`; }).join('');
+    }).join('');
+    return L ? `<details class="lxcard lxck"><summary><h3>Checked against your book</h3></summary><p class="lxmuted">The simulator, given the numbers of a worked example or table in your book, gets the printed answer:</p><ul>${L}</ul></details>` : '';
+  }
+
+  /* ---------- a topic formula lab (sims/engine.js format) as a full experiment ----------
+     The lab's own inputs, outputs, curve, drawing and book checks; the rest is worked out from its formulas:
+     which input moves which output (for "what happens if" questions), numericals, a comparison, and the formula
+     as written in the lab (shown only when it is plain arithmetic of the inputs). */
+  const MF = { sqrt: '√', cbrt: '∛', abs: 'abs', log10: 'log₁₀', log: 'ln', exp: 'exp', sin: 'sin', cos: 'cos', tan: 'tan', asin: 'sin⁻¹', acos: 'cos⁻¹', atan: 'tan⁻¹', sinh: 'sinh', cosh: 'cosh', tanh: 'tanh', min: 'min', max: 'max', hypot: 'hypot', round: 'round', floor: 'floor', ceil: 'ceil' };
+  const GR = { tau: 'τ', rho: 'ρ', eta: 'η', phi: 'φ', theta: 'θ', alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', lambda: 'λ', mu: 'µ', sigma: 'σ', omega: 'ω', epsilon: 'ε', eps: 'ε', psi: 'ψ', zeta: 'ζ' };
+  // a variable name as a symbol: Greek names as letters, trailing digits as a subscript (N1 → N₁)
+  const sym = k => { const m = String(k).match(/^([A-Za-z]+?)(\d+)$/), b = m ? m[1] : k; return `<i>${esc(GR[b] || b)}</i>${m ? `<sub>${m[2]}</sub>` : ''}`; };
+  // minus signs, and 1e-9 as 1 × 10⁻⁹
+  const tidy = t => t.replace(/(^|[^\w.])(\d*\.?\d+)e([+-]?)(\d+)/gi, (x, p, a, sg, n) => `${p}${a === '1' ? '' : a + ' × '}10<sup>${sg === '-' ? '−' : ''}${n}</sup>`).replace(/(^|[(,\s\u0003])-(?=[\w(.<\u0001])/g, '$1−').replace(/-(?=\d)/g, '−');
+  function exprOf(fn) {
+    const m = String(fn).trim().match(/^\(?\s*v\s*\)?\s*=>\s*([\s\S]+)$/); if (!m) return null;
+    const e = m[1].trim(); if (e[0] === '{' || e.length > 160) return null;
+    const rest = e.replace(/v\.[A-Za-z_]\w*/g, '0').replace(/Math\.(PI|E|SQRT2)\b/g, '0').replace(/\bPI\b/g, '0').replace(/Math\.(\w+)\(/g, (x, f) => MF[f] ? '(' : '#(')
+      .replace(/\d*\.?\d+(e[+-]?\d+)?/gi, '0');
+    if (/[^0-9+\-*/(). ,]/.test(rest)) return null;
+    // operators first (on the source, variables held as placeholders), then the variables: markup is never re-processed
+    const keys = [], e1 = e.replace(/v\.([A-Za-z_]\w*)/g, (x, k) => { keys.push(k); return `\u0001${keys.length - 1}\u0002`; });
+    const body = tidy(e1.replace(/Math\.PI\b|\bPI\b/g, 'π').replace(/Math\.SQRT2\b/g, '√2').replace(/Math\.E\b/g, 'e').replace(/Math\.(\w+)\(/g, (x, f) => MF[f] + '(')
+      .replace(/\s*\*\*\s*/g, '\u0003').replace(/\*/g, ' × ').replace(/\s*\/\s*/g, ' / ')
+      .replace(/([^\s\u0003])\s*([+\-])\s*(?=\S)/g, (x, a, op) => /[(,e×/]$/.test(a) && !/[)\d]$/.test(a) ? x.replace(/\s+/g, ' ') : `${a} ${op === '-' ? '−' : '+'} `).replace(/\s+/g, ' ').trim())
+      .replace(/\u0003(\d+(?:\.\d+)?|\u0001\d+\u0002)/g, '<sup>$1</sup>').replace(/\u0003/g, '^');
+    const tx = sub => body.replace(/\u0001(\d+)\u0002/g, (x, j) => sub(keys[+j]));
+    return { f: tx(sym), sub: v => { let bad = false; const r = tx(k => { const x = v[k]; if (typeof x !== 'number' || !Number.isFinite(x)) { bad = true; return '?'; } const t = fp(x); return x < 0 ? `(${t})` : t; }); return bad ? '' : r; } };
+  }
+  // a drawing for labs that have none: what you set → the book formula → what it gives, with the live values
+  function flowFig(S, v, nm) {
+    // top to bottom, two boxes a row, so it stays readable on a phone: inputs → the book formula → results
+    const ins = S.i.slice(0, 6), outs = S.o.slice(0, 6), W0 = 400, BW = 188, BH = 46, RH = 54;
+    const cut = (t, k) => { t = String(t); return t.length > k ? t.slice(0, k - 1) + '…' : t; };
+    const val = (k, u) => { const y = disp(S, k, v); return `${typeof y === 'number' ? fp(y) : esc(cut(fx(y).replace(/<[^>]+>/g, ''), 18))}${u ? ' ' + esc(u) : ''}`; };
+    const box = (x, y, lab, vv, cls) => `<g class="${cls}"><rect x="${x}" y="${y}" width="${BW}" height="${BH}" rx="11"/><text x="${x + 11}" y="${y + 18}" class="t1">${esc(cut(lab, 27))}</text><text x="${x + 11}" y="${y + 37}" class="t2">${vv}</text></g>`;
+    const place = (n, y0) => Array.from({ length: n }, (_, j) => { const row = Math.floor(j / 2), last = n % 2 && j === n - 1; return [last ? (W0 - BW) / 2 : 8 + (j % 2) * (BW + 8), y0 + row * RH]; });
+    const rin = Math.ceil(ins.length / 2), fy = 8 + rin * RH + 18, FH = 72, oy = fy + FH + 26, rout = Math.ceil(outs.length / 2), H = oy + rout * RH + 4;
+    let g = '', bx = '';
+    place(ins.length, 8).forEach(([x, y], j) => { const s = ins[j]; g += `<path class="lxfl" d="M${x + BW / 2} ${y + BH} C ${x + BW / 2} ${fy - 6}, ${W0 / 2} ${y + BH + 10}, ${W0 / 2} ${fy}"/>`; bx += box(x, y, s[1], isCh(s) ? esc(cut(chText(s, v[s[0]]), 18)) : val(s[0], s[2]), 'in'); });
+    place(outs.length, oy).forEach(([x, y], j) => { const o = outs[j]; g += `<path class="lxfl" d="M${W0 / 2} ${fy + FH} C ${W0 / 2} ${y - 10}, ${x + BW / 2} ${fy + FH + 6}, ${x + BW / 2} ${y}"/>`; bx += box(x, y, o[1], val(o[0], o[2]), 'out'); });
+    g += bx;
+    const words = String(nm || 'Book formula').split(/\s+/), lines = []; words.forEach(w => { const l = lines[lines.length - 1]; if (l && (l + ' ' + w).length <= 26) lines[lines.length - 1] = l + ' ' + w; else lines.push(w); });
+    const L2 = lines.slice(0, 2); if (lines.length > 2) L2[1] = cut(L2[1] + ' …', 26);
+    g += `<g class="fm"><rect x="${W0 / 2 - 120}" y="${fy}" width="240" height="${FH}" rx="16"/><text x="${W0 / 2}" y="${fy + 20}" class="t3" text-anchor="middle">BOOK FORMULA</text>${L2.map((t, j) => `<text x="${W0 / 2}" y="${fy + 41 + j * 17}" class="t4" text-anchor="middle">${esc(t)}</text>`).join('')}</g>`;
+    return `<svg viewBox="0 0 ${W0} ${H}" class="lxsvg lxflow" role="img" aria-label="What you set, the book formula, and what it gives, with your values">${g}</svg>`;
+  }
+  LX.fromLab = (L, o = {}) => {
+    const i = L.i.map(s => Array.isArray(s[4]) ? [s[0], s[1], '', s[3], s[4].map(c => Array.isArray(c) ? c : [c, String(c)])] : [s[0], s[1], s[2] || '', s[3], s[4], s[5], s[6], s[7] === 'log' ? { log: true } : {}]);
+    const out = L.o.map(x => [x[0], x[1], x[2] || '', x[3], x[4]]);
+    const S = { m: 'Book formula', as: ['Every output is worked out from the formula printed in your book, with the values you set.', 'Nothing beyond that formula is modelled: losses, limits or tolerances count only when the formula includes them.'], i, o: out, ck: L.ck || [] };
+    const v0 = run(S, defaults(S)), nums = i.filter(s => !isCh(s)), outs = out.filter(x => typeof v0[x[0]] === 'number' && Number.isFinite(v0[x[0]]));
+    const EX = {}; out.forEach(x => { const e = exprOf(x[3]); if (e) EX[x[0]] = e; });
+    // which input moves which output, by the formula itself (+25 % on the input)
+    const rel = [], moves = {};
+    outs.slice(0, 5).forEach(x => nums.forEach(s => { const x0 = s[3], x1 = x0 > 0 ? x0 * 1.25 : (s[4] + s[5]) / 2; if (x1 > s[5] && x0 * 0.75 < s[4]) return;
+      const y0 = v0[x[0]], y1 = run(S, { ...defaults(S), [s[0]]: x1 > s[5] ? x0 * 0.75 : x1 })[x[0]];
+      if (Number.isFinite(y1) && Math.abs(y1 - y0) > Math.max(Math.abs(y0) * 0.005, 1e-12)) { (moves[x[0]] = moves[x[0]] || []).push(s[0]); rel.push([s[0], x[0], () => EX[x[0]] ? `From the formula ${sym(x[0])} = ${EX[x[0]].f}, worked out for both values.` : 'Worked out from the book formula for both values.']); } }));
+    S.rel = rel.slice(0, 12);
+    S.num = outs.slice(0, 3).filter(x => moves[x[0]]).flatMap(x => [{ a: x[0], g: moves[x[0]].slice(0, 3), lv: 2 }, ...(moves[x[0]].length > 1 ? [{ a: x[0], g: moves[x[0]], lv: 3 }] : [])]);
+    const r0 = rel[0] && i.find(s => s[0] === rel[0][0]);
+    if (r0) { const b = r0[3] > 0 && r0[3] * 2 <= r0[5] ? r0[3] * 2 : r0[3] > 0 ? r0[3] / 2 : (r0[4] + r0[5]) / 2; S.cmp = [{ n: `${r0[1]}: ${fp(r0[3])} → ${fp(b)}`, a: {}, b: { [r0[0]]: b } }]; }
+    S.me = (outs.length ? outs : out).slice(0, 4).map(x => x[0]);
+    S.g = [];
+    if (L.plot) { const P = L.plot, [xk, xl, xu, a, b, lg] = P.x;
+      S.g.push({ n: P.yl || 'The book curve', xl: `${xl}${xu ? ` (${xu})` : ''}`, yl: P.yl || '', f: v => { const xs = []; for (let j = 0; j < 121; j++) xs.push(lg ? a * (b / a) ** (j / 120) : a + (b - a) * j / 120);
+        const ser = P.y.map(([n, fn]) => ({ n, ys: xs.map(x => { try { const y = fn(x, v); return Number.isFinite(y) ? y : NaN; } catch (e) { return NaN; } }) }));
+        let mark; try { const mx = P.mark ? P.mark(v) : undefined; if (Number.isFinite(mx)) mark = [mx, P.y.map(([, fn]) => { try { return fn(mx, v); } catch (e) { return NaN; } })]; } catch (e) {}
+        return { xs, ser, logx: !!lg, mark }; } });
+    }
+    const seen = new Set(); rel.forEach(([xk, yk]) => { if (S.g.length < 3 && !seen.has(xk)) { seen.add(xk); S.g.push({ x: xk, y: [yk], n: `${labelOf(S, yk)} vs ${labelOf(S, xk)}` }); } });
+    S.steps = (v, f) => out.map(x => { const e = EX[x[0]], y = v[x[0]], sb = e ? e.sub(v) : ''; return [esc(x[1]), e ? `${sym(x[0])} = ${e.f}` : '<span class="lxmuted">from the book formula</span>', sb && typeof y === 'number' && sb.replace(/[()]/g, '') === tidy(fp(y)) ? '' : sb, typeof y === 'number' ? y : fx(y), x[2]]; });
+    S.der = [o.ref && o.ref.replace('</b><span', '</b><br><span'), ...out.filter(x => EX[x[0]]).map(x => `${esc(x[1])}: ${sym(x[0])} = ${EX[x[0]].f}`)].filter(Boolean);
+    S.cn = { w: L.c || '', v: L.fig ? 'The drawing follows your values: change an input and it is redrawn from the formula.' : 'Each box shows a value you set or a result, live: change an input and every result is worked out again from the book formula.' };
+    S.fig = L.fig ? v => { try { return L.fig(v, W.FIG); } catch (e) { return ''; } } : v => flowFig(S, v, L.rf || L.n);
+    return S;
+  };
+  LX.exprOf = exprOf;
+
   LX.mount = function mount(box, id, A) {
     const S = LX.X[id]; if (!S) { box.innerHTML = '<div class="lxempty">This experiment could not be found.</div>'; return; }
     const meta = A.meta, R = A.rec(id);
@@ -304,10 +391,10 @@
     const chipEx = (meta.ex.includes('t') ? '<span class="lxchip t" title="HIGH priority topic in your book">TNEB AE important</span>' : '') + (meta.ex.includes('g') ? '<span class="lxchip g" title="25 or more GATE sums in your book on this topic">GATE important</span>' : '');
     const DN = ['', 'Beginner', 'Intermediate', 'Advanced'];
     box.innerHTML = `<div class="lx lxw${playing ? '' : ' paused'}">
-      <div class="crumbs"><a href="#sims">Simulation Lab</a> › <a href="#sims-${meta.cat}">${esc(A.catName)}</a> › ${esc(meta.n)}</div>
+      <div class="crumbs">${A.crumbs || `<a href="#sims">Simulation Lab</a> › <a href="#sims-${meta.cat}">${esc(A.catName)}</a> › ${esc(meta.n)}`}</div>
       <header class="lxh"><div class="lxhic" style="--cc:${A.catCol}">${A.catIcon}</div><div class="lxht"><h1>${esc(meta.n)}</h1>
-        <p><span class="lxchip m" title="${esc((S.as || []).join(' · '))}">${esc(S.m || 'Model')}</span><span class="lxchip d${meta.d}">${DN[meta.d]}</span>${chipEx}${meta.t.map(t => A.topicLink(t)).join('')}</p></div>
-        <button class="lxfav" aria-pressed="${A.isFav(id)}" aria-label="Keep in my favourite simulations">${A.isFav(id) ? '★' : '☆'}</button></header>
+        <p><span class="lxchip m" title="${esc((S.as || []).join(' · '))}">${esc(S.m || 'Model')}</span>${meta.d ? `<span class="lxchip d${meta.d}">${DN[meta.d]}</span>` : ''}${chipEx}${meta.t.map(t => A.topicLink(t)).join('')}</p></div>
+        ${A.isFav ? `<button class="lxfav" aria-pressed="${A.isFav(id)}" aria-label="Keep in my favourite simulations">${A.isFav(id) ? '★' : '☆'}</button>` : ''}</header>
       <div class="lxgoals" aria-label="Your progress on this experiment"></div>
       <div class="lxtabs" role="tablist" aria-label="Experiment sections">${TABS.map(([k, n]) => `<button role="tab" id="lxt-${k}" aria-controls="lxp-${k}" data-tab="${k}" aria-selected="${k === tab}" tabindex="${k === tab ? 0 : -1}">${n}</button>`).join('')}</div>
       ${TABS.map(([k]) => `<section class="lxp" id="lxp-${k}" role="tabpanel" aria-labelledby="lxt-${k}"${k === tab ? '' : ' hidden'}></section>`).join('')}
@@ -392,6 +479,7 @@
       P_('c').innerHTML = `<div class="lxcard"><h3>Given values</h3><ul class="lxgiven">${S.i.filter(s => shown(S, s, v)).map(s => `<li><span>${esc(s[1])}</span><b>${isCh(s) ? esc(chText(s, d[s[0]])) : `${fx(d[s[0]])} ${esc(s[2])}`}</b>${!isCh(s) && kOf(s) !== 1 ? `<em>= ${fx(v[s[0]])} ${esc(siUnit(s[2]))}</em>` : ''}</li>`).join('')}</ul></div>
         ${S.der && S.der.length ? `<details class="lxcard" open><summary><h3>Formulas and where they come from</h3></summary><ul class="lxder">${S.der.map(x => `<li>${x}</li>`).join('')}</ul></details>` : ''}
         <div class="lxcard"><h3>Step-by-step, with your numbers</h3>${stepsHtml(S, v) || '<p class="lxmuted">No steps for this experiment.</p>'}</div>
+        ${ckHtml(S)}
         ${it ? `<div class="lxcard lxint"><h3>What the numbers mean</h3><p>${it}</p></div>` : ''}
         <details class="lxcard"><summary><h3>Assumptions — ${esc(S.m || 'model')}</h3></summary><ul>${(S.as || []).map(x => `<li>${x}</li>`).join('')}</ul></details>`;
     }
@@ -513,7 +601,7 @@
       if (t.dataset.gi != null) { gi = +t.dataset.gi; paintG(); return; }
       if (t.dataset.lv != null) { lv = /^\d$/.test(t.dataset.lv) ? +t.dataset.lv : t.dataset.lv; paintX(); return; }
       if (t.dataset.o != null) { answer(+t.dataset.o); return; }
-      if (t.classList.contains('lxfav')) { const on = A.toggleFav(id); t.setAttribute('aria-pressed', on); t.textContent = on ? '★' : '☆'; A.toast(on ? '★ Added to My favourite simulations' : 'Removed from favourites'); return; }
+      if (t.classList.contains('lxfav') && A.toggleFav) { const on = A.toggleFav(id); t.setAttribute('aria-pressed', on); t.textContent = on ? '★' : '☆'; A.toast(on ? '★ Added to My favourite simulations' : 'Removed from favourites'); return; }
       const a = t.dataset.a;
       if (a === 'play') { playing = !playing; root.classList.toggle('paused', !playing); t.textContent = playing ? '❚❚ Pause' : '▶ Start'; if (playing) loop(); }
       else if (a === 'reset') { T = 0; d = { ...defaults(S) }; paintInputs(); paintE(); }

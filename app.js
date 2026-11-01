@@ -117,7 +117,8 @@
   let simsP = null;
   /* ---------- ⚡ Electrical Simulation Laboratory: catalogue (the engines load only when an experiment opens) ---------- */
   const loadJs = f => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js?v=${SWV}`; el.onload = ok; el.onerror = () => no(new Error('Could not load the lab')); document.head.appendChild(el); });
-  const labP = {}; const loadLab = n => labP[n] ||= loadJs('lab').then(() => loadJs('lx' + n)).catch(e => { delete labP[n]; throw e; });
+  const labP = {}; const loadLabCore = () => labP.core ||= loadJs('lab').catch(e => { delete labP.core; throw e; });
+  const loadLab = n => labP[n] ||= loadLabCore().then(() => loadJs('lx' + n)).catch(e => { delete labP[n]; throw e; });
   const IC = { // line illustrations for the eight laboratories (24×24 strokes)
     ckt: '<path d="M2 12h3l1.5-4 3 8 3-8 3 8 1.5-4H22"/><circle cx="2" cy="12" r="1"/><circle cx="22" cy="12" r="1"/>',
     tx: '<rect x="7" y="3" width="10" height="18" rx="1.5"/><path d="M4 7c2 0 2 2 0 2s-2 2 0 2 2 2 0 2-2 2 0 2M20 7c-2 0-2 2 0 2s2 2 0 2-2 2 0 2 2 2 0 2"/>',
@@ -170,7 +171,7 @@
   const fmtT = s => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h} h ${m} min` : `${m} min`; };
   const ring = (p, c, sz = 46) => `<svg viewBox="0 0 36 36" width="${sz}" height="${sz}" class="lxring" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--lx-line)" stroke-width="4"/><circle cx="18" cy="18" r="15" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(p * 94.25).toFixed(1)} 94.25" transform="rotate(-90 18 18)"/><text x="18" y="21.5" text-anchor="middle" font-size="9" font-weight="800" fill="var(--lx-ink)">${Math.round(p * 100)}%</text></svg>`;
   function labTotals() {
-    const xs = Object.entries(P.lab.x), started = xs.filter(([, r]) => r.s).length, done = xs.filter(([, r]) => r.done).length, secs = xs.reduce((a, [, r]) => a + (r.t || 0), 0), q = xs.reduce((a, [, r]) => [a[0] + ((r.q || [])[0] || 0), a[1] + ((r.q || [])[1] || 0)], [0, 0]);
+    const xs = Object.entries(P.lab.x).filter(([id]) => LXI[id]), started = xs.filter(([, r]) => r.s).length, done = xs.filter(([, r]) => r.done).length, secs = xs.reduce((a, [, r]) => a + (r.t || 0), 0), q = xs.reduce((a, [, r]) => [a[0] + ((r.q || [])[0] || 0), a[1] + ((r.q || [])[1] || 0)], [0, 0]);
     const prog = LXC.reduce((a, [id]) => a + goals(labRec(id)), 0) / (LXC.length * LGO);
     return { started, done, secs, q, prog };
   }
@@ -269,13 +270,48 @@
       past: labPast, isFav: k => !!P.lab.f[k], toggleFav: labFav, topicLink: t => T(t) ? `<a class="lxchip tp" href="#t-${t}">${esc(short(T(t)))}${T(t).pr ? ` · ${T(t).pr}` : ''}</a>` : '', topicName: t => T(t) ? short(T(t)) : t });
     toTop();
   }
+  /* ---------- a topic's Formula & Concept Simulator: every simulator of the topic as a full experiment ----------
+     The Simulation Lab's own experiments for the topic come first, then each formula lab of the topic (sims/*.js),
+     opened in the same workspace: experiment, calculations, graphs, concept and exam practice (sims/lab.js LX.fromLab). */
+  const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  function topicMods(tid) {
+    const seen = new Set(), mods = LXC.filter(e => e[4].includes(tid)).map(e => ({ id: e[0], n: e[2], lx: LXI[e[0]] }));
+    LABS.filter(L => L.t === tid && !L.i.some(s => s[4] === 'text')).forEach(L => { let id = `f${tid}-${slug(L.n)}`; while (seen.has(id)) id += '-2'; seen.add(id); mods.push({ id, n: L.n, L }); });
+    return mods;
+  }
+  async function viewTopicSim(tid, k, tab, tok) {
+    const t = T(tid); setShell('topic', tid); document.title = `${short(t)} · Formula & Concept Simulator · TNEB AE Study Site`;
+    main.oninput = null; main.onchange = null;
+    main.innerHTML = '<p class="loading">Loading the simulator…</p>';
+    await Promise.all([loadSims(), loadF(), loadLabCore()]); if (tok !== RT) return;
+    const mods = topicMods(tid); if (!mods.length) { location.hash = `#t-${tid}`; return; }
+    await Promise.all([...new Set(mods.filter(m => m.lx).map(m => m.lx.f))].map(loadLab)); if (tok !== RT) return;
+    k = Math.min(Math.max(0, k), mods.length - 1); const m = mods[k], X = window.LX;
+    if (m.L && !X.X[m.id]) X.X[m.id] = X.fromLab(m.L, { ref: labRef(m.L) });
+    const st = id => { const r = P.lab.x[id]; return r ? X.goalsDone(r) : 0; };
+    const done = mods.filter(x => st(x.id) === 5).length, col = SC[t.s];
+    main.innerHTML = `<section class="tsh" style="--c:${col}"><span class="tshi">${icon('sliders')}</span><div><span class="hk">Formula &amp; concept simulator · ${mods.length}</span><h1>${esc(short(t))}</h1>
+        <p>${mods.length} simulator${mods.length > 1 ? 's' : ''}, each with <b>Experiment</b>, <b>Calculations</b>, <b>Graphs</b>, <b>Concept</b> and <b>Exam practice</b>. Every number is worked out from your book's formulas${done ? ` · <b>${done} completed</b>` : ''}.</p></div></section>
+      <nav class="tsm" aria-label="Simulators in ${esc(short(t))}">${mods.map((x, j) => { const n = st(x.id); return `<a href="#sim-${tid}-${j}"${j === k ? ' aria-current="page"' : ''} title="${esc(x.n)}"><i class="${n === 5 ? 'dn' : n ? 'ip' : ''}">${n === 5 ? '✓' : j + 1}</i><span>${esc(x.n)}</span></a>`; }).join('')}</nav>
+      <div id="lxbox"></div>
+      <div class="acts tsnext">${k > 0 ? `<a class="btn" href="#sim-${tid}-${k - 1}">← ${esc(mods[k - 1].n)}</a>` : `<a class="btn" href="#t-${tid}">← Back to ${esc(short(t))}</a>`}${k + 1 < mods.length ? `<a class="btn go" href="#sim-${tid}-${k + 1}">Next: ${esc(mods[k + 1].n)} →</a>` : ''}</div>`;
+    const cur = $('.tsm [aria-current]', main); if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
+    const L0 = m.lx, ex = L0 ? lxEx(L0) : null;
+    X.mount($('#lxbox'), m.id, { meta: L0 ? { ...L0, ex: (ex.tneb ? 't' : '') + (ex.gate >= 25 ? 'g' : '') } : { id: m.id, n: m.n, t: [tid], cat: 'topic', d: 0, kw: m.L.rf || '', ex: '' }, tab,
+      crumbs: `<a href="#home">All topics</a> › <a href="#t-${tid}">${esc(short(t))}</a> › <a href="#sim-${tid}">Simulator</a> › ${esc(m.n)}`,
+      catName: L0 ? catOf(L0.cat)[1] : short(t), catCol: L0 ? catOf(L0.cat)[2] : col, catIcon: L0 ? lxIcon(L0.cat, 30) : icon('sliders'),
+      rec: id => P.lab.x[id] ||= {}, changed, toast, quiz, today: todayKey, labDay: ok => { logDay(ok); }, labTime: s => { const d = todayKey(); P.lab.d[d] = (P.lab.d[d] || 0) + s; },
+      past: labPast, ...(L0 ? { isFav: id => !!P.lab.f[id], toggleFav: labFav } : {}),
+      topicLink: x => T(x) ? `<a class="lxchip tp" href="#t-${x}">${esc(short(T(x)))}${T(x).pr ? ` · ${T(x).pr}` : ''}</a>` : '', topicName: x => T(x) ? short(T(x)) : x });
+    markStep(tid, 'labs'); toTop();
+  }
   // the progress console tile
   function labTile() {
     const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
     const W = []; for (let i = 6; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); const k = dayOf(d); W.push([k, (P.lab.d[k] || 0) / 60]); }
     const mx = Math.max(5, ...W.map(w => w[1]));
     const weak = Object.entries(P.lab.x).filter(([id, r]) => LXI[id] && r.q && r.q[0] >= 3 && r.q[1] / r.q[0] < 0.6).map(([id, r]) => [id, `${pct(r.q[1], r.q[0])} % on ${r.q[0]} questions`]);
-    const rep = Object.entries(P.lab.x).flatMap(([id, r]) => Object.entries(r.m || {}).filter(([, m]) => Array.isArray(m) && m[0] >= 2).map(([, m]) => [id, `${m[0]} misses: ${m[1]}`])).slice(0, 4);
+    const rep = Object.entries(P.lab.x).filter(([id]) => LXI[id]).flatMap(([id, r]) => Object.entries(r.m || {}).filter(([, m]) => Array.isArray(m) && m[0] >= 2).map(([, m]) => [id, `${m[0]} misses: ${m[1]}`])).slice(0, 4);
     const nx = labRecommend(1)[0];
     return `<div class="dt lab"><span class="dl">⚡ Simulation lab <small>${tt.done} of ${LXC.length} completed</small></span>
       <div class="lxk"><div><b>${tt.started}</b><span>started</span></div><div><b>${tt.done}</b><span>completed</span></div><div><b>${fmtT(tt.secs)}</b><span>time</span></div><div><b>${tt.q[0] ? pct(tt.q[1], tt.q[0]) + ' %' : '–'}</b><span>lab question accuracy (${tt.q[0]})</span></div></div>
@@ -707,7 +743,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101021308';
+  const SWV = 'ae-20261101024018';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -788,6 +824,9 @@
     const bar = lx ? $('.lxtabs', lx) : $('.pbar', main);
     if (bar) {
       const bs = $$('[role=tab]', bar), i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true'), b = i >= 0 && bs[i + dir];
+      // past the last (or first) tab of a topic simulator: the next (or previous) simulator of the topic
+      const tm = !b && lx && $('.tsm [aria-current]', main), nb = tm && (dir > 0 ? tm.nextElementSibling : tm.previousElementSibling);
+      if (nb) return { n: (dir > 0 ? 'Next: ' : '') + $('span', nb).textContent, go: () => { location.hash = nb.getAttribute('href'); } };
       return b ? { n: ($('b', b) || b).textContent.trim(), go: () => {
         b.click(); b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         const pnl = lx ? $('.lxp:not([hidden])', lx) : $('.pane:not([hidden])', main);
@@ -843,6 +882,7 @@
       if (a === 'more') return await viewMore(tok);
       if (a === 'sims') return await viewLab(tok);
       const smm = h.match(/^sims-([a-z]+)$/); if (smm) return smm[1] === 'topics' ? await viewSims(tok) : await viewLab(tok, catOf(smm[1]) ? smm[1] : undefined);
+      const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
       if (a === 'practice') return await viewPractice(tok);
       if (a === 'qbook') return await viewQbook(tok);
@@ -1080,7 +1120,7 @@
       <div id="qlist" style="display:grid;gap:10px"></div><button class="more" id="qmore" hidden></button>`, `${D.rows.length} questions`, 'Question bank');
 
     /* Book pages */
-    if (LABN[id]) sec('sim', 'labs', '⚙', 'Formula & concept simulator', 't-teal', `<p class="lead">${LABN[id]} live labs built on this topic's formulas. Move a slider or type a value: every output updates, ↑ ↓ → show which way it moved from where you started. <b>📈 Graph</b> plots any output against any input (or the lab's own curve), <b>↕ What happens if…</b> raises each input by 10 %, and <b>✓ Book checks</b> recompute the book's own worked numbers.</p><div class="labs" id="labbox"><p class="loading">Loading the simulator…</p></div>`, `${LABN[id]} labs`, 'Simulator');
+    if (LABN[id]) sec('sim', 'labs', '⚙', 'Formula & concept simulator', 't-teal', `<a class="simlink tsl" href="#sim-${id}"><i>⚙</i><span><b>Open the full ${esc(short(t))} simulator →</b><small>each lab below with experiment, calculations, graphs, concept and exam practice — one page per simulator</small></span></a><p class="lead">${LABN[id]} live labs built on this topic's formulas. Move a slider or type a value: every output updates, ↑ ↓ → show which way it moved from where you started. <b>📈 Graph</b> plots any output against any input (or the lab's own curve), <b>↕ What happens if…</b> raises each input by 10 %, and <b>✓ Book checks</b> recompute the book's own worked numbers.</p><div class="labs" id="labbox"><p class="loading">Loading the simulator…</p></div>`, `${LABN[id]} labs`, 'Simulator');
     if (ch && ch.tamil.length) sec('book', 'tamil', 'த', 'Tamil stories & concept tour', 't-grn', `<p class="lead">The book's Tamil story pages and concept tour for this topic, exactly as printed.</p>` +
       ch.tamil.map(p => `<details class="ta"><summary>${esc(p.heads.join(' · ') || 'Book page')} <span class="pg">· ${vn} p ${p.pg}</span></summary><div class="pages">${spr(p.sp, D, 'Book page ' + p.pg, 't')}</div></details>`).join(''), `${ch.tamil.length} pages`, 'Tamil pages');
 
@@ -1093,6 +1133,7 @@
         ${ch && ch.sub ? `<div class="tsub">${esc(ch.sub)}</div>` : `<div class="tsub">${D.st.length} formulas · ${myQ.length} MCQs · ${D.rows.length} past questions · ${D.gate.length} GATE sums</div>`}
         ${ch && ch.stats.length ? `<div class="stats">${ch.stats.map(([n, l, c]) => `<div class="stat"><b style="color:${c}">${n}</b><span>${esc(l)}</span></div>`).join('')}${ch.priority[0] ? `<div class="stat pr ${ch.priority[0].split(' ')[0]}"><b>${esc(ch.priority[0])}</b><span>${esc(ch.priority[1])}</span></div>` : ''}</div>` : ''}
         ${ch && ch.note ? `<p class="tnote">${esc(ch.note)}</p>` : ''}
+        ${LABN[id] ? `<a class="simlink tsl" href="#sim-${id}"><i>⚙</i><span><b>Open the ${esc(short(t))} Formula & Concept Simulator →</b><small>${LABN[id] + LXC.filter(e => e[4].includes(id)).length} simulators — experiment, calculations, graphs, concept and exam practice for each</small></span></a>` : ''}
         ${t.t === 'Transformers' ? `<a class="simlink" href="${SIM_URL}"${SIM_TGT}><i>⚙</i><span><b>Open the Transformer Formula & Concept Simulator${STANDALONE ? ' →' : ' ↗'}</b><small>Phasors, losses, efficiency, regulation, 3-phase, parallel operation, saturation and inrush — on the full Transformers page</small></span></a>` : ''}
         <div class="mine" id="mine"></div></div>
       <nav class="lpath" id="lpath" aria-label="Learning path"></nav>
@@ -1920,7 +1961,7 @@
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#sims">Simulation Lab</a> › Formula labs by topic</div>
       <section class="hero"><h1>⚙ Formula labs by topic</h1><p>${tot} live labs on ${Object.keys(LABN).length} topics. Each lab is built on a formula of your book: change the numbers and watch every result move, plot any output against any input, see what a 10 % change does, and recompute the book's own worked examples (${LABS.reduce((a, L) => a + (L.ck || []).length, 0)} checks, all matching the book).</p>
       <div class="acts"><a class="btn go" href="${SIM_URL}"${SIM_TGT}>⚙ Full Transformer simulator (phasors, 3-phase, parallel, inrush)</a></div></section>
-      ${IX.S.filter(([k]) => g[k]).map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].reduce((a, t) => a + LABN[t.id], 0)} labs</small></h2><div class="tcards">${g[k].map(t => `<a class="tc" href="#t-${t.id}-sim" style="--c:${SC[t.s]}" data-s="${esc(t.t)}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}<span>${LABN[t.id]} labs</span></div><p class="lnames">${(by[t.id] || LABS.filter(L => L.t === t.id)).map(L => esc(L.n)).join(' · ')}</p></a>`).join('')}</div></section>`).join('')}
+      ${IX.S.filter(([k]) => g[k]).map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].reduce((a, t) => a + LABN[t.id], 0)} labs</small></h2><div class="tcards">${g[k].map(t => `<a class="tc" href="#sim-${t.id}" style="--c:${SC[t.s]}" data-s="${esc(t.t)}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}<span>${LABN[t.id]} labs</span></div><p class="lnames">${(by[t.id] || LABS.filter(L => L.t === t.id)).map(L => esc(L.n)).join(' · ')}</p></a>`).join('')}</div></section>`).join('')}
       <footer class="foot">Every lab uses the formula as printed in your Complete Book; the book link on each lab shows which formula and page. The ✓ Book checks are the book's solved sums, ratio sums, key-formula examples, one-minute sums, quick checks and value tables.</footer>`;
     toTop();
   }
