@@ -36,10 +36,11 @@
     if (x == null || !Number.isFinite(x)) return '–';
     if (dg != null) return x.toLocaleString('en-IN', { minimumFractionDigits: dg, maximumFractionDigits: dg });
     const a = Math.abs(x);
+    if (Number.isInteger(x) && a < 1e7) return x.toLocaleString('en-IN');
     if (a !== 0 && (a >= 1e7 || a < 1e-3)) { const e = Math.floor(Math.log10(a)), m = x / 10 ** e; return `${+m.toFixed(3)} × 10<sup>${e}</sup>`; }
     return (+x.toPrecision(4)).toLocaleString('en-IN', { maximumFractionDigits: 6 });
   }
-  const fp = x => !Number.isFinite(x) ? '–' : Math.abs(x) >= 1e5 || (Math.abs(x) < 1e-3 && x !== 0) ? x.toExponential(2).replace('e+', 'e') : String(+x.toPrecision(4));
+  const fp = x => !Number.isFinite(x) ? '–' : Number.isInteger(x) && Math.abs(x) < 1e9 ? String(x) : Math.abs(x) >= 1e5 || (Math.abs(x) < 1e-3 && x !== 0) ? x.toExponential(2).replace('e+', 'e') : String(+x.toPrecision(4));
   LX.fx = fx; LX.fp = fp;
 
   /* ---------- the model: SI values in, outputs computed in order ---------- */
