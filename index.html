@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101074610"></script>
+<script src="theme.js?v=ae-20261101093542"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1219,6 +1219,10 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .lxck li.no span::first-letter{color:var(--lxr)}
 .lxck li small{color:var(--lx-ink2)}
 
+/* topic question lists show every question in book order: cards off screen are not laid out until they scroll near */
+#ulist > .box,#glist > .box,#qlist > .box{content-visibility:auto;contain-intrinsic-size:auto 480px}
+#qlist > .box{contain-intrinsic-size:auto 160px}
+
 /* printed formulas line by line (fpic in app.js): each line at full size; a long line shrinks to 2/3, then scrolls sideways */
 .im.fp > .sp{display:none}
 .fpl{display:grid;gap:8px;justify-items:start;padding:4px 0;container-type:inline-size}
@@ -1478,7 +1482,7 @@ a.btn{gap:.35em}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101074610"></script>
+<script src="app.js?v=ae-20261101093542"></script>
 
 </body>
 </html>

@@ -778,7 +778,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101074610';
+  const SWV = 'ae-20261101093542';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -1277,7 +1277,7 @@
     }
 
     // GATE sums
-    let gm = 0, gshown = 5, nG = 0;
+    let gm = 0, gshown = Infinity, nG = 0;
     const rGate = () => {
       const rows = D.gate.filter(g => (!gm || g.m === gm) && hit(g.src + ' q' + g.q + ' ' + g.a + ' ' + plain(g.l.join(' ')))).sort((a, b) => +(b.src.match(/\d{4}/) || [0])[0] - +(a.src.match(/\d{4}/) || [0])[0]);
       nG = rows.length;
@@ -1293,7 +1293,7 @@
     };
     if ($('#glist')) {
       $('#gmore').onclick = () => { gshown += 5; rGate(); };
-      $('#gm').onclick = e => { const b = e.target.closest('button'); if (!b) return; gm = +b.dataset.m; gshown = 5; $$('#gm button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); rGate(); };
+      $('#gm').onclick = e => { const b = e.target.closest('button'); if (!b) return; gm = +b.dataset.m; gshown = Infinity; $$('#gm button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); rGate(); };
       $('#glist').onclick = e => {
         const s = e.target.closest('[data-gs]');
         if (s) { const g = s.closest('.gs'); record(`g${id}.${g.dataset.g}`, s.dataset.gs === '1'); $('.self', g).innerHTML = `Saved: <b>${s.dataset.gs === '1' ? '✓ got it' : '✗ missed'}</b>`; return; }
@@ -1302,7 +1302,7 @@
     }
 
     // past-question rows
-    let qg = '', qshown = 12, nB = 0;
+    let qg = '', qshown = Infinity, nB = 0;
     const rBank = () => {
       const rows = D.rows.filter(r => (!qg || r.g === qg) && hit(r.p + ' q' + r.q + ' ' + r.c + ' ' + r.f.join(' ') + ' ' + r.a)); nB = rows.length;
       $('#qlist').innerHTML = rows.slice(0, qshown).map(rowCard).join('') || '<div class="empty">No question matches this search.</div>';
@@ -1310,11 +1310,11 @@
     };
     if ($('#qlist')) {
       $('#qmore').onclick = () => { qshown += 12; rBank(); };
-      $('#qg').onclick = e => { const b = e.target.closest('button'); if (!b) return; qg = b.dataset.g; qshown = 12; $$('#qg button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); rBank(); };
+      $('#qg').onclick = e => { const b = e.target.closest('button'); if (!b) return; qg = b.dataset.g; qshown = Infinity; $$('#qg button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); rBank(); };
     }
 
     // Question Book
-    let uf = { p: '', m: '', e: '', s: '' }, ushown = 6, nU = 0;
+    let uf = { p: '', m: '', e: '', s: '' }, ushown = Infinity, nU = 0;
     rU = () => {
       if (!$('#ulist')) return;
       const L = U.q.filter(x => (!uf.p || x.lab[0] === uf.p) && (!uf.e || x.ex === uf.e) && (uf.s === '' || x.sub === +uf.s)
@@ -1326,9 +1326,9 @@
     };
     if ($('#ulist')) {
       $('#umore').onclick = () => { ushown += 6; rU(); };
-      const segf = (sel, key) => { $(sel).onclick = e => { const b = e.target.closest('button'); if (!b) return; uf[key] = b.dataset.v; ushown = 6; $$(sel + ' button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); rU(); }; };
+      const segf = (sel, key) => { $(sel).onclick = e => { const b = e.target.closest('button'); if (!b) return; uf[key] = b.dataset.v; ushown = Infinity; $$(sel + ' button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); rU(); }; };
       segf('#ubp', 'p'); segf('#ubm', 'm'); segf('#ube', 'e');
-      $('#ubs').onchange = e => { uf.s = e.target.value; ushown = 6; rU(); };
+      $('#ubs').onchange = e => { uf.s = e.target.value; ushown = Infinity; rU(); };
       $('#ulist').onclick = e => uAnswer(e, U);
       $('#ulist').onkeydown = e => { if (e.key === 'Enter' && e.target.classList.contains('unum')) { e.preventDefault(); uAnswer({ target: e.target.closest('.ub').querySelector('[data-uact="chk"]') }, U); } };
     }
@@ -1338,7 +1338,7 @@
     function hit(s) { return !q || q.split(' ').every(w => plain(String(s)).toLowerCase().includes(w)); }
     const applySearch = () => {
       $$('[data-s]', main).forEach(el => el.classList.toggle('hidden-by-search', !hit(el.dataset.s)));
-      const ne = rEvery(); if ($('#glist')) { gshown = 5; rGate(); } if ($('#qlist')) { qshown = 12; rBank(); } if ($('#ulist')) { ushown = 6; rU(); }
+      const ne = rEvery(); if ($('#glist')) { gshown = Infinity; rGate(); } if ($('#qlist')) { qshown = Infinity; rBank(); } if ($('#ulist')) { ushown = Infinity; rU(); }
       $$('.pbar [data-pane]', main).forEach(b => {
         const k = b.dataset.pane, el = $('.pcount', b); if (!q) { el.hidden = true; return; }
         el.textContent = $$(`.pane[data-pane="${k}"] [data-s]:not(.hidden-by-search)`, main).length + (k === 'prac' ? nB + nG + nU : k === 'learn' ? ne : 0); el.hidden = false;
