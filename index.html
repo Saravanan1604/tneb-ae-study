@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101031634"></script>
+<script src="theme.js?v=ae-20261101035241"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1219,6 +1219,24 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .lxck li.no span::first-letter{color:var(--lxr)}
 .lxck li small{color:var(--lx-ink2)}
 
+/* Tamil pages set as text (tamil_read.py): the book's colours on a paper card, at a comfortable reading size */
+.tpbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:4px 0 8px}
+.tpr{background:#fffefb;color:#1f2937;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:calc(16.5px * var(--tsz,1));line-height:1.75;font-family:'Noto Sans Tamil','Latha','Nirmala UI',system-ui,sans-serif;overflow-wrap:anywhere}
+.tpr p{margin:.35em 0}
+.tpr h4{margin:.75em 0 .3em;font-size:1.06em;line-height:1.5;color:#1f2937}
+.tpr h4.tbar{border-left:5px solid var(--bar);padding-left:9px}
+.tpr ul{margin:.3em 0 .55em;padding-left:1.25em}
+.tpr li{margin:.25em 0}
+.tpr li::marker{color:#64748b}
+.tpr .tb{border-radius:11px;padding:4px 12px;margin:9px 0}
+.tpr .tb .tb{padding:4px 10px}
+.tpr .tb.tpill{display:inline-block;padding:2px 12px;border-radius:999px;margin:6px 0}
+.tpr .tb.tpill p{margin:0}
+.tpr .tch{background:#eef2ff;border-radius:5px;padding:0 .3em;box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.tpr > .tb:first-child{margin-top:0}
+@media (min-width:900px){.tpr{font-size:calc(15.5px * var(--tsz,1));padding:14px 18px}}
+.tpsz{display:flex;gap:4px;flex-wrap:wrap}.tpsz [data-tsz]{min-width:40px;font-weight:800}
+
 /* ---- visual cards (#cards): original illustrated cards, drawn by sims/cards.js ---- */
 .vgal h2.vgh{display:flex;align-items:center;gap:8px;font-size:18px;margin:18px 0 10px;color:var(--navy)}
 .vchain{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:4px 2px 10px;margin-bottom:6px}
@@ -1452,7 +1470,7 @@ a.btn{gap:.35em}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101031634"></script>
+<script src="app.js?v=ae-20261101035241"></script>
 
 </body>
 </html>

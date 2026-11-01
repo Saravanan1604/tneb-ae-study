@@ -771,7 +771,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101031634';
+  const SWV = 'ae-20261101035241';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -1154,7 +1154,9 @@
     /* Book pages */
     if (LABN[id]) sec('sim', 'labs', '⚙', 'Formula & concept simulator', 't-teal', `<a class="simlink tsl" href="#sim-${id}"><i>⚙</i><span><b>Open the full ${esc(short(t))} simulator →</b><small>each lab below with experiment, calculations, graphs, concept and exam practice — one page per simulator</small></span></a><p class="lead">${LABN[id]} live labs built on this topic's formulas. Move a slider or type a value: every output updates, ↑ ↓ → show which way it moved from where you started. <b>📈 Graph</b> plots any output against any input (or the lab's own curve), <b>↕ What happens if…</b> raises each input by 10 %, and <b>✓ Book checks</b> recompute the book's own worked numbers.</p><div class="labs" id="labbox"><p class="loading">Loading the simulator…</p></div>`, `${LABN[id]} labs`, 'Simulator');
     if (ch && ch.tamil.length) sec('book', 'tamil', 'த', 'Tamil stories & concept tour', 't-grn', `<p class="lead">The book's Tamil story pages and concept tour for this topic, exactly as printed.</p>` +
-      ch.tamil.map(p => `<details class="ta"><summary>${esc(p.heads.join(' · ') || 'Book page')} <span class="pg">· ${vn} p ${p.pg}</span></summary><div class="pages">${spr(p.sp, D, 'Book page ' + p.pg, 't')}</div></details>`).join(''), `${ch.tamil.length} pages`, 'Tamil pages');
+      ch.tamil.filter(p => !p.empty).map(p => `<details class="ta"><summary>${esc(p.heads.join(' · ') || 'Book page')} <span class="pg">· ${vn} p ${p.pg}</span></summary>${p.rh
+        ? `<div class="tpbar"><span class="pg">The printed page, set as text</span><span class="tpsz"><button class="btn lnk" data-tsz="-1" aria-label="Smaller text">A−</button><button class="btn lnk" data-tsz="1" aria-label="Larger text">A+</button><button class="btn lnk" data-tp aria-pressed="false">🖼 As printed</button></span></div><div class="tpr" lang="ta">${p.rh}</div><div class="pages" hidden>${spr(p.sp, D, 'Book page ' + p.pg, 't')}</div>`
+        : `<div class="pages">${spr(p.sp, D, 'Book page ' + p.pg, 't')}</div>`}</details>`).join(''), `${ch.tamil.filter(p => !p.empty).length} pages`, 'Tamil pages');
 
     const panes = [['learn', '📖', 'Learn', ch ? 'chapter & formulas' : 'formulas'], ['prac', '✍', 'Practice', U ? `${U.q.length} past questions, tests, GATE` : 'tests, MCQs, GATE, question bank'], ...(LABN[id] ? [['sim', '⚙', 'Simulate', `${LABN[id]} live labs`]] : []), ...(PANES.book.length ? [['book', 'த', 'Tamil pages', 'stories & concept tour']] : [])];
     const i = IX.T.indexOf(t), prev = IX.T[i - 1], nxt = IX.T[i + 1];
@@ -1887,6 +1889,12 @@
   // and drawings cut out one per row; the printed page stays one tap away
   const readPage = (g, e, rh) => `<figure class="box refpg" id="rp${e[0]}"><figcaption>${starBtn(`ref/${g.id}/${e[0]}`, 'page')}<span class="pgt">${volOf(g)} · p ${e[0]}</span><button class="btn lnk" data-pp aria-pressed="false">🖼 As printed</button></figcaption>
     ${rh ? `<div class="rp">${rh[0].replace(/<i data-k="(\d+)"><\/i>/g, (_, k) => partImg(rh[1][k], `${g.n}, p ${e[0]}, picture ${+k + 1}`))}</div><div class="pp" hidden>${pgImg(e, `${g.n}, book page ${e[0]}`)}</div>` : pgImg(e, `${g.n}, book page ${e[0]}`)}</figure>`;
+  // a Tamil page: the text version or the printed page; text size remembered on this device
+  const TSZ = [0.85, 0.92, 1, 1.1, 1.2, 1.32, 1.45]; let tsz = 2; try { const r = localStorage.getItem('ae-tsz'), x = r == null ? NaN : +r; if (Number.isInteger(x) && x >= 0 && x < TSZ.length) tsz = x; } catch (e) {}
+  const paintTsz = () => document.documentElement.style.setProperty('--tsz', TSZ[tsz]); paintTsz();
+  document.addEventListener('click', e => { const b = e.target.closest('[data-tsz]'); if (!b) return; tsz = Math.max(0, Math.min(TSZ.length - 1, tsz + +b.dataset.tsz)); paintTsz(); try { localStorage.setItem('ae-tsz', tsz); } catch (er) {} toast(`Text size ${Math.round(TSZ[tsz] * 100)} %`); });
+  document.addEventListener('click', e => { const b = e.target.closest('[data-tp]'); if (!b) return; const d = b.closest('details'), tx = $('.tpr', d), pp = $('.pages', d); if (!tx || !pp) return;
+    const on = pp.hidden; pp.hidden = !on; tx.hidden = on; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '📖 Readable' : '🖼 As printed'; if (on) lazy(d); });
   document.addEventListener('click', e => { const b = e.target.closest('[data-pp]'); if (!b) return; const f = b.closest('figure'), pp = $('.pp', f), rp = $('.rp', f); if (!pp) return;
     const on = pp.hidden; pp.hidden = !on; rp.hidden = on; b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '📖 Readable' : '🖼 As printed'; });
   const SPECIAL = [['sym', '🔤', 'Symbols A–Z — what every letter means', 'Every symbol of the book with its meaning, unit, where it is used and a formula it appears in (456 entries, Vol 6 p 1540–1565).'],
