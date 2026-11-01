@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101035241"></script>
+<script src="theme.js?v=ae-20261101074610"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1219,6 +1219,14 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .lxck li.no span::first-letter{color:var(--lxr)}
 .lxck li small{color:var(--lx-ink2)}
 
+/* printed formulas line by line (fpic in app.js): each line at full size; a long line shrinks to 2/3, then scrolls sideways */
+.im.fp > .sp{display:none}
+.fpl{display:grid;gap:8px;justify-items:start;padding:4px 0;container-type:inline-size}
+.fpw{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.fpl .seg{display:block;width:calc(var(--w) * 1.05px);max-width:100%}
+@supports (width:1cqw){.fpl .seg{max-width:none;width:min(calc(var(--w) * 1.05px), max(calc(var(--w) * .66px), 100cqw))}}
+.fpl .seg{border:0!important;box-shadow:none!important;outline:0}
+
 /* Tamil pages set as text (tamil_read.py): the book's colours on a paper card, at a comfortable reading size */
 .tpbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:4px 0 8px}
 .tpr{background:#fffefb;color:#1f2937;border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:calc(16.5px * var(--tsz,1));line-height:1.75;font-family:'Noto Sans Tamil','Latha','Nirmala UI',system-ui,sans-serif;overflow-wrap:anywhere}
@@ -1470,7 +1478,7 @@ a.btn{gap:.35em}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101035241"></script>
+<script src="app.js?v=ae-20261101074610"></script>
 
 </body>
 </html>

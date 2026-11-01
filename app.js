@@ -522,6 +522,13 @@
     const pos = H > h ? (y / (H - h) * 100).toFixed(5) : '0';
     return `<div class="sp" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${w}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${pos}%"></div>`;
   }
+  // a printed formula box shown line by line (data fl: [x, y, w, h] in sheet pixels, from formula_lines.py): each line at
+  // full size instead of the whole, mostly empty, box shrunk to the screen; tap any line for the whole printed box
+  function fpic(sp, D, fl, alt) {
+    if (!sp || !fl || !fl.length) return spr(sp, D, alt);
+    const [f, W, H] = D.sheets[sp[0]];
+    return `<div class="im fp">${spr(sp, D, alt)}<div class="fpl" role="img" aria-label="${esc(alt)} (printed formula, line by line)">${fl.map(([x, y, w, h]) => `<div class="fpw"><span class="sp seg" data-src="${f}" data-w="${w}" style="--w:${w};aspect-ratio:${w}/${h};background-size:${(W / w * 100).toFixed(4)}% auto;background-position:${W > w ? (x / (W - w) * 100).toFixed(4) : 0}% ${H > h ? (y / (H - h) * 100).toFixed(5) : 0}%"></span></div>`).join('')}</div></div>`;
+  }
   function spu(r, alt) {
     if (!r) return '';
     const [f, W, H, y, w, h] = r, pos = H > h ? (y / (H - h) * 100).toFixed(5) : '0';
@@ -771,7 +778,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101035241';
+  const SWV = 'ae-20261101074610';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -1093,12 +1100,12 @@
         if (s.kind === 'see') sec('learn', sid, s.n, title, cls, `<div class="diags">${ch.diagrams.map(d => `<div class="box diag ${d.wh[0] > 700 ? 'wide' : ''}" data-s="${esc(d.title + ' ' + plain(d.cap) + ' ' + d.qq)}"><h3>${esc(d.title)}</h3>${spr(d.sp, D, d.title)}${d.cap ? `<p class="cap">${d.cap}</p>` : ''}${d.qq ? `<div class="qc"><b>Quick check:</b><span>${esc(d.qq)}</span>${d.qa ? `<button class="btn rv" data-a="${esc(d.qa)}">Show answer</button>` : ''}</div>` : ''}<span class="pg">${vn} · p ${d.pg}</span></div>`).join('')}</div>`, `${ch.diagrams.length} pictures`, 'See it');
         else if (s.kind === 'key') {
           const k = ch.keys.find(x => x.n === s.n); if (!k) continue;
-          sec('learn', sid, s.n, title, cls, `<div class="kgrid">${k.img ? `<div class="kb f">${spr(k.img.sp, D, 'Key formula')}</div>` : k.f ? `<div class="kb f"><div class="fx">${k.f}</div></div>` : ''}
+          sec('learn', sid, s.n, title, cls, `<div class="kgrid">${k.img ? `<div class="kb f">${fpic(k.img.sp, D, k.img.fl, 'Key formula')}</div>` : k.f ? `<div class="kb f"><div class="fx">${k.f}</div></div>` : ''}
             ${k.fields.map(([h, x, c]) => `<div class="kb" style="background:${c}"><h4>${h}</h4>${/^One-minute/.test(plain(h)) ? oneMin(x) : x}</div>`).join('')}</div>
             ${k.tables.map(tb => table(tb, 'qv')).join('')}${k.notes.map(n => /^⚠/.test(plain(n)) ? `<p class="trap">${n.replace(/^\s*⚠\s*(Trap:)?/, '<b>⚠ Trap:</b>')}</p>` : `<p class="knote">${n}</p>`).join('')}<span class="pg">${vn} · p ${k.pg}</span>`, '', 'Key formula ' + s.n);
         }
         else if (s.kind === 'learn') sec('learn', sid, s.n, title, cls, `<p class="lead">All ${ch.formulas.length} formulas of this chapter, exactly as printed, each with its letters, a tip and the past papers that asked it.</p>` +
-          ch.formulas.map(f => `<div class="lf" data-s="${esc(f.name + ' ' + plain(f.f.join(' ')) + ' ' + plain(f.notes.join(' ')))}"><div class="box l"><h3>${starBtn(`f${id}.${f.n}`, 'formula')}${f.n}. <b>${esc(f.name)}</b></h3>${spr(f.sp, D, f.name)}</div><div class="r" style="background:${f.nfill}">${f.notes.map(n => `<p>${lab(n)}</p>`).join('')}<p class="pg">${vn} · p ${f.pg}</p></div></div>`).join(''), `${ch.formulas.length} formulas`, 'Formulas');
+          ch.formulas.map(f => `<div class="lf" data-s="${esc(f.name + ' ' + plain(f.f.join(' ')) + ' ' + plain(f.notes.join(' ')))}"><div class="box l"><h3>${starBtn(`f${id}.${f.n}`, 'formula')}${f.n}. <b>${esc(f.name)}</b></h3>${fpic(f.sp, D, f.fl, f.name)}</div><div class="r" style="background:${f.nfill}">${f.notes.map(n => `<p>${lab(n)}</p>`).join('')}<p class="pg">${vn} · p ${f.pg}</p></div></div>`).join(''), `${ch.formulas.length} formulas`, 'Formulas');
         else if (s.kind === 'also') sec('learn', sid, s.n, title, cls, ch.also.map(r => `<div class="au" data-s="${esc(plain(r.t + ' ' + r.m))}"><div class="box t">${r.t}</div><span class="m">${r.m}</span></div>`).join(''), '', 'Also used');
         else if (s.kind === 'words') sec('learn', sid, s.n, title, cls, `<div class="kw">${ch.terms.map(w => `<div class="box" data-s="${esc(plain(w.term + ' ' + w.mean))}"><b>${w.term}</b><span>${w.mean}</span></div>`).join('')}</div>`, `${ch.terms.length} terms`, 'Key words');
         else if (s.kind === 'why') sec('learn', sid, s.n, title, cls, `<div class="why">${ch.why.map(w => `<div class="c">${w.cause}</div><div class="e">${w.effect}</div>`).join('')}${ch.mistakes.map(m => `<div class="m"><b>✗ Common mistake</b>${m.m}</div><div class="k"><b>✓ Correct idea</b>${m.c}</div>`).join('')}</div>`, '', 'Why?');
@@ -1414,7 +1421,7 @@
     const P_ = [];
     if (ch) {
       if (ch.takeaway) P_.push(`<div class="c6 take"><b>💡 In one line</b><span>${ch.takeaway}</span></div>`);
-      const k = ch.keys[0]; if (k && (k.img || k.f)) P_.push(`<div class="c6 kf"><b>📐 Key formula</b>${k.img ? spr(k.img.sp, D, 'Key formula') : `<div class="fx">${k.f}</div>`}<span class="pg">${vn} · p ${k.pg}</span></div>`);
+      const k = ch.keys[0]; if (k && (k.img || k.f)) P_.push(`<div class="c6 kf"><b>📐 Key formula</b>${k.img ? fpic(k.img.sp, D, k.img.fl, 'Key formula') : `<div class="fx">${k.f}</div>`}<span class="pg">${vn} · p ${k.pg}</span></div>`);
       if (ch.why.length) P_.push(`<div class="c6"><b>⚡ Cause → effect</b>${ch.why.slice(0, 2).map(w => `<p>${w.cause} → ${w.effect}</p>`).join('')}</div>`);
       if (ch.terms.length) P_.push(`<div class="c6"><b>🔤 Key words</b>${ch.terms.slice(0, 4).map(w => `<p><b>${w.term}</b> — ${w.mean}</p>`).join('')}</div>`);
       if (ch.mistakes.length) P_.push(`<div class="c6 trap"><b>⚠ Common mistake</b><p>✗ ${ch.mistakes[0].m}</p><p>✓ ${ch.mistakes[0].c}</p></div>`);
