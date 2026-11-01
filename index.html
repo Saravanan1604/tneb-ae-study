@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101020227"></script>
+<script src="theme.js?v=ae-20261101021308"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1176,6 +1176,30 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
   .rfl .seg{display:inline-block;vertical-align:middle;width:calc(var(--w) * .82px);width:calc(var(--w) * min(1.1px, 100cqw / 390));max-width:100%;margin:2px 7px 2px 0;border-radius:3px;background-color:#fff;cursor:zoom-in}
   .rfl .seg.fig{width:calc(var(--w) * min(1px, 100cqw / 560));max-width:100%;margin:4px 0}
 }
+/* line icons (drawn by app.js in place of emoji): sized to the text, stroked in the text colour */
+svg.ic{display:inline-block;flex:none;width:1.2em;height:1.2em;vertical-align:-.24em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible}
+h1 svg.ic,h2 svg.ic,h3 svg.ic{color:var(--pur);stroke-width:1.9}
+.btn svg.ic{width:1.15em;height:1.15em;vertical-align:-.22em}
+a.btn{gap:.35em}
+.btn.go svg.ic,.btn.gold svg.ic{color:inherit}
+.qk a i{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:var(--pur-bg);color:var(--pur);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--pur) 16%,transparent)}
+.qk a i svg.ic{width:23px;height:23px;vertical-align:0}
+.qk a:hover i{background:var(--pur);color:#fff}
+.sideh a{display:flex;align-items:center;gap:9px}
+.sideh a svg.ic{color:var(--pur);width:19px;height:19px;vertical-align:0}
+.sideh a[aria-current="page"] svg.ic{color:inherit}
+.pbar i svg.ic{width:1.15em;height:1.15em;vertical-align:-.2em}
+.lp i svg.ic{width:16px;height:16px;vertical-align:-.2em}
+.shi svg.ic{width:1.05em;height:1.05em;vertical-align:0;color:var(--c,var(--pur))}
+.simlink i{color:var(--pur)}
+.themebtn svg.ic{width:20px;height:20px;vertical-align:0;color:var(--pur)}
+.dl svg.ic{color:var(--pur);margin-right:2px}
+.dt.streak .dl svg.ic{color:#fde68a}
+.chip svg.ic,.prc svg.ic{width:1.1em;height:1.1em}
+.trap b svg.ic,.c6.trap b svg.ic{color:var(--red)}
+.c6 b svg.ic{color:var(--pur)}
+.lxlogo span svg.ic,.lxri svg.ic{width:22px;height:22px;vertical-align:0}
+
 /* swipe left / right: a hint pill at the screen edge that fills in once the swipe is long enough */
 .swp{position:fixed;top:50%;z-index:96;display:flex;align-items:center;gap:6px;max-width:64vw;padding:10px 14px;border-radius:999px;background:var(--paper);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 26px rgba(48,28,110,.2);font-size:14px;font-weight:700;line-height:1.2;pointer-events:none;opacity:calc(.3 + var(--f,0) * .7);transition:background .12s,color .12s}
 .swp span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1265,7 +1289,7 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101020227"></script>
+<script src="app.js?v=ae-20261101021308"></script>
 
 </body>
 </html>

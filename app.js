@@ -10,6 +10,97 @@
   const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const pct = (r, a) => a ? Math.round(r / a * 100) : 0;
   const get = u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.json(); });
+
+  /* ---------- line icons: each emoji the pages use is drawn as a matching line icon (24-unit grid, stroke = text colour).
+     Swapped in as content is added to the page, so every view, the drawer, quizzes and the lab get the same set. ---------- */
+  const ICP = {
+    cal: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M9 15l2 2 4-4"/>',
+    cal2: '<rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h.01M12 14h.01M16 14h.01M8 17.3h.01M12 17.3h.01"/>',
+    chart: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="M8.5 16v-4M12 16V8M15.5 16v-6"/>',
+    timer: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5M18.5 6.5l1.2-1.2"/>',
+    clock: '<circle cx="12" cy="13" r="7.5"/><path d="M12 9v4l2.5 1.5M3.8 5.5l3-2.5M20.2 5.5l-3-2.5"/>',
+    bolt: '<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12z"/>',
+    book: '<path d="M5 19.5v-15A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5a1.5 1.5 0 0 0 1.5 1.5H19v-3M9 7.5h6"/>',
+    open: '<path d="M12 6.5C10 5 7.5 4.5 3.5 4.5v14c4 0 6.5.5 8.5 2 2-1.5 4.5-2 8.5-2v-14c-4 0-6.5.5-8.5 2zM12 6.5v14"/>',
+    note: '<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8zM14 3.5V8h4.5M9 12.5h6M9 16h4"/>',
+    page: '<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8zM14 3.5V8h4.5"/>',
+    shelf: '<rect x="3.5" y="4" width="4" height="16" rx="1"/><rect x="8.5" y="6" width="4" height="14" rx="1"/><path d="m14 7.4 3.9-1 3.4 13.1-3.9 1z"/>',
+    table: '<rect x="3.5" y="4" width="17" height="16" rx="2.5"/><path d="M3.5 9h17M3.5 14.5h17M9.5 9v11"/>',
+    star: '<path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
+    home: '<path d="M3.5 10.5 12 4l8.5 6.5V19a1.5 1.5 0 0 1-1.5 1.5h-4v-6h-6v6H5A1.5 1.5 0 0 1 3.5 19z"/>',
+    bulb: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2v.5h5V16c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
+    fx: '<path d="M9.5 20.5c1.6 0 2.2-1 2.6-3l2-11c.4-2 1-3 2.6-3M7.5 9.5h7M15 13l5 6M20 13l-5 6"/>',
+    alert: '<path d="M10.3 4.2 2.8 17.5a2 2 0 0 0 1.7 3h15a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0zM12 9.5V14M12 17.2v.1"/>',
+    target: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/>',
+    pen: '<path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5zM13.5 7l3 3M13 20.5h7"/>',
+    calc: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8.5 7h7M8.5 11.5h.01M12 11.5h.01M15.5 11.5h.01M8.5 15h.01M12 15h.01M15.5 15h.01M8.5 18h.01M12 18h3.5"/>',
+    type: '<path d="M3.5 18 8 6l4.5 12M5.2 13.5h5.6M15 10.5c.8-.7 1.6-1 2.6-1 1.6 0 2.4.9 2.4 2.5V18M20 14.2c-3.5-.3-5.3.5-5.3 2 0 1.1.8 1.8 2 1.8 1.4 0 2.6-.8 3.3-2"/>',
+    cards: '<rect x="3.5" y="6.5" width="12" height="14" rx="2"/><path d="M8.5 6.5V5A1.5 1.5 0 0 1 10 3.5h9A1.5 1.5 0 0 1 20.5 5v11a1.5 1.5 0 0 1-1.5 1.5h-3.5"/>',
+    sliders: '<path d="M4 6.5h9M17 6.5h3M4 12h3M11 12h9M4 17.5h11M19 17.5h1"/><circle cx="15" cy="6.5" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17.5" r="2"/>',
+    compass: '<circle cx="12" cy="12" r="8.5"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>',
+    image: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="9.5" r="1.6"/><path d="m4 17 4.5-4.5 3.5 3.5 3-3 5 5"/>',
+    cap: '<path d="M2.5 9.5 12 5l9.5 4.5L12 14zM6.5 11.5V16c1.5 1.5 3.4 2.2 5.5 2.2s4-.7 5.5-2.2v-4.5M21.5 9.5v5"/>',
+    bank: '<path d="M3 9.5 12 4l9 5.5zM5.5 10v7.5M10 10v7.5M14 10v7.5M18.5 10v7.5M3 20.5h18"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
+    up: '<path d="M3.5 17 9.5 11l4 4 7-7.5M15 7.5h5.5V13"/>',
+    down: '<path d="M3.5 7 9.5 13l4-4 7 7.5M15 16.5h5.5V11"/>',
+    map: '<path d="M9 4.5 3.5 6.5v13L9 17.5l6 2 5.5-2v-13L15 6.5zM9 4.5v13M15 6.5v13"/>',
+    save: '<path d="M5.5 3.5H16l3.5 3.5v11.5a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2zM8 3.5v5h7v-5M7.5 20.5v-6h9v6"/>',
+    dl: '<path d="M12 4v11M6.5 9.5 12 15l5.5-5.5M5 20h14"/>',
+    ul: '<path d="M12 15V4M6.5 9.5 12 4l5.5 5.5M5 20h14"/>',
+    mark: '<path d="M6.5 3.5h11v17L12 16.5l-5.5 4z"/>',
+    offline: '<path d="M7 18.5a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 8M12 11v9M9 17l3 3 3-3"/>',
+    check: '<rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="m8 12.5 3 3 5-6"/>',
+    repeat: '<path d="M4 11V9.5A3.5 3.5 0 0 1 7.5 6H20M16.5 2.5 20 6l-3.5 3.5M20 13v1.5a3.5 3.5 0 0 1-3.5 3.5H4M7.5 21.5 4 18l3.5-3.5"/>',
+    flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.2 0-3.3 2.3-5.2 3.6-7.6.6 1.6 1.5 2.6 2.6 3.1-.3-3 .9-5.7 3-7.3.4 3.2 4.8 6 4.8 11.4 0 3.8-3.1 6.6-7.5 6.6z"/>',
+    ring: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v5M20.3 14l-4.9-1"/>',
+    leaf: '<path d="M12 20.5V12c0-4 2.8-7 8-7 0 5-3 8-8 7M12 15c0-3-2.2-5.5-7-5.5 0 4 2.6 6 7 5.5"/>',
+    flag: '<path d="M5.5 21V4M5.5 4.5h11l-2 4 2 4h-11"/>',
+    medal: '<circle cx="12" cy="15" r="5.5"/><path d="M8.5 10.7 6 3.5h4l2 5 2-5h4l-2.5 7.2M10.8 13.6l1.2-.9v4.6"/>',
+    trophy: '<path d="M7.5 4h9v5a4.5 4.5 0 0 1-9 0zM7.5 6h-3v1.5a3 3 0 0 0 3.1 3M16.5 6h3v1.5a3 3 0 0 1-3.1 3M12 13.5v7M8.5 20.5h7"/>',
+    crown: '<path d="m3.5 8 4.5 4 4-6.5 4 6.5 4.5-4-1.8 10H5.3zM5.5 20.5h13"/>',
+    heart: '<path d="M12 20s-7.5-4.6-7.5-10A4.3 4.3 0 0 1 12 7.3 4.3 4.3 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6 6 6M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4 6 18M18 6l1.4-1.4"/>',
+    eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+    moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+    key: '<circle cx="8" cy="15" r="4.5"/><path d="m11.2 11.8 8.3-8.3M16.5 6.5 19 9M14 9l2 2"/>',
+    spark: '<path d="M12 3.5c.6 3.9 2.6 5.9 6.5 6.5-3.9.6-5.9 2.6-6.5 6.5-.6-3.9-2.6-5.9-6.5-6.5 3.9-.6 5.9-2.6 6.5-6.5zM18.5 15.5c.3 1.8 1.2 2.7 3 3-1.8.3-2.7 1.2-3 3-.3-1.8-1.2-2.7-3-3 1.8-.3 2.7-1.2 3-3z"/>',
+    twin: '<rect x="8.5" y="8.5" width="12" height="12" rx="2.5"/><path d="M15.5 8.5V6A2.5 2.5 0 0 0 13 3.5H6A2.5 2.5 0 0 0 3.5 6v7A2.5 2.5 0 0 0 6 15.5h2.5"/>',
+    brain: '<path d="M9 4.5A2.5 2.5 0 0 0 6.5 7a2.5 2.5 0 0 0-2 4 2.8 2.8 0 0 0 1 4.5A2.8 2.8 0 0 0 9 19.5a2 2 0 0 0 3-1V6a2 2 0 0 0-3-1.5zM15 4.5A2.5 2.5 0 0 1 17.5 7a2.5 2.5 0 0 1 2 4 2.8 2.8 0 0 1-1 4.5 2.8 2.8 0 0 1-3.5 4 2 2 0 0 1-3-1"/>',
+    ruler: '<rect x="2.5" y="8" width="19" height="8" rx="1.5"/><path d="M6.5 8v3M10 8v4M13.5 8v3M17 8v4"/>',
+    abacus: '<rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M4 8.5h16M4 15.5h16"/><circle cx="8.5" cy="8.5" r="1.4"/><circle cx="12.5" cy="8.5" r="1.4"/><circle cx="10.5" cy="15.5" r="1.4"/><circle cx="15.5" cy="15.5" r="1.4"/>',
+    palette: '<path d="M12 3.5a8.5 8.5 0 0 0 0 17c1.2 0 1.8-.9 1.5-2-.4-1.4.4-2.5 1.9-2.5h2a3.1 3.1 0 0 0 3.1-3.1C20.5 7.3 16.7 3.5 12 3.5zM7.5 11.5h.01M10 7.5h.01M14.5 7.5h.01"/>',
+    tree: '<path d="M12 21v-6c-3.6 0-6-2-6-4.8 0-1.6.8-2.9 2-3.6C8.6 4.5 10.1 3 12 3s3.4 1.5 4 3.6c1.2.7 2 2 2 3.6C18 13 15.6 15 12 15M9.5 21h5"/>',
+    drop: '<path d="M12 3.5s-6 6.6-6 10.9a6 6 0 0 0 12 0c0-4.3-6-10.9-6-10.9z"/>',
+    scale: '<path d="M12 4v16.5M7.5 20.5h9M5 7.5h14M5 7.5 2.5 13a2.5 2.5 0 0 0 5 0zM19 7.5 16.5 13a2.5 2.5 0 0 0 5 0z"/>',
+    plug: '<path d="M9 3.5V8M15 3.5V8M6.5 8h11v3a5.5 5.5 0 0 1-11 0zM12 16.5v4"/>',
+    ask: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.2-2.4 3.5M12 16.8v.1"/>',
+    ball: '<circle cx="12" cy="10.5" r="6.5"/><path d="M7 18.5h10l1 2H6zM9.5 8.5A3 3 0 0 1 12 7"/>'
+  };
+  const EMI = { '📅': 'cal', '🗓': 'cal2', '📊': 'chart', '⏱': 'timer', '⏰': 'clock', '⚡': 'bolt', '📘': 'book', '📗': 'book', '📖': 'open', '📝': 'note', '📄': 'page',
+    '📚': 'shelf', '📒': 'table', '⭐': 'star', '🏠': 'home', '💡': 'bulb', '📐': 'fx', '⚠': 'alert', '🎯': 'target', '✍': 'pen', '🔢': 'calc', '🔤': 'type', '🃏': 'cards',
+    '⚙': 'sliders', '🧭': 'compass', '🖼': 'image', '🎓': 'cap', '🏛': 'bank', '🔎': 'search', '📈': 'up', '📉': 'down', '🗺': 'map', '💾': 'save', '⬇': 'dl', '⬆': 'ul',
+    '🔖': 'mark', '📶': 'offline', '✅': 'check', '🔁': 'repeat', '🔥': 'flame', '🍩': 'ring', '🌱': 'leaf', '💯': 'flag', '🏅': 'medal', '🏆': 'trophy', '🥇': 'crown',
+    '💜': 'heart', '☀': 'sun', '👁': 'eye', '🌙': 'moon', '🗝': 'key', '🔑': 'key', '✨': 'spark', '👯': 'twin', '🧠': 'brain', '📏': 'ruler', '🧮': 'abacus',
+    '🎨': 'palette', '🌳': 'tree', '💧': 'drop', '⚖': 'scale', '🔌': 'plug', '❓': 'ask', '🔮': 'ball' };
+  const icon = n => `<svg class="ic ic-${n}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICP[n]}</svg>`;
+  const EMRX = new RegExp(`(${Object.keys(EMI).join('|')})\\uFE0F?`, 'gu'), EMHAS = new RegExp(`(?:${Object.keys(EMI).join('|')})`, 'u');
+  const NOICON = 'svg, option, select, textarea, script, style, title, [data-noicon]';
+  const iconText = n => {
+    const p = n.parentElement; if (!p || p.closest(NOICON)) return;
+    const t = document.createElement('template');
+    t.innerHTML = n.data.split(EMRX).map((x, i) => i % 2 ? icon(EMI[x]) : esc(x)).join('');
+    p.replaceChild(t.content, n);
+  };
+  const iconize = r => {
+    if (r.nodeType === 3) { if (EMHAS.test(r.data)) iconText(r); return; }
+    if (r.nodeType !== 1 || r.closest(NOICON) || !EMHAS.test(r.textContent)) return;
+    const w = document.createTreeWalker(r, NodeFilter.SHOW_TEXT), hit = [];
+    for (let n; (n = w.nextNode());) if (EMHAS.test(n.data)) hit.push(n);
+    hit.forEach(iconText);
+  };
+  new MutationObserver(rs => rs.forEach(m => m.addedNodes.forEach(iconize))).observe(document.body, { childList: true, subtree: true });
+  iconize(document.body);
   let tt; const toast = m => { const t = $('#toast'); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 2800); };
   const main = $('#main');
   try { const th = localStorage.getItem('ae-theme'); if (th) document.documentElement.dataset.theme = th; } catch (e) {}
@@ -616,7 +707,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101020227';
+  const SWV = 'ae-20261101021308';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
