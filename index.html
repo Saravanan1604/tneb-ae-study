@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101013020"></script>
+<script src="theme.js?v=ae-20261101015203"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1167,6 +1167,15 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 :root[data-theme="lavender"] .mainnav a[aria-current="page"]{background:linear-gradient(135deg,#5b3fd9,#7c5ce6);color:#fff}
 :root[data-theme="lavender"] .side{background:transparent}
 @media (max-width:899px){:root[data-theme="lavender"] .side{background:#fbf8ff}}
+/* printed questions cut into lines: shown on phones in place of the shrunken full-width picture */
+.im.rf .rfl{display:none}
+@media (max-width:640px){
+  .im.rf>.sp{display:none}
+  .im.rf .rfl{display:block;container-type:inline-size;line-height:0;padding:2px 0}
+  .rfl .rfbr{display:block;height:4px}
+  .rfl .seg{display:inline-block;vertical-align:middle;width:calc(var(--w) * .82px);width:calc(var(--w) * min(1.1px, 100cqw / 390));max-width:100%;margin:2px 7px 2px 0;border-radius:3px;background-color:#fff;cursor:zoom-in}
+  .rfl .seg.fig{width:calc(var(--w) * min(1px, 100cqw / 560));max-width:100%;margin:4px 0}
+}
 /* ---- home dashboard ---- */
 .ovw{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:14px}
 .ov{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:4px;align-content:start;justify-items:start;position:relative;min-width:0}
@@ -1242,7 +1251,7 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101013020"></script>
+<script src="app.js?v=ae-20261101015203"></script>
 
 </body>
 </html>

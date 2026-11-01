@@ -372,11 +372,21 @@
     const [f, W, H, y, w, h] = r, pos = H > h ? (y / (H - h) * 100).toFixed(5) : '0';
     return `<div class="sp" role="img" aria-label="${esc(alt)}" data-src="${f}" data-w="${w}" style="aspect-ratio:${w}/${h};max-width:${w}px;background-size:${(W / w * 100).toFixed(4)}% auto;background-position:0 ${pos}%"></div>`;
   }
+  /* a printed question cut into line pieces (data rf: [x, y, w, h, newline|2 = figure]): on a phone the pieces flow like
+     text at a readable size; on a wide screen the whole printed picture is shown as before */
+  function rfHtml(r, rf, alt) {
+    if (!r || !rf) return '';
+    const [f, W, H] = r;
+    return `<div class="rfl" role="img" aria-label="${esc(alt)} (printed question, in lines)">${rf.map(([x, y, w, h, nl]) => `${nl ? '<i class="rfbr"></i>' : ''}<span class="sp seg${nl === 2 ? ' fig' : ''}" data-src="${f}" data-w="${w}" style="--w:${w};aspect-ratio:${w}/${h};background-size:${(W / w * 100).toFixed(4)}% auto;background-position:${W > w ? (x / (W - w) * 100).toFixed(4) : 0}% ${H > h ? (y / (H - h) * 100).toFixed(5) : 0}%"></span>`).join('')}</div>`;
+  }
+  const qPic = (x, alt) => x.rf ? `<div class="im rf">${spu(x.qs, alt)}${rfHtml(x.qs, x.rf, alt)}<span class="zoomhint">Tap any line to see the whole printed question</span></div>`
+    : x.wide ? `<div class="im wide">${spu(x.qs, alt)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>` : spu(x.qs, alt) + '<span class="zoomhint">Tap the picture to zoom</span>';
   const spIO = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; const el = e.target; el.style.backgroundImage = `url("${el.dataset.src}")`; el.dataset.on = 1; spIO.unobserve(el); }), { rootMargin: '900px 0px' });
   const lazy = (root = main) => $$('.sp[data-src]:not([data-on])', root).forEach(el => spIO.observe(el));
   const lb = $('#lb');
   document.addEventListener('click', e => {
-    const m = e.target.closest('main .sp, .qz .sp'); if (!m || m.classList.contains('big')) return;
+    let m = e.target.closest('main .sp, .qz .sp'); if (!m || m.classList.contains('big')) return;
+    if (m.classList.contains('seg')) m = m.closest('.im').querySelector(':scope > .sp') || m;
     const c = m.cloneNode(); c.classList.add('big'); c.style.backgroundImage = `url("${m.dataset.src}")`; c.style.setProperty('--w', Math.min(+m.dataset.w * 1.25, 1400) + 'px');
     lb.querySelector('.lbi').replaceChildren(c); lb.hidden = false; document.body.style.overflow = 'hidden';
   });
@@ -514,7 +524,7 @@
   const uQ = x => {
     const oh = x.qh != null && x.oh ? Object.fromEntries(x.oh) : null;
     return { id: x.id, t: x.t, src: x.qsrc || `Question Book · ${x.lab} · ${x.src}`, q: oh || (x.qh != null && x.ty === 'nat') ? `<div class="uq">${x.qh}</div>`
-      : x.wide ? `<div class="im wide">${spu(x.qs, x.src)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>` : spu(x.qs, x.src) + '<span class="zoomhint">Tap the picture to zoom</span>',
+      : qPic(x, x.src),
       opts: x.L.map(l => ({ l, h: oh && oh[l] || '' })), r: x.L.indexOf(x.ok[0]), rs: x.ok.map(l => x.L.indexOf(l)), ex: solHtml(x) };
   };
   // any Question Book or predicted-paper question as a quiz item: one answer, several answers (MSQ) or a typed number (NAT)
@@ -606,7 +616,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101013020';
+  const SWV = 'ae-20261101015203';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -660,7 +670,7 @@
 
   /* ---------- router ---------- */
   let RT = 0, M = null, PENDQ = null, GOSEC = null;
-  addEventListener('hashchange', () => route());
+  addEventListener('hashchange', () => { if (!lb.hidden) lbClose(); route(); });
   async function route(keep) {
     if (!keep && !PENDQ) gsView = null;
     // views are plain hash names: #home, #progress, #mock, #more, #t-497, #t-497-prac
@@ -1124,7 +1134,7 @@
     return `<article class="box gs ub" data-u="${x.id}"><header>${starBtn(x.id)}<b>${x.lab}</b><span class="ex ex-${x.ex}">${esc(x.src)}</span>${uState(x)}${x.pg ? `<span class="pg">p ${x.pg}</span>` : ''}</header>
       ${sub[0] ? `<div class="usub"><b>${esc(sub[0])}</b>${sub[1] ? ` · ${esc(sub[1])}` : ''}</div>` : ''}
       ${x.qh != null ? `<div class="uq">${x.qh}${x.oh && x.oh.length ? `<ol class="uopts">${x.oh.map(([l, h]) => `<li><b>(${l})</b> ${h}</li>`).join('')}</ol>` : ''}</div>
-        <div class="im print${x.wide ? ' wide' : ''}" hidden>${spu(x.qs, x.src)}</div>` : `<div class="im${x.wide ? ' wide' : ''}">${spu(x.qs, x.src)}<span class="zoomhint">${x.wide ? 'Swipe sideways to read the whole line · tap to zoom' : 'Tap the picture to zoom'}</span></div>`}
+        <div class="im print${x.wide ? ' wide' : ''}" hidden>${spu(x.qs, x.src)}</div>` : (x.rf ? qPic(x, x.src) : `<div class="im${x.wide ? ' wide' : ''}">${spu(x.qs, x.src)}<span class="zoomhint">${x.wide ? 'Swipe sideways to read the whole line · tap to zoom' : 'Tap the picture to zoom'}</span></div>`)}
       <div class="acts">${ui}${x.cf ? '<button class="btn" data-uact="cf">💡 Concept & formula</button>' : ''}<button class="btn" data-uact="sol">Show solution</button>${x.qh != null ? '<button class="btn" data-uact="print">View as printed</button>' : ''}</div><div class="ucfh" hidden>${cfHtml(x)}</div><div class="ufb" hidden></div>
       <div class="sol" hidden>${x.sh ? solHtml(x) + `<button class="btn lnk" data-uact="sprint">View the solution as printed</button><div class="im sprint" hidden>${spu(x.ss, 'Answer and worked solution')}</div>` : `<div class="im">${spu(x.ss, 'Answer and worked solution')}</div>`}</div></article>`;
   }
