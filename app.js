@@ -305,6 +305,34 @@
       topicLink: x => T(x) ? `<a class="lxchip tp" href="#t-${x}">${esc(short(T(x)))}${T(x).pr ? ` · ${T(x).pr}` : ''}</a>` : '', topicName: x => T(x) ? short(T(x)) : x });
     markStep(tid, 'labs'); toTop();
   }
+  /* ---------- visual cards (#cards): original illustrated cards, drawn by sims/cards.js ---------- */
+  // [card, title, topics] — the topic pages link to their cards without loading the drawings
+  const VCT = [['generator', 'Synchronous generator', ['550', '580']], ['step-up', 'Generator (step-up) transformer', ['497']], ['line', 'Transmission line', ['627']], ['busbar', 'Busbars & substations', ['723', '759']],
+    ['breaker', 'Circuit breakers & isolators', ['723']], ['ct-vt', 'Current & voltage transformers', ['807', '723']], ['relay', 'Protective relays', ['723']], ['arrester', 'Surge arresters', ['723', '759']],
+    ['capacitor', 'Capacitor banks & reactors', ['380', '714', '1055']], ['distribution', 'Distribution transformer & your home', ['497', '663']], ['nested-radicals', 'Endless square roots', ['316']], ['astc', 'The ASTC wheel', []], ['derivative', 'Derivative from first principles', ['123']]];
+  let vcP = null; const loadCards = () => vcP ||= loadJs('cards').catch(e => { vcP = null; throw e; });
+  const vcTopic = x => T(x) ? `<a class="lxchip tp" href="#t-${x}">${esc(short(T(x)))}</a>` : '';
+  async function viewCards(tok) {
+    setShell('cards'); document.title = 'Visual cards · TNEB AE Study Site'; main.innerHTML = '<p class="loading">Loading the cards…</p>';
+    await loadCards(); if (tok !== RT) return;
+    const L = window.VC.list, tile = c => `<a class="vtile" href="#cards-${c.id}">${window.VC.thumb(c)}<em>${c.grp === 'ps' ? `${L.filter(x => x.grp === 'ps').indexOf(c) + 1} of ${L.filter(x => x.grp === 'ps').length}` : 'Maths shortcut'}</em><b>${esc(c.n)}</b><small>${c.sub}</small></a>`;
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Visual cards</div>
+      <section class="hero"><h1>🖼 Visual cards</h1><p>Illustrated cards drawn for this site: each has a live drawing, the key formula with your own numbers, how it works, and an exam tip. Swipe left or right on a card for the next one.</p></section>
+      <div class="vgal"><h2 class="vgh">⚡ From the power station to your home</h2>
+      <nav class="vchain" aria-label="The power system in order">${L.filter(c => c.grp === 'ps').map((c, j) => `<a href="#cards-${c.id}"><i>${j + 1}</i>${esc(c.n.replace(/ \(.*\)$/, ''))}</a>`).join('')}</nav>
+      <div class="vgrid0">${L.filter(c => c.grp === 'ps').map(tile).join('')}</div>
+      <h2 class="vgh">🔢 Maths shortcuts</h2><div class="vgrid0">${L.filter(c => c.grp === 'm').map(tile).join('')}</div></div>`;
+    toTop();
+  }
+  async function viewCard(id, tok) {
+    setShell('cards'); main.innerHTML = '<p class="loading">Loading the card…</p>';
+    await loadCards(); if (tok !== RT) return;
+    const L = window.VC.list, j = L.findIndex(c => c.id === id); if (j < 0) { location.hash = '#cards'; return; }
+    const c = L[j], pv = L[j - 1], nx = L[j + 1]; document.title = `${c.n} · Visual cards · TNEB AE Study Site`;
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#cards">Visual cards</a> › ${esc(c.n)}</div><div id="vcbox"></div>
+      <div class="vcnav">${pv ? `<a class="btn" href="#cards-${pv.id}" data-sw="prev" data-n="${esc(pv.n)}">← ${esc(pv.n)}</a>` : '<a class="btn" href="#cards">← All cards</a>'}${nx ? `<a class="btn go" href="#cards-${nx.id}" data-sw="next" data-n="${esc(nx.n)}">${esc(nx.n)} →</a>` : '<a class="btn go" href="#cards">All cards</a>'}</div>`;
+    window.VC.mount($('#vcbox'), id, { topicLink: vcTopic }); toTop();
+  }
   // the progress console tile
   function labTile() {
     const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
@@ -463,7 +491,7 @@
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const TP = topicProgress();
-    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
+    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
       IX.S.map(([k, n]) => { const ts = (g[k] || []).map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / Math.max(1, ts.length) * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null;
         return `<details class="sg" data-s="${k}"><summary style="--c:${SC[k]}"><h4><i></i>${esc(n)}</h4><span class="sgp"><span class="bar" style="--col:${SC[k]}"><i style="width:${cov}%"></i></span><small>${cov} % covered${acc != null ? ` · ${acc} % right` : ''}</small></span></summary>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('') + '</details>'; }).join('');
     $('#sidex').onclick = () => drawer(false);
@@ -743,7 +771,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101024018';
+  const SWV = 'ae-20261101025444';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -817,6 +845,8 @@
     }
     const mb = M && $(`[data-m="${dir > 0 ? 'next' : 'prev'}"]`, main);
     if (mb) return mb.disabled ? null : { n: dir > 0 ? (M.i + 1 < M.qs.length ? 'Next question' : 'Save answer') : 'Previous question', go: () => { mb.click(); swAnim(main, dir); } };
+    const sl = $(`[data-sw="${dir > 0 ? 'next' : 'prev'}"]`, main);
+    if (sl) return { n: sl.dataset.n || sl.textContent.trim(), go: () => { location.hash = sl.getAttribute('href'); } };
     const ml = dir > 0 && $('[data-ml="next"]', main);
     if (shownEl(ml)) return { n: 'Next question', go: () => { ml.click(); swAnim(main, dir); } };
     const lx = (tg && tg.closest('.lxw')) || (!$('.pbar', main) && $('.lxw', main));
@@ -882,6 +912,8 @@
       if (a === 'more') return await viewMore(tok);
       if (a === 'sims') return await viewLab(tok);
       const smm = h.match(/^sims-([a-z]+)$/); if (smm) return smm[1] === 'topics' ? await viewSims(tok) : await viewLab(tok, catOf(smm[1]) ? smm[1] : undefined);
+      if (a === 'cards') return await viewCards(tok);
+      const vcm = h.match(/^cards-([a-z0-9-]+)$/); if (vcm) return await viewCard(vcm[1], tok);
       const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
       if (a === 'practice') return await viewPractice(tok);
@@ -1133,6 +1165,7 @@
         ${ch && ch.sub ? `<div class="tsub">${esc(ch.sub)}</div>` : `<div class="tsub">${D.st.length} formulas · ${myQ.length} MCQs · ${D.rows.length} past questions · ${D.gate.length} GATE sums</div>`}
         ${ch && ch.stats.length ? `<div class="stats">${ch.stats.map(([n, l, c]) => `<div class="stat"><b style="color:${c}">${n}</b><span>${esc(l)}</span></div>`).join('')}${ch.priority[0] ? `<div class="stat pr ${ch.priority[0].split(' ')[0]}"><b>${esc(ch.priority[0])}</b><span>${esc(ch.priority[1])}</span></div>` : ''}</div>` : ''}
         ${ch && ch.note ? `<p class="tnote">${esc(ch.note)}</p>` : ''}
+        ${VCT.filter(v => v[2].includes(id)).map(([k, n]) => `<a class="simlink vcl" href="#cards-${k}"><i>🖼</i><span><b>Visual card: ${esc(n)} →</b><small>a live drawing, the key formula with your numbers, and an exam tip</small></span></a>`).join('')}
         ${LABN[id] ? `<a class="simlink tsl" href="#sim-${id}"><i>⚙</i><span><b>Open the ${esc(short(t))} Formula & Concept Simulator →</b><small>${LABN[id] + LXC.filter(e => e[4].includes(id)).length} simulators — experiment, calculations, graphs, concept and exam practice for each</small></span></a>` : ''}
         ${t.t === 'Transformers' ? `<a class="simlink" href="${SIM_URL}"${SIM_TGT}><i>⚙</i><span><b>Open the Transformer Formula & Concept Simulator${STANDALONE ? ' →' : ' ↗'}</b><small>Phasors, losses, efficiency, regulation, 3-phase, parallel operation, saturation and inrush — on the full Transformers page</small></span></a>` : ''}
         <div class="mine" id="mine"></div></div>
@@ -1874,7 +1907,7 @@
     const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids, c) => `<section class="subj shelfsec" style="--c:${c}"><h2><i></i>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:${shc(s[0])}"><h3><span class="shi">${s[1]}</span> ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
       <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book (${R.g.reduce((a, g) => a + g.p.length, 0)} pages), set for easy reading on a phone — one card per row, every word as printed; the printed page is one tap away. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
-      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
+      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#cards">🖼 Visual cards</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
       ${sec('🔤 Letters & formulas', ['which', 'sym', 'az', 'words', 'cards', 'keyvals'], '#2563eb')}
       ${sec('🔢 Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'], '#db2777')}
       ${sec('🖼 Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'], '#059669')}
