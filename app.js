@@ -616,7 +616,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101015203';
+  const SWV = 'ae-20261101020227';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -671,6 +671,71 @@
   /* ---------- router ---------- */
   let RT = 0, M = null, PENDQ = null, GOSEC = null;
   addEventListener('hashchange', () => { if (!lb.hidden) lbClose(); route(); });
+
+  /* ---------- swipe left / right on touch screens: next or previous question, tab or page ----------
+     Starts only on plain content: not on inputs and sliders, charts, tab bars, sideways-scrolling pictures or tables,
+     or within 24 px of the screen edge (the phone's own back gesture). A mostly-vertical move stays a scroll. */
+  const swp = document.createElement('div'); swp.className = 'swp'; swp.hidden = true; swp.setAttribute('aria-hidden', 'true'); document.body.append(swp);
+  const SWPAGES = [['home', 'Topics'], ['progress', 'My progress'], ['mock', 'Mock test']];
+  const shownEl = el => !!el && !el.hidden && !el.disabled && el.getClientRects().length > 0;
+  const swNeed = () => Math.max(60, Math.min(120, innerWidth * 0.2));
+  const swAnim = (el, dir) => { if (!el || matchMedia('(prefers-reduced-motion: reduce)').matches) return; el.classList.remove('swin-n', 'swin-p'); void el.offsetWidth; el.classList.add(dir > 0 ? 'swin-n' : 'swin-p'); setTimeout(() => el.classList.remove('swin-n', 'swin-p'), 400); };
+  // what a swipe does here; dir 1 = next (finger moves to the left), -1 = previous; null = nothing
+  function swipeAct(dir, tg) {
+    if (!qz.hidden) {
+      if (dir < 0) return null;
+      const b = $('[data-z="next"]', qz);
+      if (shownEl(b)) return { n: b.textContent.trim().replace(/\s*→$/, ''), go: () => { b.click(); swAnim($('.wrap', qz), dir); } };
+      return $('[data-zi], [data-z="chk"], [data-z="show"]', qz) ? { n: 'Answer this one first', no: 1 } : null;
+    }
+    const mb = M && $(`[data-m="${dir > 0 ? 'next' : 'prev'}"]`, main);
+    if (mb) return mb.disabled ? null : { n: dir > 0 ? (M.i + 1 < M.qs.length ? 'Next question' : 'Save answer') : 'Previous question', go: () => { mb.click(); swAnim(main, dir); } };
+    const ml = dir > 0 && $('[data-ml="next"]', main);
+    if (shownEl(ml)) return { n: 'Next question', go: () => { ml.click(); swAnim(main, dir); } };
+    const lx = (tg && tg.closest('.lxw')) || (!$('.pbar', main) && $('.lxw', main));
+    if (lx) { const nq = dir > 0 && $('.lxp:not([hidden]) [data-a="nextq"]', lx); if (shownEl(nq)) return { n: 'Next question', go: () => nq.click() }; }
+    const bar = lx ? $('.lxtabs', lx) : $('.pbar', main);
+    if (bar) {
+      const bs = $$('[role=tab]', bar), i = bs.findIndex(b => b.getAttribute('aria-selected') === 'true'), b = i >= 0 && bs[i + dir];
+      return b ? { n: ($('b', b) || b).textContent.trim(), go: () => {
+        b.click(); b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        const pnl = lx ? $('.lxp:not([hidden])', lx) : $('.pane:not([hidden])', main);
+        if (pnl && lx) { const y = pnl.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 8; if (y < 0) scrollBy(0, y); }
+        swAnim(pnl, dir);
+      } } : null;
+    }
+    const h = location.hash.slice(1) || 'home', k = SWPAGES.findIndex(x => x[0] === h), pg = k >= 0 && SWPAGES[k + dir];
+    return pg ? { n: pg[1], go: () => { const mo = new MutationObserver(() => { mo.disconnect(); swAnim(main, dir); }); mo.observe(main, { childList: true }); setTimeout(() => mo.disconnect(), 4000); location.hash = '#' + pg[0]; } } : null;
+  }
+  const noSwipe = t => t.closest('input, textarea, select, [contenteditable], canvas, .lxch, .lxtabs, .mk-tabs, .lb, .botnav, header.site, [data-noswipe]');
+  const sideScroll = t => { for (let e = t; e && e !== document.body && e !== qz; e = e.parentElement) if (e.scrollWidth > e.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(e).overflowX)) return true; return false; };
+  let sw = null;
+  const swHide = () => { swp.hidden = true; };
+  addEventListener('touchstart', e => {
+    sw = null; if (e.touches.length !== 1 || !lb.hidden || side.classList.contains('open')) return;
+    const t = e.touches[0], tg = e.target instanceof Element ? e.target : e.target.parentElement;
+    if (!tg || t.clientX < 24 || t.clientX > innerWidth - 24 || noSwipe(tg) || sideScroll(tg)) return;
+    sw = { x: t.clientX, y: t.clientY, t: Date.now(), tg, on: false, dir: 0, a: null };
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (!sw) return; if (e.touches.length !== 1) { sw = null; swHide(); return; }
+    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.on) { if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { sw = null; return; } if (Math.abs(dx) < 22) return; sw.on = true; }
+    const dir = dx < 0 ? 1 : -1;
+    if (dir !== sw.dir) { sw.dir = dir; sw.a = swipeAct(dir, sw.tg); if (sw.a) swp.innerHTML = dir > 0 ? `<span>${esc(sw.a.n)}</span><svg viewBox="0 0 24 24"><path d="M9 5.5 15.5 12 9 18.5"/></svg>` : `<svg viewBox="0 0 24 24"><path d="M15 5.5 8.5 12l6.5 6.5"/></svg><span>${esc(sw.a.n)}</span>`; }
+    if (!sw.a) { swHide(); return; }
+    const f = Math.min(1, Math.abs(dx) / swNeed());
+    swp.className = `swp ${dir > 0 ? 'r' : 'l'}${sw.a.no ? ' no' : f >= 1 ? ' go' : ''}`; swp.style.setProperty('--f', f.toFixed(3)); swp.hidden = false;
+  }, { passive: true });
+  addEventListener('touchend', e => {
+    const s = sw; sw = null; swHide(); if (!s || !s.on || !s.a) return;
+    const t = e.changedTouches[0], dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if ((dx < 0 ? 1 : -1) !== s.dir || Math.abs(dx) < swNeed() || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - s.t > 900) return;
+    if (String(getSelection() || '').trim()) return;
+    if (s.a.no) { toast(`${s.a.n}, then swipe for the next question.`); return; }
+    s.a.go();
+  }, { passive: true });
+  addEventListener('touchcancel', () => { sw = null; swHide(); }, { passive: true });
   async function route(keep) {
     if (!keep && !PENDQ) gsView = null;
     // views are plain hash names: #home, #progress, #mock, #more, #t-497, #t-497-prac

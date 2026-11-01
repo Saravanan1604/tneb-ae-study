@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101015203"></script>
+<script src="theme.js?v=ae-20261101020227"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1176,6 +1176,20 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
   .rfl .seg{display:inline-block;vertical-align:middle;width:calc(var(--w) * .82px);width:calc(var(--w) * min(1.1px, 100cqw / 390));max-width:100%;margin:2px 7px 2px 0;border-radius:3px;background-color:#fff;cursor:zoom-in}
   .rfl .seg.fig{width:calc(var(--w) * min(1px, 100cqw / 560));max-width:100%;margin:4px 0}
 }
+/* swipe left / right: a hint pill at the screen edge that fills in once the swipe is long enough */
+.swp{position:fixed;top:50%;z-index:96;display:flex;align-items:center;gap:6px;max-width:64vw;padding:10px 14px;border-radius:999px;background:var(--paper);color:var(--ink);border:1px solid var(--line);box-shadow:0 8px 26px rgba(48,28,110,.2);font-size:14px;font-weight:700;line-height:1.2;pointer-events:none;opacity:calc(.3 + var(--f,0) * .7);transition:background .12s,color .12s}
+.swp span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.swp svg{flex:none;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.swp.r{right:12px;transform:translate(calc((1 - var(--f,0)) * 36px),-50%)}
+.swp.l{left:12px;transform:translate(calc((var(--f,0) - 1) * 36px),-50%)}
+.swp.go{background:var(--pur);color:#fff;border-color:transparent}
+.swp.no{color:var(--ink-2);background:var(--bg)}
+@keyframes swinN{from{opacity:.4;transform:translateX(26px)}to{opacity:1;transform:none}}
+@keyframes swinP{from{opacity:.4;transform:translateX(-26px)}to{opacity:1;transform:none}}
+.swin-n>*{animation:swinN .22s ease-out}
+.swin-p>*{animation:swinP .22s ease-out}
+@media (prefers-reduced-motion:reduce){.swin-n>*,.swin-p>*{animation:none}.swp{transition:none}}
+
 /* ---- home dashboard ---- */
 .ovw{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-top:14px}
 .ov{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:4px;align-content:start;justify-items:start;position:relative;min-width:0}
@@ -1251,7 +1265,7 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101015203"></script>
+<script src="app.js?v=ae-20261101020227"></script>
 
 </body>
 </html>
