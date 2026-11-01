@@ -22,8 +22,177 @@
   const SIM_TGT = STANDALONE ? '' : ' target="_blank" rel="noopener"';
   /* formula & concept simulators: sims/*.js, loaded the first time a Simulate tab or the Simulators page opens */
   const LABN = {"106":2,"123":2,"140":2,"154":1,"166":1,"179":1,"190":1,"201":1,"212":1,"222":2,"235":2,"252":5,"265":4,"275":5,"283":6,"296":6,"308":6,"316":8,"339":16,"365":8,"380":15,"409":2,"417":3,"429":5,"440":13,"468":3,"475":12,"497":11,"526":9,"550":11,"572":7,"580":9,"601":4,"607":4,"614":3,"621":5,"627":15,"657":3,"663":10,"678":7,"696":7,"714":4,"723":10,"759":3,"767":13,"800":2,"807":15,"838":4,"849":6,"867":9,"888":8,"906":7,"913":4,"935":3,"941":4,"953":3,"961":10,"998":7,"1008":4,"1027":6,"1042":3,"1048":3,"1055":6};
-  const SIMF = ['engine', 'c', 'x', 'p', 'k', 'e', 'm', 'b'];
+  const SIMF = ['engine', 'c', 'x', 'p', 'k', 'e', 'm', 'b', 'figs'];
   let simsP = null;
+  /* ---------- ⚡ Electrical Simulation Laboratory: catalogue (the engines load only when an experiment opens) ---------- */
+  const loadJs = f => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js?v=${SWV}`; el.onload = ok; el.onerror = () => no(new Error('Could not load the lab')); document.head.appendChild(el); });
+  const labP = {}; const loadLab = n => labP[n] ||= loadJs('lab').then(() => loadJs('lx' + n)).catch(e => { delete labP[n]; throw e; });
+  const IC = { // line illustrations for the eight laboratories (24×24 strokes)
+    ckt: '<path d="M2 12h3l1.5-4 3 8 3-8 3 8 1.5-4H22"/><circle cx="2" cy="12" r="1"/><circle cx="22" cy="12" r="1"/>',
+    tx: '<rect x="7" y="3" width="10" height="18" rx="1.5"/><path d="M4 7c2 0 2 2 0 2s-2 2 0 2 2 2 0 2-2 2 0 2M20 7c-2 0-2 2 0 2s2 2 0 2-2 2 0 2 2 2 0 2"/>',
+    dc: '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M3 9h3M3 15h3M18 9h3M18 15h3"/>',
+    im: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><path d="M12 3.5a8.5 8.5 0 0 1 7.4 4.3M19.4 7.8l-.2-3M19.4 7.8l-3 .3"/>',
+    sm: '<circle cx="12" cy="12" r="8.5"/><path d="M6 12c1.5-4 3-4 4.5 0s3 4 4.5 0 2-2 3-1"/>',
+    ps: '<circle cx="5" cy="12" r="3"/><path d="M8 12h3M11 6v12M11 9h6M11 15h6M17 6v12M17 12h4M21 10l1 2-1 2"/>',
+    td: '<path d="M12 2 7 22M12 2l5 20M8.5 15h7M9.6 10h4.8M5 7h14M3 7l2 3M21 7l-2 3"/>',
+    pe: '<path d="M2 12h6M16 12h6M8 6v12l8-6zM16 6v12"/>',
+  };
+  const LXCAT = [['ckt', 'Electrical Circuits', '#315EED', ['339', '380']], ['tx', 'Transformers', '#8057E8', ['497']], ['dc', 'DC Machines', '#E08A0B', ['475']], ['im', 'Induction Motors', '#18A878', ['526']], ['sm', 'Synchronous Machines', '#D9467A', ['550']], ['ps', 'Power Systems', '#0E93A8', ['678', '696', '723']], ['td', 'Transmission & Distribution', '#5B5BD6', ['627']], ['pe', 'Power Electronics', '#C8551F', ['961', '849']]];
+  // [id, laboratory, name, difficulty 1–3, topics, search words]
+  const LXC = [
+    ['ohm', 'ckt', "Ohm's Law Simulator", 1, ['339'], 'V = IR resistor current voltage power ammeter voltmeter'], ['series', 'ckt', 'Series Resistance', 1, ['339'], 'series resistors voltage divider KVL'], ['parallel', 'ckt', 'Parallel Resistance', 1, ['339'], 'parallel resistors current divider conductance'],
+    ['rlc', 'ckt', 'Series and Parallel RLC Circuits', 2, ['380'], 'impedance reactance phasor power factor AC inductor capacitor'], ['kcl', 'ckt', "Kirchhoff's Current Law", 1, ['339'], 'KCL node nodal analysis Millman'], ['kvl', 'ckt', "Kirchhoff's Voltage Law", 1, ['339'], 'KVL loop mesh'],
+    ['thevenin', 'ckt', "Thevenin's Theorem", 2, ['339'], 'Vth Rth equivalent network theorem'], ['norton', 'ckt', "Norton's Theorem", 2, ['339'], 'Norton current source equivalent theorem'], ['superpos', 'ckt', 'Superposition Theorem', 2, ['339'], 'superposition linear sources theorem'],
+    ['maxpower', 'ckt', 'Maximum Power Transfer', 2, ['339'], 'maximum power transfer matching RL Rth theorem'], ['stardelta', 'ckt', 'Star-Delta Transformation', 2, ['339'], 'star delta wye Y transformation'], ['resonance', 'ckt', 'Series and Parallel Resonance', 3, ['380'], 'resonance Q factor bandwidth tank'],
+    ['tx-work', 'tx', 'Transformer Working Principle', 1, ['497'], 'mutual induction Faraday flux DC'], ['tx-emf', 'tx', 'EMF Equation', 1, ['497'], 'E = 4.44 f N Φm emf equation'], ['tx-ratio', 'tx', 'Turns Ratio', 2, ['497'], 'turns ratio V1/V2 = N1/N2 = I2/I1 flux density ideal practical'],
+    ['tx-updown', 'tx', 'Step-Up and Step-Down Transformer', 1, ['497'], 'step up step down turns'], ['tx-taps', 'tx', 'Voltage Transformation', 2, ['497'], 'tap changer volts per turn voltage transformation'], ['tx-current', 'tx', 'Current Transformation', 1, ['497'], 'ampere turns current ratio CT'],
+    ['tx-flux', 'tx', 'Magnetic Flux Variation', 2, ['497'], 'V/f flux density saturation B-H magnetising current'], ['tx-loss', 'tx', 'Core Loss and Copper Loss', 2, ['497'], 'hysteresis eddy current Steinmetz iron copper losses'], ['tx-oc', 'tx', 'Open Circuit Test', 2, ['497'], 'open circuit test no load core loss R0 X0'],
+    ['tx-sc', 'tx', 'Short Circuit Test', 2, ['497'], 'short circuit test copper loss equivalent impedance'], ['tx-eff', 'tx', 'Transformer Efficiency', 2, ['497'], 'efficiency maximum efficiency load'], ['tx-reg', 'tx', 'Voltage Regulation', 3, ['497'], 'voltage regulation power factor leading lagging'],
+    ['dc-emf', 'dc', 'DC Generator EMF Equation', 1, ['475'], 'E = PΦZN/60A lap wave generator emf'], ['dc-backemf', 'dc', 'DC Motor Back EMF', 1, ['475'], 'back emf Eb = V − IaRa speed'], ['dc-torque', 'dc', 'DC Motor Torque', 2, ['475'], 'torque 0.159 PΦZIa/A'],
+    ['dc-shunt', 'dc', 'DC Shunt Motor', 2, ['475'], 'shunt motor constant speed'], ['dc-series', 'dc', 'DC Series Motor', 2, ['475'], 'series motor traction torque I squared'], ['dc-compound', 'dc', 'DC Compound Motor', 3, ['475'], 'compound cumulative differential'],
+    ['dc-speed', 'dc', 'Speed Control', 2, ['475'], 'speed control armature resistance field weakening Ward Leonard'], ['dc-char', 'dc', 'Motor Characteristics', 2, ['475'], 'speed torque characteristics shunt series compound'],
+    ['im-rmf', 'im', 'Rotating Magnetic Field', 1, ['526'], 'rotating magnetic field 1.5 Fm three phase'], ['im-ns', 'im', 'Synchronous Speed', 1, ['526'], 'Ns = 120f/P synchronous speed poles'], ['im-slip', 'im', 'Slip Calculation', 1, ['526'], 'slip s = (Ns − Nr)/Ns'],
+    ['im-nr', 'im', 'Rotor Speed', 1, ['526'], 'rotor speed Nr = Ns(1 − s)'], ['im-fr', 'im', 'Rotor Frequency', 1, ['526'], 'rotor frequency fr = sf rotor emf'], ['im-ts', 'im', 'Torque-Slip Characteristics', 3, ['526'], 'torque slip curve maximum torque induction motor'],
+    ['im-start', 'im', 'Starting Torque', 2, ['526'], 'starting torque DOL star delta autotransformer rotor resistance'], ['im-tmax', 'im', 'Maximum Torque', 2, ['526'], 'maximum torque sm = R2/X2 pull-out Kloss'], ['im-eqc', 'im', 'Equivalent Circuit', 3, ['526'], 'equivalent circuit R2/s magnetising'],
+    ['im-eff', 'im', 'Efficiency and Losses', 2, ['526'], 'power flow air gap rotor copper loss efficiency'],
+    ['sm-emf', 'sm', 'Alternator EMF Equation', 1, ['550'], 'alternator emf 4.44 f Φ T kp kd frequency PN/120'], ['sm-pitch', 'sm', 'Pitch Factor', 2, ['550'], 'pitch factor short pitch coil span harmonics'], ['sm-dist', 'sm', 'Distribution Factor', 2, ['550'], 'distribution factor breadth slots'],
+    ['sm-reg', 'sm', 'Voltage Regulation', 2, ['550'], 'alternator regulation EMF method phasor'], ['sm-zs', 'sm', 'Synchronous Impedance Method', 2, ['550'], 'synchronous impedance OC SC test'], ['sm-pangle', 'sm', 'Power Angle Characteristics', 2, ['550'], 'power angle load angle P = EV sin δ / X stability'],
+    ['sm-sync', 'sm', 'Synchronization', 1, ['550'], 'synchronising synchroscope dark lamp paralleling'], ['sm-vcurve', 'sm', 'V-Curves of Synchronous Motor', 3, ['550'], 'V curves excitation over excited under excited power factor'],
+    ['ps-lf', 'ps', 'Load Flow Basics', 3, ['696'], 'load flow Gauss Seidel bus voltage'], ['ps-pu', 'ps', 'Per Unit System', 1, ['678'], 'per unit base change'], ['ps-fault', 'ps', 'Fault Analysis', 3, ['678'], 'fault LG LL LLG three phase sequence networks'],
+    ['ps-scc', 'ps', 'Short Circuit Calculation', 2, ['678'], 'short circuit fault MVA fault level'], ['ps-sym', 'ps', 'Symmetrical Components', 2, ['678'], 'symmetrical components positive negative zero sequence'], ['ps-cb', 'ps', 'Circuit Breaker Ratings', 2, ['723'], 'circuit breaker making breaking capacity asymmetrical'],
+    ['td-short', 'td', 'Short Transmission Line', 1, ['627'], 'short line regulation efficiency'], ['td-medium', 'td', 'Medium Transmission Line', 2, ['627'], 'medium line nominal pi T'], ['td-long', 'td', 'Long Transmission Line', 3, ['627'], 'long line surge impedance SIL propagation constant'],
+    ['td-abcd', 'td', 'ABCD Parameters', 2, ['627'], 'ABCD constants two port'], ['td-reg', 'td', 'Voltage Regulation', 2, ['627'], 'line regulation power factor'], ['td-eff', 'td', 'Transmission Efficiency', 1, ['627'], 'transmission efficiency loss high voltage'],
+    ['td-corona', 'td', 'Corona Loss', 2, ['627'], 'corona Peek disruptive critical voltage'], ['td-ferranti', 'td', 'Ferranti Effect', 2, ['627'], 'Ferranti effect open line voltage rise charging'],
+    ['pe-hwr', 'pe', 'Single Phase Half-Wave Rectifier', 1, ['961', '849'], 'half wave rectifier diode SCR firing angle'], ['pe-fwr', 'pe', 'Single Phase Full-Wave Rectifier', 1, ['961', '849'], 'full wave centre tap rectifier'], ['pe-bridge', 'pe', 'Bridge Rectifier', 1, ['849', '961'], 'bridge rectifier capacitor filter ripple'],
+    ['pe-3ph', 'pe', 'Three Phase Rectifier', 2, ['961'], 'three phase rectifier 1.35 VL 6 pulse'], ['pe-buck', 'pe', 'Buck Converter', 2, ['961'], 'buck chopper step down duty ratio'], ['pe-boost', 'pe', 'Boost Converter', 2, ['961'], 'boost step up duty ratio'],
+    ['pe-inv', 'pe', 'Single Phase Inverter', 2, ['961'], 'inverter square wave harmonics THD'], ['pe-pwm', 'pe', 'PWM Control', 3, ['961'], 'PWM sinusoidal modulation index'],
+  ];
+  const FILE2 = new Set(['sm', 'ps', 'td', 'pe']);
+  const LXI = {}; LXC.forEach(([id, cat, n, d, t, kw], i) => { LXI[id] = { id, cat, n, d, t, kw, i, f: FILE2.has(cat) ? 2 : 1 }; });
+  const catOf = k => LXCAT.find(c => c[0] === k);
+  const lxIcon = (k, sz = 24) => `<svg viewBox="0 0 24 24" width="${sz}" height="${sz}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>`;
+  // exam relevance from the book's own data: the topic's TNEB priority, and the number of GATE sums the book files under it
+  const lxEx = m => { const ts = m.t.map(T).filter(Boolean); return { tneb: ts.some(t => t.pr === 'HIGH'), pr: ts.map(t => t.pr).filter(Boolean)[0] || '', gate: ts.reduce((a, t) => a + (t.n.gate || 0), 0) }; };
+  const labRec = id => P.lab.x[id] || null;
+  const LGO = 5, goals = r => !r ? 0 : [((r.pk || []).length >= 3 || (r.p || 0) >= 3), (r.k || {}).c, (r.k || {}).g, (r.k || {}).u, (r.q || [0, 0])[1] >= 2].filter(Boolean).length;
+  const labStatus = id => { const r = labRec(id); return !r || !r.s ? ['ns', 'Not started'] : r.done ? ['dn', 'Completed'] : ['ip', `In progress · ${goals(r)}/5`]; };
+  const fmtT = s => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.round((s % 3600) / 60); return h ? `${h} h ${m} min` : `${m} min`; };
+  const ring = (p, c, sz = 46) => `<svg viewBox="0 0 36 36" width="${sz}" height="${sz}" class="lxring" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="var(--lx-line)" stroke-width="4"/><circle cx="18" cy="18" r="15" fill="none" stroke="${c}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(p * 94.25).toFixed(1)} 94.25" transform="rotate(-90 18 18)"/><text x="18" y="21.5" text-anchor="middle" font-size="9" font-weight="800" fill="var(--lx-ink)">${Math.round(p * 100)}%</text></svg>`;
+  function labTotals() {
+    const xs = Object.entries(P.lab.x), started = xs.filter(([, r]) => r.s).length, done = xs.filter(([, r]) => r.done).length, secs = xs.reduce((a, [, r]) => a + (r.t || 0), 0), q = xs.reduce((a, [, r]) => [a[0] + ((r.q || [])[0] || 0), a[1] + ((r.q || [])[1] || 0)], [0, 0]);
+    const prog = LXC.reduce((a, [id]) => a + goals(labRec(id)), 0) / (LXC.length * LGO);
+    return { started, done, secs, q, prog };
+  }
+  function labRecommend(n = 3) {
+    const S = stats(), out = [], seen = new Set();
+    // weakest practised topics first (accuracy below 70 % on 3+ answers), then the next beginner experiments not started
+    const weak = LXCAT.flatMap(c => c[3]).map(t => [t, S.by[t]]).filter(([, s]) => s && s.a >= 3 && s.r / s.a < 0.7).sort((a, b) => a[1].r / a[1].a - b[1].r / b[1].a);
+    weak.forEach(([t, s]) => LXC.filter(e => e[4].includes(t) && !(labRec(e[0]) || {}).done).sort((a, b) => a[3] - b[3]).slice(0, 2).forEach(e => { if (out.length < n && !seen.has(e[0])) { seen.add(e[0]); out.push([e[0], `Your accuracy in ${short(T(t))} is ${pct(s.r, s.a)} % — see it working`]); } }));
+    [1, 2, 3].forEach(d => LXC.filter(e => e[3] === d && !(labRec(e[0]) || {}).s).forEach(e => { if (out.length < n && !seen.has(e[0])) { seen.add(e[0]); out.push([e[0], d === 1 ? 'Not started yet — a beginner experiment' : 'Not started yet']); } }));
+    LXC.filter(e => !(labRec(e[0]) || {}).done).forEach(e => { if (out.length < n && !seen.has(e[0])) { seen.add(e[0]); out.push([e[0], `In progress — ${goals(labRec(e[0]))} of 5 steps done`]); } });
+    return out;
+  }
+  const todaysLab = () => { const k = todayKey(); let h = 0; for (const c of k) h = (h * 31 + c.charCodeAt(0)) >>> 0; return LXC[h % LXC.length][0]; };
+  let lxQ = '', lxF = 'all', lxS = 'rec';
+  function labRows(cat) {
+    const q = lxQ.trim().toLowerCase(), words = q.split(/\s+/).filter(Boolean);
+    let L = LXC.filter(e => !cat || e[1] === cat).map(e => LXI[e[0]]);
+    if (words.length) L = L.filter(m => { const h = `${m.n} ${catOf(m.cat)[1]} ${m.kw} ${m.t.map(t => T(t) ? T(t).t : '').join(' ')} ${['', 'beginner', 'intermediate', 'advanced'][m.d]}`.toLowerCase(); return words.every(w => h.includes(w)); });
+    const st = id => labStatus(id)[0];
+    L = L.filter(m => lxF === 'all' || (lxF === 'ns' && st(m.id) === 'ns') || (lxF === 'ip' && st(m.id) === 'ip') || (lxF === 'dn' && st(m.id) === 'dn') || (lxF === 'd1' && m.d === 1) || (lxF === 'd2' && m.d === 2) || (lxF === 'd3' && m.d === 3) || (lxF === 'tneb' && lxEx(m).tneb) || (lxF === 'gate' && lxEx(m).gate >= 25) || (lxF === 'fav' && P.lab.f[m.id]));
+    const rec = new Map(labRecommend(72).map(([id], i) => [id, i]));
+    L.sort(lxS === 'rec' ? (a, b) => (rec.get(a.id) ?? 999) - (rec.get(b.id) ?? 999) || a.i - b.i : lxS === 'recent' ? (a, b) => ((labRec(b.id) || {}).l || 0) - ((labRec(a.id) || {}).l || 0) || a.i - b.i : lxS === 'used' ? (a, b) => ((labRec(b.id) || {}).t || 0) - ((labRec(a.id) || {}).t || 0) || a.i - b.i : (a, b) => a.d - b.d || a.i - b.i);
+    return L;
+  }
+  const DN = ['', 'Beginner', 'Intermediate', 'Advanced'];
+  function labRowHtml(m) { const c = catOf(m.cat), [sk, sl] = labStatus(m.id), ex = lxEx(m), r = labRec(m.id);
+    return `<div class="lxrow" style="--cc:${c[2]}"><a class="lxrl" href="#lab-${m.id}"><span class="lxri">${lxIcon(m.cat, 22)}</span><span class="lxrt"><b>${esc(m.n)}</b><small>${esc(c[1])}${r && r.t ? ` · ${fmtT(r.t)}` : ''}</small></span><span class="lxrc"><span class="lxchip d${m.d}">${DN[m.d]}</span>${ex.tneb ? '<span class="lxchip t">TNEB AE</span>' : ''}${ex.gate >= 25 ? '<span class="lxchip g">GATE</span>' : ''}<span class="lxst ${sk}">${sl}</span></span></a><button class="lxstar" data-fav="${m.id}" aria-pressed="${!!P.lab.f[m.id]}" aria-label="Favourite: ${esc(m.n)}">${P.lab.f[m.id] ? '★' : '☆'}</button></div>`; }
+  function paintLabList(cat) { const box = $('#lxlist'); if (!box) return; const L = labRows(cat);
+    box.innerHTML = L.length ? L.map(labRowHtml).join('') : `<div class="lxempty">No experiment matches${lxQ ? ` “${esc(lxQ)}”` : ''}${lxF !== 'all' ? ' with this filter' : ''}. Try another word — a formula such as “Ns = 120f/P” or a part such as “capacitor” also works.</div>`;
+    const n = $('#lxcount'); if (n) n.textContent = `${L.length} experiment${L.length === 1 ? '' : 's'}`; }
+  async function viewLab(tok, cat) {
+    setShell('sims'); document.title = 'Electrical Simulation Laboratory · TNEB AE Study Site';
+    main.onclick = null; main.oninput = null;
+    const tt = labTotals(), cnt = {}; LXC.forEach(e => cnt[e[1]] = (cnt[e[1]] || 0) + 1);
+    const last = Object.entries(P.lab.x).filter(([id, r]) => LXI[id] && r.l).sort((a, b) => b[1].l - a[1].l)[0], rec = labRecommend(3), tdy = todaysLab(), tdr = labRec(tdy) || {}, favs = Object.keys(P.lab.f).filter(id => LXI[id]);
+    // lab minutes, last 14 days: one series of bars from the baseline
+    const D = []; for (let i = 13; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); const k = dayOf(d); D.push([k, (P.lab.d[k] || 0) / 60]); }
+    const mx = Math.max(10, ...D.map(d => d[1]));
+    const spark = `<svg viewBox="0 0 280 70" class="lxspark" role="img" aria-label="Lab minutes, last 14 days">${D.map(([k, m], i) => `<rect x="${i * 20 + 3}" y="${(62 - 54 * m / mx).toFixed(1)}" width="14" height="${Math.max(m ? 3 : 1.5, 54 * m / mx).toFixed(1)}" rx="4" fill="${m ? '#fff' : 'rgba(255,255,255,.25)'}"><title>${k}: ${Math.round(m)} min</title></rect>`).join('')}</svg>`;
+    const q = (id, why) => { const m = LXI[id], c = catOf(m.cat); return `<a class="lxmini" href="#lab-${id}" style="--cc:${c[2]}"><span class="lxri">${lxIcon(m.cat, 18)}</span><span><b>${esc(m.n)}</b>${why ? `<small>${esc(why)}</small>` : ''}</span></a>`; };
+    main.innerHTML = `<div class="lx lxd">
+      <div class="crumbs"><a href="#home">All topics</a> › ${cat ? `<a href="#sims">Simulation Lab</a> › ${esc(catOf(cat)[1])}` : 'Simulation Lab'}</div>
+      <header class="lxtop"><div class="lxlogo"><span>⚡</span><div><h1>Electrical Simulation Laboratory</h1><p>Understand Electrical Engineering by Experimenting.</p></div></div>
+        <div class="lxtools"><label class="lxsearch"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="lxq" type="search" placeholder="Search experiments, formulas, parts…" value="${esc(lxQ)}" aria-label="Search simulations"></label>
+          <button class="lxtool" data-lx="filter" aria-label="Filters">${'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg>'}<span>Filter</span></button>
+          <button class="lxtool" data-lx="theme" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
+          <span class="lxprog" title="Overall lab progress">${ring(tt.prog, '#8057E8', 40)}</span></div></header>
+      ${cat ? '' : `<section class="lxhero"><div class="lxhl"><h2>Explore. Experiment. Understand.</h2><p>Master electrical engineering through interactive simulations, real-time calculations and visual experiments.</p>
+        <div class="lxhs"><div><b>${LXC.length}</b><span>experiments</span></div><div><b>${tt.done}</b><span>completed</span></div><div><b>${fmtT(tt.secs)}</b><span>learning time</span></div><div><b>${Math.round(tt.prog * 100)} %</b><span>lab progress</span></div></div></div>
+        <div class="lxhr${tt.secs ? '' : ' lxnodata'}"><span class="lxhk">Your lab minutes · last 14 days</span>${tt.secs ? spark : ''}<span class="lxhk">${tt.secs ? `${tt.started} started · ${tt.q[0]} lab questions answered` : 'Nothing yet — open any experiment to begin. Only your own use is counted, on this device.'}</span></div></section>
+      <section class="lxquick">
+        <div class="lxqc"><h3>Continue learning</h3>${last ? q(last[0], `${goals(last[1])} of 5 steps · ${fmtT(last[1].t)}`) : q('ohm', 'Start here — the simplest circuit')}</div>
+        <div class="lxqc"><h3>Recommended experiments</h3>${rec.map(([id, why]) => q(id, why)).join('')}</div>
+        <div class="lxqc"><h3>Today’s lab challenge</h3>${q(tdy, tdr.qd === todayKey() ? '✓ You practised it today' : 'Answer 3 questions in its Exam practice tab')}<a class="lxbtn go sm" href="#lab-${tdy}-x">Take the challenge</a></div>
+        <div class="lxqc"><h3>My favourite simulations</h3>${favs.length ? favs.slice(0, 4).map(id => q(id, labStatus(id)[1])).join('') : '<p class="lxmuted">Tap ☆ on any experiment to keep it here.</p>'}</div></section>`}
+      <section class="lxcats" aria-label="Laboratories">${LXCAT.filter(c => !cat || c[0] === cat).map(([k, n, col, ts]) => { const ids = LXC.filter(e => e[1] === k).map(e => e[0]), p = ids.reduce((a, id) => a + goals(labRec(id)), 0) / (ids.length * LGO), ds = [...new Set(LXC.filter(e => e[1] === k).map(e => e[3]))].sort(), nx = ids.find(id => !(labRec(id) || {}).done) || ids[0];
+        return `<div class="lxcat" role="link" tabindex="0" data-href="#sims-${k}" style="--cc:${col}"><div class="lxcatt"><span class="lxill">${lxIcon(k, 34)}</span>${ring(p, col, 44)}</div><h3>${esc(n)}</h3><p>${ids.length} experiments · ${DN[ds[0]]}${ds.length > 1 ? ` → ${DN[ds[ds.length - 1]]}` : ''}</p><a class="lxbtn go sm" href="#lab-${nx}">Start experiment</a></div>`; }).join('')}</section>
+      <section class="lxlib" id="lxlib"><div class="lxlibh"><h2>${cat ? esc(catOf(cat)[1]) + ' experiments' : 'Simulation library'}</h2><span id="lxcount" class="lxmuted"></span>
+        <label class="lxsort">Sort <select id="lxsort"><option value="rec"${lxS === 'rec' ? ' selected' : ''}>Recommended</option><option value="recent"${lxS === 'recent' ? ' selected' : ''}>Recently used</option><option value="used"${lxS === 'used' ? ' selected' : ''}>Most used (by you)</option><option value="diff"${lxS === 'diff' ? ' selected' : ''}>Difficulty</option></select></label></div>
+        <div class="lxfil" role="group" aria-label="Filter experiments">${[['all', 'All experiments'], ['ns', 'Not started'], ['ip', 'In progress'], ['dn', 'Completed'], ['d1', 'Beginner'], ['d2', 'Intermediate'], ['d3', 'Advanced'], ['tneb', 'TNEB AE important'], ['gate', 'GATE important'], ['fav', 'Favourites']].map(([k, n]) => `<button class="lxpill" data-f="${k}" aria-pressed="${lxF === k}">${n}</button>`).join('')}</div>
+        <p class="lxmuted lxnote">“TNEB AE important” = the topic is marked HIGH priority in your book; “GATE important” = the book files 25 or more GATE sums under the topic. Status and time are yours only, kept on this device (and your account if you are signed in).</p>
+        <div id="lxlist" class="lxlist"></div></section>
+      <section class="lxmore"><a class="lxmini" href="#sims-topics"><span class="lxri">⚙</span><span><b>Formula labs by topic</b><small>${Object.values(LABN).reduce((a, b) => a + b, 0)} quick labs built on your book’s formulas, checked against its worked examples</small></span></a><a class="lxmini" href="${SIM_URL}"${SIM_TGT}><span class="lxri">${lxIcon('tx', 18)}</span><span><b>Full transformer simulator</b><small>phasors, 3-phase, parallel operation, inrush</small></span></a></section>
+    </div>`;
+    paintLabList(cat);
+    if (cat) { const el = $('#lxlib'); if (el) setTimeout(() => el.scrollIntoView({ block: 'start' }), 0); } else toTop();
+    main.oninput = e => { if (e.target.id === 'lxq') { lxQ = e.target.value; paintLabList(cat); } };
+    main.onchange = e => { if (e.target.id === 'lxsort') { lxS = e.target.value; paintLabList(cat); } };
+    main.onclick = e => {
+      const st = e.target.closest('[data-fav]'); if (st) { e.preventDefault(); const on = labFav(st.dataset.fav); st.setAttribute('aria-pressed', on); st.textContent = on ? '★' : '☆'; toast(on ? '★ Added to My favourite simulations' : 'Removed from favourites'); return; }
+      const f = e.target.closest('[data-f]'); if (f) { lxF = f.dataset.f; $$('.lxfil [data-f]').forEach(b => b.setAttribute('aria-pressed', b === f)); paintLabList(cat); return; }
+      const t = e.target.closest('[data-lx]'); if (t) { if (t.dataset.lx === 'theme') themeBtn.click(); else { $('#lxlib').scrollIntoView({ block: 'start', behavior: 'smooth' }); } return; }
+      const c = e.target.closest('.lxcat'); if (c && !e.target.closest('a')) location.hash = c.dataset.href;
+    };
+    main.onkeydown = e => { const c = e.target.closest('.lxcat'); if (c && (e.key === 'Enter' || e.key === ' ') && e.target === c) { e.preventDefault(); location.hash = c.dataset.href; } };
+  }
+  const labFav = id => { if (P.lab.f[id]) delete P.lab.f[id]; else P.lab.f[id] = now(); changed(); return !!P.lab.f[id]; };
+  async function labPast(meta, lv) {
+    const U = await loadU(), ok = lv === 'gate' ? x => x.ex === 'GATE' : x => x.ex === 'TANGEDCO' || x.ex === 'TNPSC';
+    const kw = `${meta.kw} ${meta.n}`.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2 && !/^(the|and|for|with)$/.test(w));
+    const pool = U.filter(x => meta.t.includes(x.t) && ok(x));
+    const sc = x => { const h = `${x.sb || ''} ${x.qh || ''} ${x.cf ? JSON.stringify(x.cf) : ''}`.toLowerCase(); return kw.reduce((a, w) => a + (h.includes(w) ? 1 : 0), 0); };
+    const items = pool.map(x => [sc(x), Math.random(), x]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).map(r => uItem(r[2])).filter(Boolean);
+    return { n: items.length, items };
+  }
+  async function viewLabX(id, tab, tok) {
+    const meta = LXI[id]; if (!meta) { location.hash = '#sims'; return; }
+    setShell('sims'); document.title = `${meta.n} · Simulation Lab · TNEB AE Study Site`;
+    main.onclick = null; main.oninput = null; main.onchange = null; main.onkeydown = null;
+    main.innerHTML = '<p class="loading">Loading the experiment…</p>';
+    await loadLab(meta.f); if (tok !== RT) return;
+    const c = catOf(meta.cat), ex = lxEx(meta);
+    main.innerHTML = '<div id="lxbox"></div>';
+    window.LX.mount($('#lxbox'), id, { meta: { ...meta, ex: (ex.tneb ? 't' : '') + (ex.gate >= 25 ? 'g' : '') }, tab, catName: c[1], catCol: c[2], catIcon: lxIcon(meta.cat, 30),
+      rec: k => P.lab.x[k] ||= {}, changed, toast, quiz, today: todayKey, labDay: ok => { logDay(ok); }, labTime: s => { const k = todayKey(); P.lab.d[k] = (P.lab.d[k] || 0) + s; },
+      past: labPast, isFav: k => !!P.lab.f[k], toggleFav: labFav, topicLink: t => T(t) ? `<a class="lxchip tp" href="#t-${t}">${esc(short(T(t)))}${T(t).pr ? ` · ${T(t).pr}` : ''}</a>` : '', topicName: t => T(t) ? short(T(t)) : t });
+    toTop();
+  }
+  // the progress console tile
+  function labTile() {
+    const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
+    const W = []; for (let i = 6; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); const k = dayOf(d); W.push([k, (P.lab.d[k] || 0) / 60]); }
+    const mx = Math.max(5, ...W.map(w => w[1]));
+    const weak = Object.entries(P.lab.x).filter(([id, r]) => LXI[id] && r.q && r.q[0] >= 3 && r.q[1] / r.q[0] < 0.6).map(([id, r]) => [id, `${pct(r.q[1], r.q[0])} % on ${r.q[0]} questions`]);
+    const rep = Object.entries(P.lab.x).flatMap(([id, r]) => Object.entries(r.m || {}).filter(([, m]) => Array.isArray(m) && m[0] >= 2).map(([, m]) => [id, `${m[0]} misses: ${m[1]}`])).slice(0, 4);
+    const nx = labRecommend(1)[0];
+    return `<div class="dt lab"><span class="dl">⚡ Simulation lab <small>${tt.done} of ${LXC.length} completed</small></span>
+      <div class="lxk"><div><b>${tt.started}</b><span>started</span></div><div><b>${tt.done}</b><span>completed</span></div><div><b>${fmtT(tt.secs)}</b><span>time</span></div><div><b>${tt.q[0] ? pct(tt.q[1], tt.q[0]) + ' %' : '–'}</b><span>lab question accuracy (${tt.q[0]})</span></div></div>
+      <div class="lxbars2">${LXCAT.map(([k, n, col]) => { const ids = LXC.filter(e => e[1] === k).map(e => e[0]), p = ids.reduce((a, id) => a + goals(labRec(id)), 0) / (ids.length * LGO); return `<div><span>${esc(n)}</span><i><b style="width:${Math.round(p * 100)}%;background:${col}"></b></i><em>${Math.round(p * 100)} %</em></div>`; }).join('')}</div>
+      <div class="lxweek" aria-label="Lab minutes this week">${W.map(([k, m]) => `<div title="${k}: ${Math.round(m)} min"><i style="height:${Math.max(2, 46 * m / mx).toFixed(0)}px"></i><span>${new Date(k + 'T12:00').toLocaleDateString('en-IN', { weekday: 'narrow' })}</span></div>`).join('')}<small>minutes per day</small></div>
+      ${weak.length || rep.length ? `<p class="pg"><b>Revise:</b> ${[...weak, ...rep].slice(0, 4).map(([id, w]) => `<a href="#lab-${id}-x">${esc(LXI[id].n)}</a> (${esc(w)})`).join(' · ')}</p>` : ''}
+      ${nx ? `<p class="pg">Next: <a href="#lab-${nx[0]}">${esc(LXI[nx[0]].n)}</a> — ${esc(nx[1])}</p>` : ''}</div>`;
+  }
   const loadSims = () => simsP ||= SIMF.reduce((p, f) => p.then(() => new Promise((ok, no) => { const el = document.createElement('script'); el.src = `sims/${f}.js?v=${SWV}`; el.onload = ok; el.onerror = () => no(new Error('Could not load the simulator')); document.head.appendChild(el); })), Promise.resolve()).catch(e => { simsP = null; throw e; });
   // the book formula a lab is built on: its own topic first, then its home topic, then anywhere (tests/labref.js)
   function labRef(L) {
@@ -63,7 +232,7 @@
 
   /* ---------- progress store ---------- */
   const KEY = 'tneb-ae-progress-v1';
-  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {} });
+  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {}, lp: {}, mt: {}, lab: { x: {}, d: {}, f: {} } });
   let P = EMPTY(), where = 'browser', ref = null, saving = false, again = false, timer = 0, SV = 0, STC = null;
   try { const s = localStorage.getItem(KEY); if (s) P = { ...EMPTY(), ...JSON.parse(s) }; } catch (e) {}
   const keepLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
@@ -72,10 +241,13 @@
   const dayStart = () => Math.round(new Date().setHours(0, 0, 0, 0) / 60000);
   // before the day log existed only each question's last answer was kept: seed the log from those, once.
   // Never let an odd saved record stop the app: anything unreadable is simply started afresh.
-  const fixP = () => { try { fixP0(); } catch (e) { P.star = P.star && typeof P.star === 'object' ? P.star : {}; P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {}; if (!P.days || typeof P.days !== 'object') P.days = {}; } };
+  const fixP = () => { try { fixP0(); } catch (e) { for (const k of ['star', 'sr', 'lp', 'mt', 'days']) if (!P[k] || typeof P[k] !== 'object') P[k] = {}; if (!P.lab || typeof P.lab !== 'object' || !P.lab.x || !P.lab.d || !P.lab.f) P.lab = { x: {}, d: {}, f: {} }; } };
   const fixP0 = () => {
     P.star = P.star && typeof P.star === 'object' ? P.star : {};
     P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {};
+    P.lp = P.lp && typeof P.lp === 'object' ? P.lp : {}; P.mt = P.mt && typeof P.mt === 'object' ? P.mt : {};
+    const LB = P.lab && typeof P.lab === 'object' ? P.lab : {}, ob = o => o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+    P.lab = { x: ob(LB.x), d: ob(LB.d), f: ob(LB.f) }; for (const k in P.lab.x) if (!P.lab.x[k] || typeof P.lab.x[k] !== 'object') delete P.lab.x[k];
     if (!P.days || typeof P.days !== 'object') { P.days = {}; for (const m of [P.q, P.f]) for (const id in m) { const e = m[id]; if (!e[3]) continue; const k = dayOf(e[3] * 60000), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (e[2]) d[1]++; } }
   };
   fixP();
@@ -163,8 +335,11 @@
   addEventListener('keydown', e => { if (e.key === 'Escape') { drawer(false); if (!$('#lb').hidden) lbClose(); } });
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
-    side.innerHTML = `<div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚙ Simulators</a><a href="#ref">📚 Look-up shelf</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
-      IX.S.map(([k, n]) => `<h4 style="--c:${SC[k]}"><i></i>${esc(n)}</h4>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('')).join('');
+    const TP = topicProgress();
+    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
+      IX.S.map(([k, n]) => { const ts = (g[k] || []).map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / Math.max(1, ts.length) * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null;
+        return `<details class="sg" data-s="${k}"><summary style="--c:${SC[k]}"><h4><i></i>${esc(n)}</h4><span class="sgp"><span class="bar" style="--col:${SC[k]}"><i style="width:${cov}%"></i></span><small>${cov} % covered${acc != null ? ` · ${acc} % right` : ''}</small></span></summary>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('') + '</details>'; }).join('');
+    $('#sidex').onclick = () => drawer(false);
     paintDots();
   }
   function paintDots() {
@@ -176,7 +351,9 @@
     $$('[data-nav]').forEach(a => a.dataset.nav === view ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
     if (view !== 'topic') delete main.dataset.tid;
     main.onclick = null; main.onkeydown = null; $('#q').oninput = null;
-    $$('#side [data-tid]').forEach(a => a.dataset.tid === tid ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'));
+    $$('#side [data-tid]').forEach(a => { if (a.dataset.tid === tid) { a.setAttribute('aria-current', 'page'); const d = a.closest('details'); if (d) d.open = true; } else a.removeAttribute('aria-current'); });
+    const h0 = location.hash || '#home';
+    $$('#side .sideh a').forEach(a => { const r = a.getAttribute('href'); (h0 === r || h0.startsWith(r + '-')) ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current'); });
     const q = $('#q'); q.value = ''; q.placeholder = view === 'topic' ? 'Search this topic' : 'Search all topics, formulas, questions'; q.setAttribute('aria-label', q.placeholder);
     if (!PENDQ) $('#hsearch').classList.remove('open');
     $('#toc').innerHTML = '';
@@ -346,10 +523,10 @@
   const natOk = (ok, v) => { const [val, lo, hi] = ok; return lo != null ? v >= Math.min(lo, hi) - 1e-9 && v <= Math.max(lo, hi) + 1e-9 : Math.abs(v - val) <= Math.max(Math.abs(val) * 0.01, 0.01); };
   const numIn = s => parseFloat(String(s).replace(/−/g, '-').replace(/,/g, ''));
   const isRight = (q, j) => q.rs ? q.rs.includes(j) : j === q.r;
-  const optsHtml = (q, attr, sel) => `<div class="opts${q.opts.some(o => o.h) ? '' : ' lt'}">${q.opts.map((o, j) => `<button class="opt${sel === j ? ' sel' : ''}" ${attr}="${j}"><i>${esc(o.l || 'ABCD'[j])}</i>${o.h ? `<span>${o.h}</span>` : ''}</button>`).join('')}</div>`;
+  const optsHtml = (q, attr, sel) => `<div class="opts${q.opts.some(o => o.h) ? '' : ' lt'}">${q.opts.map((o, j) => `<button class="opt${(Array.isArray(sel) ? sel.includes(j) : sel === j) ? ' sel' : ''}" ${attr}="${j}"><i>${esc(o.l || 'ABCD'[j])}</i>${o.h ? `<span>${o.h}</span>` : ''}</button>`).join('')}</div>`;
   /* quiz items: {id, t, src, q, opts, r, rs?, ex} — one tap answers; ty 'msq': select every correct option, then Check;
      ty 'nat': type a number; ty 'self': show the method and answer, then mark yourself (the numericals drill) */
-  function quiz(items, title) {
+  function quiz(items, title, opt = {}) {
     if (!items.length) { toast('Nothing to practise here yet.'); return; }
     let i = 0, right = 0, done = false; const miss = [];
     const show = () => {
@@ -365,8 +542,9 @@
       qz.scrollTop = 0;
     };
     const end = () => {
+      if (opt.onEnd) opt.onEnd(right, items.length);
       qz.innerHTML = `<div class="wrap gut"><div class="top"><b>${esc(title)}</b><button class="btn" data-z="close">✕ Close</button></div>
-        <div class="box qcard" style="text-align:center;justify-items:center"><span>You got</span><b style="font-size:34px;color:var(--pur)">${right} / ${items.length}</b>
+        <div class="box qcard" style="text-align:center;justify-items:center"><span>You got</span><b style="font-size:34px;color:var(--pur)">${right} / ${items.length}</b>${opt.endNote ? `<b class="mtnote">${opt.endNote(right, items.length)}</b>` : ''}
         <span>${miss.length ? `${miss.length} to look at again — they are now in your progress console.` : 'All correct!'}</span>
         <div class="acts">${miss.length ? '<button class="btn" data-z="miss">Retry the ones I missed</button>' : ''}<a class="btn" href="#progress" data-z="close">Open my progress console</a></div></div></div>`;
     };
@@ -428,7 +606,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261031203415';
+  const SWV = 'ae-20261101013020';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -472,7 +650,9 @@
 
   /* ---------- theme button: Light (default) → Eye comfort → Dark ---------- */
   const themeBtn = $('#theme');
-  const THEMES = [['light', '☀️', 'Light'], ['comfort', '👁️', 'Eye comfort'], ['dark', '🌙', 'Dark']];
+  const THEMES = [['lavender', '💜', 'Lavender'], ['light', '☀️', 'Classic light'], ['comfort', '👁️', 'Eye comfort'], ['dark', '🌙', 'Dark']];
+  // theme.js sets the theme before paint on the website; elsewhere (no theme.js) apply the saved one, else Lavender
+  if (!document.documentElement.dataset.theme) { let t0 = 'lavender'; try { const sv = localStorage.getItem('ae-theme'); if (!localStorage.getItem('ae-theme-v2')) { t0 = !sv || sv === 'light' ? 'lavender' : sv; localStorage.setItem('ae-theme', t0); localStorage.setItem('ae-theme-v2', '1'); } else if (sv) t0 = sv; } catch (e) {} document.documentElement.dataset.theme = t0; }
   const curTheme = () => Math.max(0, THEMES.findIndex(t => t[0] === document.documentElement.dataset.theme));
   const paintTheme = () => { const [, ic, nm] = THEMES[curTheme()], nx = THEMES[(curTheme() + 1) % THEMES.length][2]; themeBtn.textContent = ic; themeBtn.setAttribute('aria-label', `Theme: ${nm}. Tap for ${nx}`); themeBtn.title = themeBtn.getAttribute('aria-label'); };
   themeBtn.onclick = () => { const [k, , nm] = THEMES[(curTheme() + 1) % THEMES.length]; document.documentElement.dataset.theme = k; try { localStorage.setItem('ae-theme', k); } catch (e) {} paintTheme(); toast(`${nm} mode${k === 'comfort' ? ' — warm, softer page for daytime reading' : ''}`); };
@@ -495,7 +675,9 @@
       if (a === 'progress') return await viewConsole(tok, keep);
       if (a === 'mock') return await viewMock(tok);
       if (a === 'more') return await viewMore(tok);
-      if (a === 'sims') return await viewSims(tok);
+      if (a === 'sims') return await viewLab(tok);
+      const smm = h.match(/^sims-([a-z]+)$/); if (smm) return smm[1] === 'topics' ? await viewSims(tok) : await viewLab(tok, catOf(smm[1]) ? smm[1] : undefined);
+      const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
       if (a === 'practice') return await viewPractice(tok);
       if (a === 'qbook') return await viewQbook(tok);
       if (a === 'starred') return await viewStarred(tok);
@@ -514,7 +696,7 @@
     const s = stats().by[t.id], p = s && s.a ? pct(s.r, s.a) : null, [, , bar] = tone(p);
     const nq = t.n.book + t.n.pyq + t.n.qb;
     return `<a class="tc" href="#t-${t.id}" style="--c:${SC[t.s]}" data-s="${esc(t.t)}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3>
-      <div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}${t.pr ? `<span class="chip ${t.pr}">${t.pr}</span>` : ''}${t.v === 1 ? '<span class="chip v1">VOL 1 · NOTES NOT LOADED</span>' : ''}
+      <div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}${t.pr ? `<span class="chip ${t.pr}">${t.pr}</span>` : ''}${t.v === 1 ? '<span class="chip v1">VOL 1 · NOTES NOT LOADED</span>' : ''}${P.mt[t.id] && P.mt[t.id].pass ? '<span class="chip mtc">🎯 MASTERED</span>' : ''}
       ${t.asked != null ? `<span>${t.asked} asked</span>` : ''}${t.n.f ? `<span>${t.n.f} formulas</span>` : `<span>${t.n.st} formulas</span>`}${t.n.sum ? `<span>${t.n.sum} sums</span>` : ''}${t.n.u ? `<span>${t.n.u} past Qs</span>` : ''}<span>${nq} MCQs</span>${t.n.gate ? `<span>${t.n.gate} GATE</span>` : ''}</div>
       <div class="bar" style="--col:${bar}"><i style="width:${p == null ? 0 : Math.max(3, p)}%"></i></div>
       <div class="acc">${p == null ? '<span>Not practised yet</span>' : `<span><b>${p} %</b> correct</span><span>${s.a} answers</span>`}</div></a>`;
@@ -534,7 +716,7 @@
     const ex = k => { if (!UEX || !UEX[k]) return null; const L = UEX[k], d = L.filter(id => P.q[id]), r = d.filter(id => P.q[id][2]).length; return { n: L.length, d: d.length, r }; };
     const exTile = (k, nm) => { const x = ex(k); return `<div class="ov"><span>${nm}</span>${x ? `${ring(x.d / x.n, '#06b6d4')}<b>${pct(x.d, x.n)} %</b><small>${x.d} of ${x.n.toLocaleString('en-IN')} past questions${x.d ? ` · ${pct(x.r, x.d)} % right last time` : ''}</small>` : '<b>…</b>'}</div>`; };
     const due = dueList().length;
-    return `<section class="ovw" id="ovw"><div class="ov"><span>Syllabus coverage</span>${ring(cov, '#2563eb')}<b>${Math.round(cov * 100)} %</b><small>questions tried, up to 20 a topic</small></div>
+    return `<section class="ovw" id="ovw"><div class="ov"><span>Syllabus coverage</span>${ring(cov, '#2563eb')}<b>${Math.round(cov * 100)} %</b><small>${cov ? 'questions tried, up to 20 a topic' : 'starts with your first answer — try Today’s 20'}</small></div>
       <div class="ov"><span>Topic mastery</span>${ring(mas, '#8b5cf6')}<b>${Math.round(mas * 100)} %</b><small>coverage × accuracy, all ${IX.T.length} topics</small></div>
       ${exTile('GATE', 'GATE EE')}${exTile('TANGEDCO', 'TANGEDCO AE')}${exTile('TNPSC', 'TNPSC Code 400')}
       <div class="ov"><span>Practice so far</span><b class="big">${nq.toLocaleString('en-IN')}</b><small>questions · ${nf} formulas tested · ${S.a ? pct(S.r, S.a) + ' % correct' : 'no answers yet'}${due ? ` · ${due} revisions due` : ''}</small></div></section>`;
@@ -542,7 +724,7 @@
   function recoHtml() {
     const rec = studyNext().slice(0, 5), wf = weakFormulas().length, stale = IX.T.filter(t => P.seen[t.id] && (now() - P.seen[t.id]) / 1440 > 10).sort((a, b) => P.seen[a.id] - P.seen[b.id]).slice(0, 3);
     return `<section class="subj reco"><h2>🎯 Recommended for you <small>from your answers and your revision history</small></h2><div class="recs">
-      ${rec.map((r, i) => `<div class="rc"><i>${i + 1}</i><span><b>${esc(short(r.t))}</b><small>${r.t.pr ? r.t.pr + ' priority · ' : ''}${esc(r.why)}</small></span><span class="acts"><a class="btn" href="#t-${r.t.id}">Study</a><a class="btn go" href="#t-${r.t.id}-prac">Practise</a></span></div>`).join('')}</div>
+      ${rec.map((r, i) => `<div class="rc"><i>${i + 1}</i><span><b>${esc(short(r.t))}</b>${r.t.pr ? `<span class="prc ${r.t.pr}">${r.t.pr}</span>` : ''}<small>${esc(r.why)}</small></span><span class="acts"><a class="btn" href="#t-${r.t.id}">Study</a><a class="btn go" href="#t-${r.t.id}-prac">Practise</a></span></div>`).join('')}</div>
       <div class="acts">${stale.length ? `<span class="pg">Not revised for 10+ days: ${stale.map(t => `<a href="#t-${t.id}-prac">${esc(short(t))}</a>`).join(', ')}</span>` : ''}</div>
       <div class="acts"><button class="btn go" data-h="today">📅 Today's 20</button>${wf ? `<a class="btn" href="#progress">✍ ${wf} formulas to revise</a>` : ''}<button class="btn" data-h="weakmock">⏱ Next mock: 25 questions on your weakest topics</button><a class="btn" href="#drill">🔢 Numericals drill</a></div></section>`;
   }
@@ -559,18 +741,21 @@
     const S = stats(), tried = IX.T.filter(t => S.by[t.id]), weak = tried.filter(t => S.by[t.id].a >= 3 && accOf(t.id) < 70).sort((x, y) => accOf(x.id) - accOf(y.id));
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const tot = IX.totals, TP = topicProgress(), SN = studyNext();
-    main.innerHTML = `<section class="hero dashh"><h1>Every topic of your Complete Book</h1>
-      <p>${IX.T.length} topics in ${IX.S.length} subjects: chapter notes with the book's own pictures, every formula, ${tot.u ? `your Question Book's ${tot.u.toLocaleString('en-IN')} past questions with full solutions, ` : ''}${tot.q} more MCQs with answers, ${tot.rows.toLocaleString('en-IN')} past-question rows, ${tot.gate} GATE sums with full solutions and a missing-letter test on ${tot.st} formulas. Answer anything and your progress console shows where to improve.</p>
-      <div class="acts"><button class="btn go" data-h="today">📅 ${todayLeft() == null ? "Today's 20" : todayLeft() ? `Today's 20 · ${todayLeft()} left` : "Today's 20 ✓ done"}</button><a class="btn" href="#progress">📊 My progress console</a><a class="btn" href="#mock">⏱ Start a mock test</a><a class="btn" href="#sims">⚙ Simulators (${Object.values(LABN).reduce((a, b) => a + b, 0)} labs)</a><a class="btn" href="#ref">📚 Look-up shelf</a><a class="btn" href="#qbook">📘 Question Book (2,620)</a><a class="btn" href="#practice">📝 Practice papers & drills</a>${mistakes().length ? `<button class="btn" data-h="rev">↻ Revise my mistakes (${mistakes().length})</button>` : ''}<a class="btn" href="#starred">⭐ My starred${Object.keys(P.star).length ? ` (${Object.keys(P.star).length})` : ''}</a></div>
-      ${S.a ? `<p><b style="color:var(--navy)">So far:</b> ${S.a} answers, ${pct(S.r, S.a)} % correct, ${tried.length} of ${IX.T.length} topics practised.${weak.length ? ` Weakest: ${weak.slice(0, 3).map(t => `<a href="#t-${t.id}-prac">${esc(short(t))} (${accOf(t.id)} %)</a>`).join(', ')}.` : ''}</p>` : ''}</section>
+    const hr = new Date().getHours(), hello = hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening', nx0 = SN[0], last = Object.entries(P.seen).filter(([i]) => T(i)).sort((x, y) => y[1] - x[1])[0], tl = todayLeft();
+    const QK = [['#today', '📅', "Today's 20"], ['#progress', '📊', 'Progress'], ['#mock', '⏱', 'Mock test'], ['#sims', '⚡', 'Simulation Lab'], ['#qbook', '📘', 'Question Book'], ['#practice', '📝', 'Papers & drills'], ['#ref', '📚', 'Look-up'], ['#starred', '⭐', 'Starred']];
+    main.innerHTML = `<section class="hero dashh"><span class="hk">AE STUDY · your learning journey</span><h1>${hello}!</h1>
+      <p class="nxt">${nx0 ? `Your next step: <a href="#t-${nx0.t.id}"><b>${esc(short(nx0.t))}</b></a> — ${esc(nx0.why)}${nx0.t.pr ? ` <span class="prc ${nx0.t.pr}">${nx0.t.pr}</span>` : ''}` : ''}</p>
+      <div class="acts"><button class="btn gold" data-h="today">📅 ${tl == null ? "Start Today's 20" : tl ? `Today's 20 · ${tl} left` : "Today's 20 ✓ done"}</button>${last ? `<a class="btn go" href="#t-${last[0]}-prac">▶ Continue: ${esc(short(T(last[0])))}</a>` : nx0 ? `<a class="btn go" href="#t-${nx0.t.id}">▶ Start: ${esc(short(nx0.t))}</a>` : ''}${mistakes().length ? `<button class="btn" data-h="rev">↻ ${mistakes().length} mistakes</button>` : ''}</div>
+      <nav class="qk" aria-label="Sections">${QK.map(([h, ic, n]) => `<a href="${h}"><i>${ic}</i><span>${n}</span></a>`).join('')}</nav>
+      <p class="pg">${IX.T.length} topics · ${tot.u ? tot.u.toLocaleString('en-IN') + ' past questions · ' : ''}${Object.values(LABN).reduce((a, b) => a + b, 0)} simulator labs · ${tot.gate} GATE sums — all from your book${S.a ? ` · so far ${S.a} answers, ${pct(S.r, S.a)} % correct` : ''}</p></section>
       ${overviewHtml()}${contHtml()}${recoHtml()}
       ${IX.S.map(([k, n]) => { const ts = g[k].map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / ts.length * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null, wk = ts.filter(x => x.weak).length, nx = SN.find(r => r.t.s === k);
-        return `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2>
-        <div class="sstat"><span><b>${cov} %</b> covered</span><div class="bar" style="--col:${SC[k]}"><i style="width:${Math.max(cov ? 3 : 0, cov)}%"></i></div><span>${acc == null ? 'not practised yet' : `<b>${acc} %</b> correct`}</span>${wk ? `<span class="wk">⚠ ${wk} weak topic${wk > 1 ? 's' : ''}</span>` : ''}${nx ? `<a class="btn go" href="#t-${nx.t.id}-prac">Continue: ${esc(short(nx.t))} →</a>` : ''}</div>
-        <div class="tcards">${g[k].map(topicCard).join('')}</div></section>`; }).join('')}
+        return `<details class="subj subjd" style="--c:${SC[k]}"><summary><h2><i></i>${esc(n)} <small>${g[k].length} topics</small></h2>
+        <div class="sstat"><span><b>${cov} %</b> covered</span><div class="bar" style="--col:${SC[k]}"><i style="width:${Math.max(cov ? 3 : 0, cov)}%"></i></div><span>${acc == null ? 'not practised yet' : `<b>${acc} %</b> correct`}</span>${wk ? `<span class="wk">⚠ ${wk} weak topic${wk > 1 ? 's' : ''}</span>` : ''}${nx ? `<a class="btn go" href="#t-${nx.t.id}-prac">Continue: ${esc(short(nx.t))} →</a>` : ''}<span class="tog">Show topics</span></div></summary>
+        <div class="tcards">${g[k].map(topicCard).join('')}</div></details>`; }).join('')}
       <section class="subj"><h2>More</h2><div class="tcards"><a class="tc" href="#more" style="--c:#56637a"><h3>Past questions not tied to a chapter page</h3><div class="meta"><span>${IX.unmapped.length} rows from Appendix A–C whose Study Notes page is not given in the book</span></div></a>
       <a class="tc" href="#ref" style="--c:#a86a00"><h3>📚 Look-up shelf</h3><div class="meta"><span>The book's look-up pages: visual tricks, geometry, mensuration, magic numbers, exam values, mental maths, unit conversions, ready-reckoner, look-alike numbers & trap factors, symbols A–Z, the A–Z formula table, comparisons, analogies and every GATE multi-concept sum</span></div></a>
-      <a class="tc" href="#sims" style="--c:#0f766e"><h3>⚙ Formula & concept simulators</h3><div class="meta"><span>${Object.values(LABN).reduce((a, b) => a + b, 0)} live labs on ${Object.keys(LABN).length} topics — every EE subject and Maths; graphs, what-if tables and the book's worked numbers as checks</span></div></a>
+      <a class="tc" href="#sims" style="--c:#6d4ae0"><h3>⚡ Electrical Simulation Laboratory</h3><div class="meta"><span>72 experiments in 8 laboratories — live diagrams, calculations, graphs, compare mode and exam practice</span><span>+ ${Object.values(LABN).reduce((a, b) => a + b, 0)} formula labs on ${Object.keys(LABN).length} topics</span></div></a>
       <a class="tc" href="${SIM_URL}"${SIM_TGT} style="--c:#2e8b57"><h3>⚙ Transformer simulator</h3><div class="meta"><span>Change voltage, frequency, load or turns and watch flux, currents, losses, efficiency and regulation respond; phasors, 3-phase, parallel operation, saturation and inrush</span></div></a>
       ${offlineCard()}</div></section>
       <footer class="foot">From your TNEB AE (EEE) Question Book (all exams: Parts 2–3, all 2,620 past questions) and Complete Book: Study Notes (Vols 2–4), previous-year questions, question bank and mock test (Vol 5), Formula Self-Test and A–Z table (Vol 6), GATE multi-concept sums (Vols 7–9), past-question rows (Appendix A–C, Vol 4). Volume 1 (Maths and Basic Engineering notes, p 106–295) is not loaded yet, so those ${IX.T.filter(t => t.v === 1).length} topics have formulas, past questions and GATE sums but no chapter notes.</footer>`;
@@ -662,7 +847,8 @@
     const myQ = QA.filter(x => x.t === id), bookQ = myQ.filter(x => x.k === 'book'), otherQ = myQ.filter(x => x.k !== 'book');
     const myF = FA.filter(f => f.t === id);
 
-    /* Learn: the chapter in the book's own order */
+    /* Learn: concept in 60 seconds, then the chapter in the book's own order */
+    sec('learn', 'c60', '⏱', 'Concept in 60 seconds', 't-yel', c60Html(D, ch, id, vn), '', 'Concept in 60 s');
     if (ch) {
       for (const s of ch.sections) {
         const cls = KINDCLS[s.kind] || 't-navy', sid = 's' + s.n, title = esc(s.title || KSHORT[s.kind] || '');
@@ -692,11 +878,14 @@
     } else {
       PANES.learn.push(`<div class="tnote" style="margin-top:22px">The chapter notes for this topic are in <b>Volume 1</b> (Study Notes p ${D.a}–${D.z}), which has not been loaded into this site yet. Its formulas, previous-year questions, past-question rows and GATE sums from the other volumes are all here.</div>`);
     }
+    sec('learn', 'rel', '↕', 'Increasing & decreasing — what changes what', 't-teal', `<p class="lead">Every relationship in this topic's simulator labs: raise one quantity, keep the others constant, and see which way each result moves — direct (∝ x), inverse (∝ 1/x), square (∝ x²), root (∝ √x). Worked out from the formulas, never guessed.</p><div id="relbox"><p class="loading">Loading the relationships…</p></div>`, '', 'Relationships');
+    sec('learn', 'traps', '⚠', 'Exam traps — the mistakes the book warns about', 't-red', trapsHtml(ch, id), '', 'Exam traps');
     sec('learn', 'every', '∑', 'Every formula — Formula Self-Test & A–Z table', 't-navy', `<p class="lead">The book's two formula lists for this topic, line by line (Vol 6): the Formula Self-Test (with the page of its answer) and the A–Z Formula Table.</p>
       <div class="seg" id="ev"><button data-v="st" aria-pressed="true">Formula Self-Test · ${D.st.length}</button><button data-v="az" aria-pressed="false">A–Z table · ${D.az.length}</button></div><div class="box" id="evl"></div>`, '', 'Every formula');
 
     /* Practice */
     sec('prac', 'mine', '★', 'My progress in this topic', 't-yel', '<div id="minebox" style="display:grid;gap:10px"></div>', '', 'My progress');
+    sec('prac', 'mastery', '🎯', 'Topic mastery test — 15 questions, pass at 70 %', 't-pur', '<div id="mtbox"></div>', '', 'Mastery test');
     const myDrill = DR && DR.T.find(x => x.t === id);
     if (myDrill) sec('prac', 'drill', '🔢', 'Numericals drill — one minute each', 't-teal', `<p class="lead">${myDrill.q.length} quick numericals from the Question Book's Numericals Drill (p ${myDrill.p}): solve on paper, then show the method and the answer and mark yourself. Every answer was computed by the book from the formula shown.</p>
       <div class="drl">${myDrill.q.map(x => drillCard(myDrill, x)).join('')}</div>`, `${myDrill.q.length} numericals`, 'Numericals drill');
@@ -740,6 +929,7 @@
         ${ch && ch.note ? `<p class="tnote">${esc(ch.note)}</p>` : ''}
         ${t.t === 'Transformers' ? `<a class="simlink" href="${SIM_URL}"${SIM_TGT}><i>⚙</i><span><b>Open the Transformer Formula & Concept Simulator${STANDALONE ? ' →' : ' ↗'}</b><small>Phasors, losses, efficiency, regulation, 3-phase, parallel operation, saturation and inrush — on the full Transformers page</small></span></a>` : ''}
         <div class="mine" id="mine"></div></div>
+      <nav class="lpath" id="lpath" aria-label="Learning path"></nav>
       <div class="pbar" role="tablist" aria-label="Parts of this topic" style="--n:${panes.length}">${panes.map(([k, ic, n, sub]) => `<button role="tab" data-pane="${k}" aria-selected="false"><i>${ic}</i><span><b>${n}</b><small>${sub}</small></span><em class="pcount" hidden></em></button>`).join('')}</div>
       <nav class="chips" id="chips" aria-label="On this page"></nav>
       ${panes.map(([k]) => `<div class="pane" data-pane="${k}" hidden>${PANES[k].join('')}</div>`).join('')}
@@ -752,7 +942,7 @@
     const goSec = sid => { const el = document.getElementById(sid); if (!el) return; showPane(el.closest('.pane').dataset.pane); requestAnimationFrame(() => el.scrollIntoView({ block: 'start' })); };
     let cur = '';
     const io = new IntersectionObserver(es => es.forEach(e => {
-      if (!e.isIntersecting || e.target.id === cur) return; cur = e.target.id;
+      if (!e.isIntersecting || e.target.id === cur) return; cur = e.target.id; markStep(id, cur);
       $$('[data-sec]').forEach(a => a.classList.toggle('on', a.dataset.sec === cur));
       const c = $(`#chips [data-sec="${cur}"]`), chips = $('#chips');
       if (c && getComputedStyle(chips).display !== 'none') chips.scrollLeft = c.offsetLeft - chips.clientWidth / 2 + c.offsetWidth / 2;
@@ -767,7 +957,7 @@
         $$('.pbar [data-pane]', main).forEach(b => b.setAttribute('aria-selected', String(b.dataset.pane === p)));
         $$('[data-sec]').forEach(a => { a.hidden = a.dataset.p !== p; });
         try { history.replaceState(null, '', `#t-${id}${p === 'learn' ? '' : '-' + p}`); } catch (e) {}
-        lazy(); if (p === 'sim') mountLabs();
+        lazy(); if (p === 'sim') { mountLabs(); markStep(id, 'labs'); }
       }
       if (scroll) { const top = $('.pbar', main).getBoundingClientRect().top + scrollY - 70; if (scrollY > top) scrollTo(0, top); }
     }
@@ -787,6 +977,8 @@
       const tg = e.target.closest('.tg');
       if (tg) { const box = $('.' + tg.dataset.t, tg.closest('.ss')); box.hidden = !box.hidden; tg.classList.toggle('on', !box.hidden); lazy(box);
         tg.textContent = tg.dataset.t === 'an' ? (box.hidden ? 'Show answer' : 'Hide answer') : tg.textContent.replace(box.hidden ? 'Hide' : 'Show', box.hidden ? 'Show' : 'Hide'); return; }
+      const ps = e.target.closest('[data-path]');
+      if (ps) { e.preventDefault(); if (ps.dataset.path === 'mt-go') startMastery(id); else { const sid = ps.dataset.path === 'sim' ? 'labs' : ps.dataset.path; goSec(sid); markStep(id, sid); } return; }
       const a = e.target.closest('[data-act]'); if (!a) return;
       if (a.dataset.act === 'quiz') quiz(topicMix(id, +a.dataset.n || 10), `Practise · ${t.t}`);
       if (a.dataset.act === 'allmcq') quiz(shuffle(myQ.filter(x => x.r != null).map(mcqQ)), `All MCQs · ${t.t}`);
@@ -906,6 +1098,13 @@
     $('#q').oninput = e => { clearTimeout(window.__st); window.__st = setTimeout(() => { q = e.target.value.trim().toLowerCase().replace(/\s+/g, ' '); applySearch(); }, 160); };
 
     rEvery(); if ($('#glist')) rGate(); if ($('#qlist')) rBank(); if ($('#ulist')) rU();
+    // the learning path: the book's order of study, each step a section of this page
+    const sumSec = SECS.find(x => /^s\d/.test(x[0]) && /sum/i.test(x[2])), fSec = SECS.find(x => x[2] === 'Formulas');
+    LP = { id, steps: [['c60', '⏱', 'Concept in 60 s', 'c60'], ['f', '📐', 'Formulas', fSec ? fSec[0] : 'every'], ['rel', '↕', 'Relationships', 'rel'], ['sums', '✍', 'Solved sums', sumSec ? sumSec[0] : (D.gate.length ? 'gate' : 'drill')],
+      ['sim', '⚙', 'Simulator', 'labs'], ['pq', '📘', 'Past questions', U ? 'qbook' : otherQ.length ? 'pyq' : 'bank'], ['traps', '⚠', 'Exam traps', 'traps'], ['mt', '🎯', 'Mastery test', 'mastery']].filter(x => document.getElementById(x[3])) };
+    const rb = $('#relbox'), rio = new IntersectionObserver(es => { if (!es.some(e => e.isIntersecting)) return; rio.disconnect();
+      loadSims().then(() => { if (rb.isConnected) rb.innerHTML = relHtml(id); }).catch(err => { rb.innerHTML = `<div class="empty">${esc(err.message)}. Check your connection.</div>`; }); }, { rootMargin: '600px 0px' });
+    if (rb) rio.observe(rb);
     paintMine(D);
     showPane(pane || 'learn'); toTop(); lazy();
     if (GOSEC) { const el = document.getElementById(GOSEC); GOSEC = null; if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }));
@@ -957,12 +1156,81 @@
   const rowCard = r => `<article class="box qr"><header><span class="ex ex-${r.g}">${esc(r.p)}</span><b>Q${esc(r.q)}</b><span class="pg">Study Notes p ${r.pg ?? '–'} · Appendix p ${r.at}</span></header>
     <div class="cn">${r.c}</div><div class="fx fl">${r.f.join('<br>')}</div><div class="acts"><button class="btn rv" data-a="Answer: ${esc(r.a)}">Show answer</button></div></article>`;
   // the "you" strip under the title and the My progress section of a topic
+  /* ---------- learning path, concept in 60 s, relationships, traps, mastery test ---------- */
+  let LP = null;
+  function markStep(id, sid) {
+    if (!LP || LP.id !== id) return; const st = LP.steps.find(x => x[3] === sid && x[0] !== 'mt'); if (!st) return;
+    const m = P.lp[id] || (P.lp[id] = {}); if (m[st[0]]) return; m[st[0]] = now(); changed(); paintPath();
+  }
+  function paintPath() {
+    const el = $('#lpath'); if (!el || !LP) return; const m = P.lp[LP.id] || {}, mt = P.mt[LP.id], done = k => k === 'mt' ? !!(mt && mt.pass) : !!m[k];
+    const n = LP.steps.filter(x => done(x[0])).length;
+    el.innerHTML = `<b>Learning path <small>${n} of ${LP.steps.length} steps</small></b><div class="lps">${LP.steps.map(([k, ic, nm, sid], i) => `<a href="#" class="lp${done(k) ? ' on' : ''}" data-path="${sid === 'labs' ? 'sim' : sid}" title="${esc(nm)}"><i>${done(k) ? '✓' : ic}</i><span>${i + 1}. ${esc(nm)}</span></a>`).join('')}</div>`;
+  }
+  // the book's own words only: takeaway, key formula, cause → effect, key words, the common mistake
+  function c60Html(D, ch, id, vn) {
+    const P_ = [];
+    if (ch) {
+      if (ch.takeaway) P_.push(`<div class="c6 take"><b>💡 In one line</b><span>${ch.takeaway}</span></div>`);
+      const k = ch.keys[0]; if (k && (k.img || k.f)) P_.push(`<div class="c6 kf"><b>📐 Key formula</b>${k.img ? spr(k.img.sp, D, 'Key formula') : `<div class="fx">${k.f}</div>`}<span class="pg">${vn} · p ${k.pg}</span></div>`);
+      if (ch.why.length) P_.push(`<div class="c6"><b>⚡ Cause → effect</b>${ch.why.slice(0, 2).map(w => `<p>${w.cause} → ${w.effect}</p>`).join('')}</div>`);
+      if (ch.terms.length) P_.push(`<div class="c6"><b>🔤 Key words</b>${ch.terms.slice(0, 4).map(w => `<p><b>${w.term}</b> — ${w.mean}</p>`).join('')}</div>`);
+      if (ch.mistakes.length) P_.push(`<div class="c6 trap"><b>⚠ Common mistake</b><p>✗ ${ch.mistakes[0].m}</p><p>✓ ${ch.mistakes[0].c}</p></div>`);
+    } else if (D.st.length) P_.push(`<div class="c6 kf"><b>📐 The main formulas</b>${D.st.slice(0, 4).map(f => `<p><b>${f[1]}</b><br><span class="fx">${f[3]}</span></p>`).join('')}<span class="pg">Formula Self-Test · Vol 6</span></div>`);
+    const tw = (UA || []).filter(x => x.t === id && x.sh).flatMap(x => x.sh.filter(e => e[0] === 'mis').map(e => e[1]))[0];
+    if (tw && !(ch && ch.mistakes.length)) P_.push(`<div class="c6 trap"><b>⚠ Common mistake</b><p>${tw.replace(/^\s*⚠\s*Common mistake:\s*/, '')}</p><span class="pg">Question Book</span></div>`);
+    return P_.length ? `<div class="c60">${P_.join('')}</div><p class="pg">All from your book, word for word. Then work down the learning path above.</p>` : '<p class="pg">This topic has no chapter notes yet (Volume 1); start with its formulas below.</p>';
+  }
+  // the relationship engine run over this topic's labs: only named laws (direct, inverse, square, root …)
+  function relHtml(id) {
+    const labs = LABS.filter(L => L.t === id); if (!labs.length) return '<p class="pg">No simulator lab for this topic yet.</p>';
+    const symOf = lb => { const w = lb.trim().split(/\s+/).pop(); return w.length <= 4 && /[A-Zα-ωΑ-Ωϕφθμ₀-₉_]/.test(w) && !/^[a-z]+$/.test(w) ? w : 'x'; };
+    const isN = s => !Array.isArray(s[4]) && s[4] !== 'text';
+    let first = true;
+    const out = labs.map(L => {
+      const v = SIMS.run(L), nums = L.i.filter(isN), outs = L.o.filter(o => typeof v[o[0]] === 'number' && Number.isFinite(v[o[0]])), rows = [];
+      nums.forEach(s => outs.forEach(o => { const r = SIMS.relation(L, v, s[0], o[0]); if (r && r.dir && r.law.startsWith('∝')) rows.push([s, o, r]); }));
+      if (!rows.length) return '';
+      const op = first; first = false;
+      return `<details class="rel"${op ? ' open' : ''}><summary><b>${esc(L.n)}</b> <small>${rows.length} relationship${rows.length > 1 ? 's' : ''}</small></summary><table class="relt"><tbody>${rows.map(([s, o, r]) => `<tr><td>${esc(s[1])} <b>↑</b></td><td class="${r.dir > 0 ? 'up' : 'dn'}">${esc(o[1])} <b>${r.dir > 0 ? '↑' : '↓'}</b></td><td><b>${esc(r.law.replace(/ \(.*\)$/, '').replace(/x/g, symOf(s[1])))}</b></td></tr>`).join('')}</tbody></table>
+        <p class="pg">Every other input of this lab held constant at: ${nums.map(s => `${esc(s[1])} = ${SIMS.fmt(v[s[0]])}${s[2] ? ' ' + esc(s[2]) : ''}`).join(' · ')}.</p></details>`;
+    }).join('');
+    return (out || '<p class="pg">The labs of this topic have no simple power-law relationships (their results rise or fall, but not in proportion) — try them in the simulator.</p>') + `<div class="acts"><button class="btn go" data-path="sim">⚙ Try them in the simulator →</button></div>`;
+  }
+  // the chapter's own warnings, the key-formula ⚠ notes, the sums' traps, and the Question Book's common mistakes
+  function trapsHtml(ch, id) {
+    const L = [], seen = new Set(), add = (h, c, src) => { const k = plain(h).toLowerCase().slice(0, 80); if (!k || seen.has(k)) return; seen.add(k); L.push([h, c, src]); };
+    if (ch) {
+      ch.mistakes.forEach(m => add(m.m, m.c, 'Chapter · common mistake'));
+      ch.keys.forEach(k => k.notes.filter(n => /^⚠/.test(plain(n))).forEach(n => add(n.replace(/^\s*⚠\s*(Trap:)?\s*/, ''), '', `Key formula · p ${k.pg}`)));
+      [...ch.sums, ...ch.ratio].forEach(x => { if (x.trap) add(x.trap, '', `${(plain(x.title).match(/^(Sum \d+|R\d+)/) || ['Sum'])[0]} · p ${x.pg}`); });
+    }
+    (UA || []).filter(x => x.t === id && x.sh).forEach(x => x.sh.forEach(([k, h]) => { if (k === 'mis') add(h.replace(/^\s*⚠\s*Common mistake:\s*/, ''), '', `Question Book ${x.lab} · ${x.src}`); }));
+    if (!L.length) return '<p class="pg">No traps printed for this topic.</p>';
+    const row = ([h, c, src], i) => `<li${i >= 10 ? ' hidden' : ''}><span>✗ ${h}${c ? `<br><b class="up">✓</b> ${c}` : ''}</span><small>${esc(src)}</small></li>`;
+    return `<ol class="trapl">${L.map(row).join('')}</ol>${L.length > 10 ? `<button class="more" data-traps>Show all ${L.length} traps</button>` : ''}`;
+  }
+  document.addEventListener('click', e => { const b = e.target.closest('[data-traps]'); if (!b) return; $$('li[hidden]', b.previousElementSibling).forEach(li => li.hidden = false); b.remove(); });
+  // the mastery test: 15 questions from the topic (past questions, book MCQs, a few formula letters); 70 % passes
+  function startMastery(id) {
+    const t = T(id), pool = shuffle([...UA.filter(x => x.t === id && /^(mcq|msq|nat)$/.test(x.ty)).map(uItem), ...QA.filter(x => x.t === id && x.r != null).map(mcqQ)]);
+    const seen = new Set(), fl = shuffle(mlItems(FA.filter(f => f.t === id))).filter(it => !seen.has(it.id) && seen.add(it.id));
+    const nf = Math.min(fl.length, Math.max(3, 15 - pool.length));
+    const items = shuffle([...pool.slice(0, 15 - Math.min(nf, 15)), ...fl.slice(0, nf).map(mlQuestion)]).slice(0, 15);
+    if (!items.length) { toast('No questions in this topic yet.'); return; }
+    quiz(items, `🎯 Mastery test · ${t.t}`, { onEnd: (r, n) => { const pc = pct(r, n), m = P.mt[id] || {}; P.mt[id] = { last: pc, best: Math.max(pc, m.best || 0), n, ts: now(), pass: !!m.pass || pc >= 70 }; changed(); },
+      endNote: (r, n) => pct(r, n) >= 70 ? '🎯 Passed — this topic is mastered!' : `Pass mark: 70 % (${Math.ceil(n * 0.7)} of ${n}). Look at the exam traps, then try again.` });
+  }
   function paintMine(D) {
     const id = D.id, s = stats().by[id], p = s && s.a ? pct(s.r, s.a) : null, mis = mistakes().filter(x => topicOf(x) === id).length;
     const wf = weakFormulas().filter(([fid]) => topicOf(fid) === id);
     const m = $('#mine');
     if (m) m.innerHTML = s ? `<span>You: <b>${s.a}</b> answers · <b style="color:${tone(p)[1]}">${p} %</b> correct · last practised ${ago(P.seen[id])}${mis ? ` · <b>${mis}</b> mistakes to revise` : ''}</span><button class="btn go" data-act="quiz">Practise 10 →</button>`
       : `<span>Not practised yet. A quick 10-question set mixes this topic's MCQs with its formulas.</span><button class="btn go" data-act="quiz">Practise 10 →</button>`;
+    const mb = $('#mtbox'), mt = P.mt[id];
+    if (mb) mb.innerHTML = `<p class="lead">15 questions mixed from this topic — past questions, book MCQs and formula letters, different every time. 70 % (11 of 15) passes and marks the topic 🎯 mastered.</p>
+      <div class="acts"><button class="btn go" data-path="mt-go">${mt ? 'Take the test again' : 'Start the mastery test'}</button>${mt ? `<span class="pg">${mt.pass ? '<b class="up">🎯 Mastered</b> · ' : ''}last ${mt.last} % · best ${mt.best} % · ${ago(mt.ts)}</span>` : ''}</div>`;
+    paintPath();
     const box = $('#minebox'); if (!box) return;
     const ks = s ? Object.entries(s.k) : [];
     box.innerHTML = `<div class="kpis" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="kpi"><b>${s ? s.a : 0}</b><span>answers</span></div><div class="kpi"><b>${p == null ? '–' : p + ' %'}</b><span>correct</span></div><div class="kpi"><b>${mis}</b><span>mistakes to revise</span></div><div class="kpi"><b>${wf.length}</b><span>weak formulas</span></div></div>
@@ -1003,6 +1271,7 @@
         <div class="acts"><a class="btn go" href="#mock">⏱ Start a mock test</a>${mis.length ? `<button class="btn" data-c="rev">↻ Revise my ${mis.length} mistakes</button>` : ''}${wf.length ? `<button class="btn" data-c="wf">✍ Practise my ${wf.length} weak formulas</button>` : ''}${rec.length ? `<button class="btn" data-c="weakmix">🎯 20 questions from my weakest topics</button>` : ''}</div>
         ${!S.a ? '<p>Nothing answered yet. Every MCQ, missing-letter question, flashcard, GATE self-check and mock test you do on any topic page lands here, so this console can show where you are weak.</p>' : ''}</section>
 
+      ${weekHtml()}
       <section class="panel"><h2>🎯 Study next <small>weakness × exam priority (HIGH / MEDIUM / LOW from the book)</small></h2>
         <div class="next">${rec.map((r, i) => `<div class="nx" style="--col:${r.p == null ? '#13265a' : tone(r.p)[2]}"><i>${i + 1}</i><span><b>${esc(r.t.t)}</b><small>${r.t.pr ? r.t.pr + ' priority' + (r.t.rank ? ' · ' + esc(r.t.rank) : '') + ' · ' : ''}${esc(r.why)}</small></span>
           <span class="acts"><a class="btn" href="#t-${r.t.id}">Study</a><button class="btn go" data-c="prac" data-t="${r.t.id}">Practise</button></span></div>`).join('')}</div></section>
@@ -1032,7 +1301,7 @@
 
       <section class="panel"><h2>⏱ Mock tests <small>last ${Math.min(P.mocks.length, 30)}</small></h2>
         ${P.mocks.length ? `<table class="ttab"><thead><tr><th>Date</th><th>Score</th><th>Right / wrong / blank</th><th>Weakest topics in this mock</th></tr></thead><tbody>${P.mocks.map(m => { const w = Object.entries(m.by || {}).filter(([, v]) => v[1] < v[0]).sort((x, y) => (y[1][0] - y[1][1]) - (x[1][0] - x[1][1]) || x[1][1] / x[1][0] - y[1][1] / y[1][0]).slice(0, 3);
-          return `<tr><td data-l="Date">${new Date(m.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td class="num" data-l="Score"><b>${m.score} / ${m.n}</b> (${m.pc} %)</td><td class="num" data-l="Right / wrong / blank">${m.r} · ${m.w} · ${m.n - m.r - m.w}</td>
+          return `<tr><td data-l="Date">${new Date(m.ts).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td><td class="num" data-l="Score"><b>${m.score} / ${m.tot || m.n}</b> (${m.pc} %)</td><td class="num" data-l="Right / wrong / blank">${m.r} · ${m.w} · ${m.n - m.r - m.w}</td>
           <td data-l="Weakest"><div class="srcs">${w.map(([tid, v]) => T(tid) ? `<span class="${v[1] / v[0] < 0.7 ? 'bad' : ''}">${esc(short(T(tid)))} ${v[1]}/${v[0]}</span>` : '').join('') || '<span>—</span>'}</div></td></tr>`; }).join('')}</tbody></table>` : '<p>No mock test yet.</p>'}
         <div class="acts"><a class="btn go" href="#mock">Start a mock test</a></div></section>
       <section class="panel" id="backup"><h2>💾 Back up my progress <small>a file on this phone — nothing is sent anywhere</small></h2>
@@ -1041,7 +1310,8 @@
       <button class="btn" data-c="reset" style="justify-self:start;font-size:12px;color:var(--ink-2)">Reset all my progress</button>
     </div>`;
     main.onclick = e => {
-      const dd = e.target.closest('[data-day]'); if (dd) { dayRead(dd); return; }
+      const dd = e.target.closest('[data-day]'); if (dd) { dayRead(dd); dayDetail(dd); return; }
+      const rv = e.target.closest('[data-revday]'); if (rv) { const ids = rv.dataset.revday.split(','); loadEvery().then(() => quiz(ids.map(itemFor).filter(Boolean), `Revise · ${fmtDay(rv.dataset.k)}`)); return; }
       const c = e.target.closest('[data-c]'); if (!c) return;
       const k = c.dataset.c;
       if (k === 'rev') reviseMistakes();
@@ -1088,6 +1358,20 @@
     return `<div class="dots" role="img" aria-label="Answers by weekday, last 4 weeks: ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((n, i) => `${n} ${W[i]}`).join(', ')}">${W.map((v, i) => { const n = Math.ceil(v / step);
       return `<div class="dcol${v && v === mx ? ' top' : ''}" title="${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}: ${v} answers">${Array.from({ length: rows }, (_, r) => `<i class="${rows - r <= n ? (rows - r === n ? 'hd' : 'on') : ''}"></i>`).join('')}<b>${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</b><small>${v}</small></div>`; }).join('')}</div><p class="pg">one dot = ${step} answer${step > 1 ? 's' : ''}</p>`;
   }
+  /* practice by subject as a ring: angle = share of your answers, thickness = accuracy, centre = total.
+     Colours: the validated categorical palette in fixed subject order (the legend writes every value out). */
+  function ringHtml(S) {
+    const sub = IX.S.map(([k, n], i) => { let a = 0, r = 0; IX.T.forEach(t => { if (t.s === k && S.by[t.id]) { a += S.by[t.id].a; r += S.by[t.id].r; } }); return { k, n, a, r, i }; });
+    const tot = sub.reduce((x, s) => x + s.a, 0), cx = 110, cy = 110, R0 = 52;
+    const P = (r, a) => `${(cx + r * Math.cos(a)).toFixed(2)},${(cy + r * Math.sin(a)).toFixed(2)}`;
+    const arc = (a0, a1, r0, r1) => { a1 = Math.min(a1, a0 + 2 * Math.PI - 0.0005); const L = a1 - a0 > Math.PI ? 1 : 0; return `M${P(r1, a0)} A${r1},${r1} 0 ${L} 1 ${P(r1, a1)} L${P(r0, a1)} A${r0},${r0} 0 ${L} 0 ${P(r0, a0)} Z`; };
+    let a = -Math.PI / 2, segs = '';
+    sub.forEach(s => { if (!s.a) return; const a1 = a + 2 * Math.PI * s.a / tot, acc = s.r / s.a; segs += `<path d="${arc(a, a1, R0, R0 + 12 + 40 * acc)}" fill="var(--ring${s.i + 1})" stroke="var(--paper)" stroke-width="2"><title>${esc(s.n)}: ${s.a} answers (${pct(s.a, tot)} %), ${pct(s.r, s.a)} % correct</title></path>`; a = a1; });
+    return `<div class="dt ring"><span class="dl">🍩 Practice by subject <small>ring size = share of your answers · thickness = % correct</small></span>
+      <div class="rgw"><svg viewBox="0 0 220 220" class="rgs" role="img" aria-label="Answers by subject">${tot ? segs : `<circle cx="${cx}" cy="${cy}" r="${R0 + 20}" fill="none" stroke="var(--s-track)" stroke-width="40"/>`}
+        <circle cx="${cx}" cy="${cy}" r="${R0 - 6}" fill="none" stroke="var(--line)" stroke-dasharray="2 5"/><text x="${cx}" y="${cy + 4}" text-anchor="middle" class="rgn">${tot.toLocaleString('en-IN')}</text><text x="${cx}" y="${cy + 22}" text-anchor="middle" class="rgl">${tot ? `answers · ${pct(S.r, S.a)} %` : 'no answers yet'}</text></svg>
+        <ul class="rgk">${sub.map(s => `<li><i style="background:var(--ring${s.i + 1})"></i><b>${esc(s.n)}</b><span>${s.a ? `${s.a} · ${pct(s.a, tot)} % of answers · ${pct(s.r, s.a)} % correct` : 'not practised'}</span></li>`).join('')}</ul></div></div>`;
+  }
   function dashHtml(S) {
     const st = streaks(), tk = todayKey(), td = P.days[tk] || [0, 0], left = todayLeft(), tot = P.day && P.day.d === tk ? P.day.ids.length : 20;
     // daily answers, last 30 days: one series, bars from the baseline
@@ -1111,13 +1395,13 @@
       return `<button class="cd l${fut ? 0 : lvl(a)}${k === tk ? ' today' : ''}" data-day="${k}" data-a="${a}" data-r="${(P.days[k] || [0, 0])[1]}" data-due="${due[k] || 0}" aria-label="${fmtDay(k)}: ${a} answers${fut && due[k] ? `, ${due[k]} revisions due` : ''}">${i + 1}${fut && due[k] ? `<i>${due[k]}</i>` : ''}</button>`; })].join('');
     const B = badges(S, st), got = B.filter(b => b[2] >= b[3]).length;
     return `<div class="dash">
+      <div class="dt today"><span class="dl">📅 Today</span><b>${td[0]} answer${td[0] === 1 ? '' : 's'}</b><small>${td[0] ? pct(td[1], td[0]) + ' % correct' : 'nothing yet today'} · ${dueNow} revision${dueNow === 1 ? '' : 's'} due</small>
+        <div class="acts">${left == null ? `<button class="btn gold" data-c="today">Start Today's 20</button>` : left ? `<button class="btn gold" data-c="today">Today's ${tot} · ${left} left</button>` : `<span class="up">✓ Today's ${tot} done</span><button class="btn" data-c="today" data-fresh="1">Another 20</button>`}</div></div>
       <div class="dt streak"><span class="dl">🔥 Study streak</span><b>${st.cur} day${st.cur === 1 ? '' : 's'}</b><small>best ${st.best} · ${st.days} study days in all</small><div class="week">${weekRow()}</div></div>
       <div class="dt level"><span class="dl">⭐ Level ${Math.floor(xpOf(S) / 500) + 1}</span><b>${xpOf(S).toLocaleString('en-IN')} XP</b><small>${500 - xpOf(S) % 500} XP to level ${Math.floor(xpOf(S) / 500) + 2} · 10 XP a right answer, 2 a try, 50 a mock</small><div class="bar" style="--col:var(--pur)"><i style="width:${xpOf(S) % 500 / 5}%"></i></div></div>
-      <div class="dt today"><span class="dl">📅 Today</span><b>${td[0]} answer${td[0] === 1 ? '' : 's'}</b><small>${td[0] ? pct(td[1], td[0]) + ' % correct' : 'nothing yet today'}</small>
-        <div class="acts">${left == null ? `<button class="btn go" data-c="today">Start Today's 20</button>` : left ? `<button class="btn go" data-c="today">Today's ${tot} · ${left} left</button>` : `<span class="up">✓ Today's ${tot} done</span><button class="btn" data-c="today" data-fresh="1">Another 20</button>`}</div></div>
       <div class="dt wide"><span class="dl">📈 Daily progress <small>answers per day, last 30 days · ${sum30} answers on ${act30} days${sum30 ? ` · ${pct(r30, sum30)} % correct` : ''}</small></span>
         <svg class="dchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Answers per day for the last 30 days">${grid}${bars}${xl}</svg>
-        <p class="dread" aria-live="polite">Tap a bar to see that day.</p></div>
+        <p class="dread" aria-live="polite">Tap a bar to see that day — and the questions you answered.</p><div class="dday" hidden></div></div>
       <div class="dt rev"><span class="dl">🔁 Revision schedule <small>day 1 · 3 · 7 · 15 · 30 — a wrong answer starts again</small></span>
         <b>${dueNow} due today</b><small>${dueWrong ? `${dueWrong} of them were wrong last time (first in Today's 20) · ` : ''}${week} more in the next 7 days</small>
         <div class="lv">${SRN.map((n, i) => `<span class="lv${i}" title="${esc(n)}"><b>${lev[i]}</b>${esc(n.replace(' — again tomorrow', ''))}</span>`).join('')}</div></div>
@@ -1125,9 +1409,38 @@
       <div class="dt cal"><span class="dl">🗓 ${now0.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })} <small>shade = answers · <i class="duei">n</i> revisions due that day</small></span>
         <div class="calg">${['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map(d => `<b>${d}</b>`).join('')}${cells}</div>
         <div class="calk"><span>fewer</span>${[0, 1, 2, 3, 4].map(l => `<i class="cd l${l}"></i>`).join('')}<span>more answers</span></div></div>
+      ${ringHtml(S)}
+      ${labTile()}
       <div class="dt badges"><span class="dl">🏅 Achievement badges <small>${got} of ${B.length}</small></span>
         <div class="bgs">${B.map(([ic, n, v, goal]) => `<div class="bg${v >= goal ? ' on' : ''}" title="${esc(n)}"><i>${ic}</i><span>${esc(n)}</span>${v >= goal ? '' : `<small>${Math.min(v, goal).toLocaleString('en-IN')} / ${goal.toLocaleString('en-IN')}</small>`}</div>`).join('')}</div></div>
     </div>`;
+  }
+  /* this week (Monday to today) against last week: answers, accuracy, study days, mocks; the weakest topics of the week
+     (from the last answer to each question practised this week) and the revisions coming up */
+  function weekHtml() {
+    const d0 = new Date(); d0.setHours(12, 0, 0, 0); const mon = new Date(d0); mon.setDate(d0.getDate() - (d0.getDay() + 6) % 7);
+    const sumDays = (from, n) => { let a = 0, r = 0, days = 0; for (let i = 0; i < n; i++) { const d = new Date(from); d.setDate(from.getDate() + i); const v = P.days[dayOf(d)]; if (v && v[0]) { a += v[0]; r += v[1]; days++; } } return { a, r, days }; };
+    const nThis = (d0 - mon) / 864e5 + 1, lastMon = new Date(mon); lastMon.setDate(mon.getDate() - 7);
+    const W = sumDays(mon, nThis), L = sumDays(lastMon, 7), t0 = Math.round(mon.setHours(0, 0, 0, 0) / 60000);
+    const mk = P.mocks.filter(m => m.ts / 60000 >= t0), byT = {};
+    for (const m of [P.q, P.f]) for (const id in m) { const e = m[id], t = topicOf(id); if (!t || e[3] < t0) continue; const b = byT[t] || (byT[t] = [0, 0]); b[0]++; if (e[2]) b[1]++; }
+    const weak = Object.entries(byT).filter(([, b]) => b[0] >= 3).sort((x, y) => x[1][1] / x[1][0] - y[1][1] / y[1][0]).slice(0, 3);
+    const nextWeek = dueList(dayStart() + 8 * 1440).length - dueList().length;
+    const cmp = (a, b, unit = '') => b ? `<small class="${a >= b ? 'up' : 'dn'}">${a >= b ? '▲' : '▼'} ${Math.abs(a - b)}${unit} vs last week</small>` : '<small>last week: none</small>';
+    return `<section class="panel"><h2>🗓 This week <small>Monday to today, against last week</small></h2>
+      <div class="kpis"><div class="kpi"><b>${W.a}</b><span>answers</span>${cmp(W.a, L.a)}</div><div class="kpi"><b>${W.a ? pct(W.r, W.a) + ' %' : '–'}</b><span>correct</span>${W.a && L.a ? cmp(pct(W.r, W.a), pct(L.r, L.a), ' pts') : ''}</div>
+        <div class="kpi"><b>${W.days} / ${nThis}</b><span>days studied</span>${cmp(W.days, L.days)}</div><div class="kpi"><b>${mk.length}</b><span>mock tests${mk.length ? ` · best ${Math.max(...mk.map(m => m.pc))} %` : ''}</span></div>
+        <div class="kpi"><b>${nextWeek}</b><span>revisions due in the next 7 days</span></div></div>
+      ${weak.length ? `<p>Weakest this week: ${weak.map(([t, b]) => T(t) ? `<a href="#t-${t}-prac">${esc(short(T(t)))}</a> (${b[1]}/${b[0]} right last time)` : '').join(' · ')}</p>` : '<p class="pg">Answer 3 or more questions in a topic this week and the weakest show here.</p>'}</section>`;
+  }
+  // the questions whose last answer fell on that day, by topic, with the wrong ones ready to revise
+  function dayDetail(el) {
+    const k = el.dataset.day, box = el.closest('.dt').querySelector('.dday'); if (!box) return;
+    const by = {}, wrong = [];
+    for (const m of [P.q, P.f]) for (const id in m) { const e = m[id]; if (dayOf(e[3] * 60000) !== k) continue; const t = topicOf(id) || (id[0] === 'z' ? 'pred' : '—'); const b = by[t] || (by[t] = [0, 0]); b[0]++; if (e[2]) b[1]++; else if (SRK.test(id)) wrong.push(id); }
+    const L = Object.entries(by).sort((x, y) => (x[1][1] / x[1][0]) - (y[1][1] / y[1][0]));
+    box.hidden = !L.length;
+    box.innerHTML = L.length ? `<b>${fmtDay(k)} — questions answered (last answers)</b><div class="srcs">${L.map(([t, [a, r]]) => `<span class="${r / a < 0.7 ? 'bad' : r / a >= 0.85 ? 'good' : ''}">${t === 'pred' ? 'Predicted papers' : T(t) ? esc(short(T(t))) : 'Other'} ${r}/${a}</span>`).join('')}</div>${wrong.length ? `<div class="acts"><button class="btn go" data-revday="${wrong.slice(0, 40).join(',')}" data-k="${k}">↻ Revise the ${Math.min(40, wrong.length)} you got wrong</button></div>` : ''}` : '';
   }
   function dayRead(el) {
     const k = el.dataset.day, a = +el.dataset.a, r = +el.dataset.r, du = +(el.dataset.due || 0);
@@ -1159,6 +1472,10 @@
       for (const [t, v] of Object.entries(B.seen || {})) if (/^(\d+|gen)$/.test(t) && Number.isFinite(v)) P.seen[t] = Math.max(P.seen[t] || 0, v);
       for (const [k, v] of Object.entries(B.star || {})) if (STARKEY.test(k) && Number.isFinite(v)) P.star[k] = P.star[k] || v;
       for (const [k, v] of Object.entries(B.days || {})) if (/^\d{4}-\d\d-\d\d$/.test(k) && Array.isArray(v)) { const a = Math.round(num(v[0])), r = Math.round(num(v[1])), c = P.days[k] || [0, 0]; if (a > c[0]) P.days[k] = [a, Math.min(r, a)]; }
+      const BL = B.lab && typeof B.lab === 'object' ? B.lab : {}, LID = /^[a-z0-9-]{2,24}$/;
+      for (const [id, r] of Object.entries(BL.x || {})) if (LID.test(id) && r && typeof r === 'object') { const c = P.lab.x[id]; if (!c || num(r.t) > num(c.t)) P.lab.x[id] = { s: num(r.s), l: num(r.l), t: num(r.t), p: num(r.p), done: num(r.done), cu: r.cu ? 1 : 0, ...(typeof r.qd === 'string' && /^\d{4}-\d\d-\d\d$/.test(r.qd) ? { qd: r.qd } : {}), q: Array.isArray(r.q) ? [num(r.q[0]), num(r.q[1])] : [0, 0], k: Object.fromEntries(['c', 'g', 'u', 'x'].filter(k => r.k && r.k[k]).map(k => [k, 1])), pk: Array.isArray(r.pk) ? r.pk.filter(k => typeof k === 'string' && k.length < 20).slice(0, 40) : [], m: Object.fromEntries(Object.entries(r.m && typeof r.m === 'object' ? r.m : {}).filter(([k, m]) => k.length < 40 && Array.isArray(m)).slice(0, 50).map(([k, m]) => [k, [num(m[0]), String(m[1] || '').slice(0, 120)]])) }; }
+      for (const [k, sec] of Object.entries(BL.d || {})) if (/^\d{4}-\d\d-\d\d$/.test(k)) P.lab.d[k] = Math.max(P.lab.d[k] || 0, num(sec));
+      for (const [k, v] of Object.entries(BL.f || {})) if (LID.test(k)) P.lab.f[k] = P.lab.f[k] || num(v) || 1;
       const seenTs = new Set(P.mocks.map(m => m.ts));
       for (const m of Array.isArray(B.mocks) ? B.mocks : []) {
         if (!m || !Number.isFinite(m.ts) || seenTs.has(m.ts)) continue;
@@ -1181,9 +1498,9 @@
     const avail = id => QA.filter(x => x.t === id && x.r != null).length + UA.filter(x => x.t === id && x.ty === 'mcq').length;
     const nU = UA.filter(x => x.ty === 'mcq').length;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Mock test</div><div class="con"><section class="panel"><h2>⏱ Mock test</h2>
-      <p>Questions come from your Question Book (${nU} single-answer past questions from GATE, TNPSC, ESE, APGENCO and TANGEDCO, shown exactly as printed, with full solutions in the result) and the Complete Book's own MCQs (${QA.filter(x => x.r != null).length}), plus, if you like, missing-letter questions on the book's formulas. Every answer goes into your progress console, and the result shows your weak topics.</p>
+      <p>Questions come from your Question Book (${nU} single-answer past questions from GATE, TNPSC, ESE, APGENCO and TANGEDCO, plus GATE's multiple-select and numerical-answer questions if you choose them — all exactly as printed, with full solutions in the result) and the Complete Book's own MCQs (${QA.filter(x => x.r != null).length}), plus, if you like, missing-letter questions on the book's formulas. Every answer goes into your progress console, and the result shows your weak topics.</p>
       <div class="mkpre"><b>Exam style</b><div class="seg" id="mkpre"><button type="button" data-pre="gate" aria-pressed="false">🎓 GATE EE</button><button type="button" data-pre="tneb" aria-pressed="false">⚡ TANGEDCO AE</button><button type="button" data-pre="tnpsc" aria-pressed="false">🏛 TNPSC</button><button type="button" data-pre="" aria-pressed="true">⚙ Custom</button></div>
-        <p class="pg" id="mkprei">A style only fills in the settings below — change any of them before you start. Every question here scores +1; negative marking is −⅓ of a mark per wrong answer when chosen.</p></div>
+        <p class="pg" id="mkprei">A style only fills in the settings below — change any of them before you start. GATE questions carry their printed marks (1 or 2), every other question 1 mark. With negative marking, a wrong MCQ loses ⅓ of its marks (−⅓ or −⅔); MSQ and NAT never lose marks — as in GATE.</p></div>
       <form class="mkset" id="mkf">
         <fieldset><legend>Which topics</legend>
           <label class="r"><input type="radio" name="sc" value="all" checked> All topics</label>
@@ -1194,20 +1511,21 @@
         <fieldset><legend>Paper</legend><div class="mkrow">
           <label>Questions <select id="mkn"><option>10</option><option selected>25</option><option>50</option><option>65</option><option>100</option></select></label>
           <label>Time per question <select id="mkt"><option value="36">36 s</option><option value="60" selected>1 min</option><option value="72">1.2 min</option><option value="90">1.5 min</option><option value="166">2.8 min (3 h for 65)</option></select></label>
-          <label>Marking <select id="mkm"><option value="1">+1, −⅓ per wrong (TNEB, ESE, GATE MCQ)</option><option value="0" selected>+1, no negative (TNPSC)</option></select></label>
+          <label>Marking <select id="mkm"><option value="1">Negative: a wrong MCQ loses ⅓ of its marks (GATE, TNEB, ESE)</option><option value="0" selected>No negative marking (TNPSC)</option></select></label>
           <label>Formula questions <select id="mkl"><option value="0.2" selected>About 1 in 5 missing-letter</option><option value="0">None — MCQs only</option><option value="0.5">About half</option></select></label></div>
           <div class="mkrow"><label>Questions from <select id="mksrc"><option value="all" selected>Question Book + book MCQs</option><option value="u">Question Book only (real past papers)</option><option value="b">Complete Book MCQs only</option></select></label>
+          <label>Question types <select id="mkty"><option value="mcq" selected>Single-answer MCQs</option><option value="all">MCQ + multiple-select (MSQ) + numerical (NAT)</option></select></label>
           <label>Exam <select id="mkex"><option value="">Every exam</option><option value="GATE">GATE EE</option><option value="TNPSC">TNPSC Code 400</option><option value="ESE">UPSC ESE</option><option value="APGENCO">APGENCO AE</option><option value="TANGEDCO">TANGEDCO AE</option></select></label></div></fieldset>
         <div class="acts"><button class="btn go" type="submit">Start the timer</button><span class="pg" id="mkinfo"></span></div></form></section></div>`;
     const f = $('#mkf'), picks = $('#mkp');
     f.onchange = () => { picks.hidden = f.sc.value !== 'pick'; };
     // exam styles: they only fill in the form
-    const PRE = { gate: ['all', 65, 166, '1', '0', 'u', 'GATE', 'GATE EE style: 65 of your real GATE EE past questions, 3 hours (2.8 min each), −⅓ per wrong answer. (In GATE itself 2-mark MCQs lose ⅔ and numerical questions have no negative mark.)'],
-      tneb: ['all', 100, 72, '1', '0.2', 'all', '', 'TANGEDCO AE style: 100 questions from every topic, 2 hours, −⅓ per wrong answer (as the book’s TNEB / TANGEDCO 2027 predicted paper is set).'],
-      tnpsc: ['all', 100, 72, '0', '0', 'u', 'TNPSC', 'TNPSC style: 100 of your real TNPSC past questions, 1.2 min each, no negative marking.'] };
+    const PRE = { gate: ['all', 65, 166, '1', '0', 'u', 'GATE', 'all', 'GATE EE style: 65 real GATE EE past questions — MCQ, MSQ and NAT, each with its printed 1 or 2 marks — 3 hours. A wrong MCQ loses ⅓ of its marks (−⅓ on 1-mark, −⅔ on 2-mark); MSQ and NAT have no negative marks.'],
+      tneb: ['all', 100, 72, '1', '0.2', 'all', '', 'mcq', 'TANGEDCO AE style: 100 single-answer questions from every topic, 1 mark each, 2 hours, −⅓ per wrong answer (as the book’s TNEB / TANGEDCO 2027 predicted paper is set).'],
+      tnpsc: ['all', 100, 72, '0', '0', 'u', 'TNPSC', 'mcq', 'TNPSC style: 100 of your real TNPSC past questions, 1 mark each, 1.2 min each, no negative marking.'] };
     $('#mkpre').onclick = e => { const b = e.target.closest('[data-pre]'); if (!b) return; $$('#mkpre [data-pre]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
       const p = PRE[b.dataset.pre]; if (!p) { $('#mkprei').textContent = 'Custom: choose the topics, length, time and marking yourself.'; return; }
-      f.sc.value = p[0]; $('#mkn').value = String(p[1]); $('#mkt').value = String(p[2]); $('#mkm').value = p[3]; $('#mkl').value = p[4]; $('#mksrc').value = p[5]; $('#mkex').value = p[6]; picks.hidden = true; $('#mkprei').textContent = p[7]; };
+      f.sc.value = p[0]; $('#mkn').value = String(p[1]); $('#mkt').value = String(p[2]); $('#mkm').value = p[3]; $('#mkl').value = p[4]; $('#mksrc').value = p[5]; $('#mkex').value = p[6]; $('#mkty').value = p[7]; picks.hidden = true; $('#mkprei').textContent = p[8]; };
     f.onsubmit = e => {
       e.preventDefault();
       const sc = f.sc.value; let ids;
@@ -1216,34 +1534,41 @@
       else if (sc === 'pick') ids = $$('input:checked', picks).map(x => x.value);
       else { const by = stats().by; ids = IX.T.filter(t => !by[t.id] || by[t.id].a < 3 || pct(by[t.id].r, by[t.id].a) < 70).sort((x, y) => (PRW[y.pr] || 1) - (PRW[x.pr] || 1)).slice(0, 12).map(t => t.id); }
       if (!ids.length) { $('#mkinfo').textContent = 'Choose at least one topic.'; return; }
-      mockStart(ids, +$('#mkn').value, +$('#mkt').value, $('#mkm').value === '1', +$('#mkl').value, $('#mksrc').value, $('#mkex').value);
+      mockStart(ids, +$('#mkn').value, +$('#mkt').value, $('#mkm').value === '1', +$('#mkl').value, $('#mksrc').value, $('#mkex').value, $('#mkty').value);
     };
     toTop();
   }
-  function mockStart(ids, n, per, neg, mlShare, from = 'all', exam = '') {
-    const set = new Set(ids);
+  /* marks and marking, as in GATE: every GATE question carries its printed marks (1 or 2), any other question 1 mark.
+     With negative marking a wrong MCQ loses a third of its marks; MSQ and NAT never lose marks; no partial marks for MSQ. */
+  const marksOf = x => +(String(x.src || '').match(/(\d) marks?\b/) || [0, 1])[1];
+  const blankOf = q => q.ty === 'msq' ? [] : q.ty === 'nat' ? '' : -1;
+  const isAns = (q, a) => q.ty === 'msq' ? a.length > 0 : q.ty === 'nat' ? String(a).trim() !== '' : a >= 0;
+  const judge = (q, a) => !isAns(q, a) ? false : q.ty === 'msq' ? a.length === q.rs.length && a.every(j => q.rs.includes(j)) : q.ty === 'nat' ? Number.isFinite(numIn(a)) && natOk(q.ok, numIn(a)) : isRight(q, a);
+  const penalty = (q, a, neg) => neg && q.ty === 'mcq' && isAns(q, a) && !judge(q, a) ? q.mk / 3 : 0;
+  function mockStart(ids, n, per, neg, mlShare, from = 'all', exam = '', types = 'mcq') {
+    const set = new Set(ids), okTy = types === 'all' ? /^(mcq|msq|nat)$/ : /^mcq$/;
     // round-robin over the chosen topics so the paper is spread across them
     const byT = {};
-    if (from !== 'b') UA.filter(x => set.has(x.t) && x.ty === 'mcq' && (!exam || x.ex === exam)).forEach(x => (byT[x.t] ||= []).push(uQ(x)));
-    if (from !== 'u' && !exam) QA.filter(x => set.has(x.t) && x.r != null).forEach(x => (byT[x.t] ||= []).push(mcqQ(x)));
+    if (from !== 'b') UA.filter(x => set.has(x.t) && okTy.test(x.ty) && (!exam || x.ex === exam)).forEach(x => (byT[x.t] ||= []).push({ ...uItem(x), ty: x.ty, mk: marksOf(x) }));
+    if (from !== 'u' && !exam) QA.filter(x => set.has(x.t) && x.r != null).forEach(x => (byT[x.t] ||= []).push({ ...mcqQ(x), ty: 'mcq', mk: 1 }));
     Object.values(byT).forEach(shuffle);
     const nML = exam || from === 'u' ? 0 : Math.round(n * mlShare), mcqs = [], order = shuffle(Object.keys(byT));
     for (let k = 0; mcqs.length < n - nML && order.length; k++) { const t = order[k % order.length], L = byT[t]; if (L.length) mcqs.push(L.pop()); if (!order.some(o => byT[o].length)) break; }
     const fl = shuffle(mlItems(FA.filter(f => set.has(f.t)))), seen = new Set(), mls = [];
-    for (const it of fl) { if (mcqs.length + mls.length >= n) break; if (!seen.has(it.id)) { seen.add(it.id); mls.push(mlQuestion(it)); } }
+    for (const it of fl) { if (mcqs.length + mls.length >= n) break; if (!seen.has(it.id)) { seen.add(it.id); mls.push({ ...mlQuestion(it), ty: 'mcq', mk: 1 }); } }
     // the paper in subject order, so the palette's subject tabs read as sections
     const SO = IX.S.map(x => x[0]), subjOf = q => (T(q.t) || {}).s;
     const qs = shuffle([...mcqs, ...mls]).sort((a, b) => SO.indexOf(subjOf(a)) - SO.indexOf(subjOf(b)));
     if (!qs.length) { toast('No questions for these topics yet.'); return; }
     qs.forEach(q => { const k = subjOf(q); q.sec = k ? IX.S.find(x => x[0] === k)[1] : 'Other'; });
-    M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), vis: qs.map(() => false), tq: qs.map(() => 0), tab: '', i: 0, end: Date.now() + qs.length * per * 1000, total: qs.length * per, neg, t0: Date.now() };
+    M = { qs, ans: qs.map(blankOf), flag: qs.map(() => false), vis: qs.map(() => false), tq: qs.map(() => 0), tab: '', i: 0, end: Date.now() + qs.length * per * 1000, total: qs.length * per, neg, t0: Date.now() };
     showMock(); startTick();
   }
   const startTick = () => { clearInterval(tick); tick = setInterval(() => { if (!M) return clearInterval(tick); const left = Math.round((M.end - Date.now()) / 1000); paintClock(left); if (left <= 0) mockSubmit(); }, 1000); };
   const hms = s => { s = Math.max(0, s); return [Math.floor(s / 3600), Math.floor(s % 3600 / 60), s % 60]; };
   const paintClock = left => { const el = $('.mk-clock'); if (!el) return; hms(left).forEach((v, k) => { el.children[k].firstChild.textContent = String(v).padStart(2, '0'); }); el.classList.toggle('low', left <= 60); };
   // a question's state in the palette (the exam-hall colours)
-  const mkState = i => M.ans[i] >= 0 ? (M.flag[i] ? 'am' : 'an') : M.flag[i] ? 'mr' : M.vis[i] ? 'na' : 'nv';
+  const mkState = i => isAns(M.qs[i], M.ans[i]) ? (M.flag[i] ? 'am' : 'an') : M.flag[i] ? 'mr' : M.vis[i] ? 'na' : 'nv';
   const MKS = [['an', 'Answered'], ['na', 'Not answered'], ['nv', 'Not visited'], ['mr', 'Marked for review'], ['am', 'Answered & marked']];
   function showMock() {
     if (location.hash !== '#mock') { try { history.replaceState(null, '', '#mock'); } catch (e) {} setShell('mock'); }
@@ -1254,10 +1579,11 @@
     const [h, m, sx] = hms(left), last = M.i + 1 >= M.qs.length;
     main.innerHTML = `<div class="mk-top"><b>${esc(M.title || 'Mock test')}</b><div class="mk-clock${left <= 60 ? ' low' : ''}" role="timer" aria-label="Time remaining"><span><b>${String(h).padStart(2, '0')}</b><small>Hours</small></span><span><b>${String(m).padStart(2, '0')}</b><small>Minutes</small></span><span><b>${String(sx).padStart(2, '0')}</b><small>Seconds</small></span></div><button class="btn go" data-m="submit">Submit</button></div>
       <div class="mk-wrap"><div class="mk-q"><div class="box qcard"><div class="mk-qh"><b>Question ${M.i + 1}</b><span class="qs">${esc(q.sec ? q.sec + ' · ' : '')}${esc(q.src || '')}</span><button class="btn mk-mark${M.flag[M.i] ? ' on' : ''}" data-m="flag" aria-pressed="${M.flag[M.i]}">${M.flag[M.i] ? '🔖 Marked for review' : '🔖 Mark for review'}</button></div>
+        <div class="mk-mt"><span class="mkchip">${q.mk} mark${q.mk > 1 ? 's' : ''} · ${q.ty === 'msq' ? 'MSQ' : q.ty === 'nat' ? 'NAT' : 'MCQ'}</span>${q.ty === 'msq' ? '<span class="mknote">Select every correct option — no negative marks, no part marks</span>' : q.ty === 'nat' ? '<span class="mknote">Type the number — no negative marks</span>' : M.neg ? `<span class="mknote">Wrong answer: −${q.mk === 2 ? '⅔' : '⅓'} mark</span>` : ''}</div>
         <div class="qq">${q.q}</div>
-        ${optsHtml(q, 'data-mi', M.ans[M.i])}
-        <div class="acts mk-nav"><button class="btn" data-m="prev" ${M.i ? '' : 'disabled'}>← Previous</button>${M.ans[M.i] >= 0 ? '<button class="btn" data-m="clear">Clear answer</button>' : ''}<button class="btn" data-m="markn">Mark & next</button><button class="btn go" data-m="next">${last ? 'Save' : 'Save & next →'}</button></div></div></div>
-      <aside class="mk-side" aria-label="Question palette"><h3>Question palette <small>${M.ans.filter(a => a >= 0).length} of ${M.qs.length} answered</small></h3>
+        ${q.ty === 'nat' ? `<div class="mk-nat"><input class="unum" data-mn type="text" inputmode="decimal" autocomplete="off" placeholder="Your answer" aria-label="Your numerical answer" value="${esc(M.ans[M.i])}"></div>` : optsHtml(q, 'data-mi', M.ans[M.i])}
+        <div class="acts mk-nav"><button class="btn" data-m="prev" ${M.i ? '' : 'disabled'}>← Previous</button>${isAns(q, M.ans[M.i]) ? '<button class="btn" data-m="clear">Clear answer</button>' : ''}<button class="btn" data-m="markn">Mark & next</button><button class="btn go" data-m="next">${last ? 'Save' : 'Save & next →'}</button></div></div></div>
+      <aside class="mk-side" aria-label="Question palette"><h3>Question palette <small>${M.qs.filter((x, i) => isAns(x, M.ans[i])).length} of ${M.qs.length} answered · ${M.qs.reduce((a, x) => a + x.mk, 0)} marks</small></h3>
         ${secs.length > 1 ? `<div class="seg mk-tabs"><button data-tab="" aria-pressed="${!M.tab}">All</button>${secs.map(x => `<button data-tab="${esc(x)}" aria-pressed="${M.tab === x}">${esc(x)}</button>`).join('')}</div>` : ''}
         <div class="mk-pal">${M.qs.map((x, i) => !M.tab || x.sec === M.tab ? `<button data-go="${i}" class="s-${mkState(i)}${i === M.i ? ' cur' : ''}" aria-label="Question ${i + 1}: ${MKS.find(k => k[0] === mkState(i))[1]}">${i + 1}</button>` : '').join('')}</div>
         <div class="mk-leg">${MKS.map(([k, n]) => `<span><i class="s-${k}">${cnt[k]}</i>${n}</span>`).join('')}</div></aside></div>`;
@@ -1265,38 +1591,47 @@
     main.onclick = e => {
       if (!M) return;
       const t = e.target, m = t.closest('[data-m]') && t.closest('[data-m]').dataset.m;
-      const mo = t.closest('[data-mi]'); if (mo) { const i = +mo.dataset.mi; M.ans[M.i] = M.ans[M.i] === i ? -1 : i; showMock(); return; }
+      const mo = t.closest('[data-mi]'); if (mo) { const i = +mo.dataset.mi, a = M.ans[M.i]; M.ans[M.i] = q.ty === 'msq' ? (a.includes(i) ? a.filter(j => j !== i) : [...a, i].sort()) : a === i ? -1 : i; showMock(); return; }
       const go = t.closest('[data-go]'); if (go) { M.i = +go.dataset.go; showMock(); return; }
       const tb = t.closest('[data-tab]'); if (tb) { M.tab = tb.dataset.tab; const j = M.qs.findIndex(x => x.sec === M.tab); if (M.tab && j >= 0 && M.qs[M.i].sec !== M.tab) M.i = j; showMock(); return; }
       if (m === 'prev' && M.i) { M.i--; showMock(); }
       else if (m === 'next') { if (M.i + 1 < M.qs.length) M.i++; else toast('That was the last question — check the palette, then Submit.'); showMock(); }
       else if (m === 'markn') { M.flag[M.i] = true; if (M.i + 1 < M.qs.length) M.i++; showMock(); }
       else if (m === 'flag') { M.flag[M.i] = !M.flag[M.i]; showMock(); }
-      else if (m === 'clear') { M.ans[M.i] = -1; showMock(); }
-      else if (m === 'submit') { const blank = M.ans.filter(a => a < 0).length, mk = M.flag.filter(Boolean).length; if (!blank && !mk) mockSubmit(); else t.closest('[data-m]').outerHTML = `<span class="confirm">${blank ? `${blank} not answered` : ''}${blank && mk ? ', ' : ''}${mk ? `${mk} marked for review` : ''}. <button class="btn go" data-m="submit2">Submit anyway</button> <button class="btn" data-m="back">Keep going</button></span>`; }
+      else if (m === 'clear') { M.ans[M.i] = blankOf(q); showMock(); }
+      else if (m === 'submit') { const blank = M.qs.filter((x, i) => !isAns(x, M.ans[i])).length, mk = M.flag.filter(Boolean).length; if (!blank && !mk) mockSubmit(); else t.closest('[data-m]').outerHTML = `<span class="confirm">${blank ? `${blank} not answered` : ''}${blank && mk ? ', ' : ''}${mk ? `${mk} marked for review` : ''}. <button class="btn go" data-m="submit2">Submit anyway</button> <button class="btn" data-m="back">Keep going</button></span>`; }
       else if (m === 'submit2') mockSubmit();
       else if (m === 'back') showMock();
     };
+    // a numerical answer is kept as it is typed (the palette follows without redrawing the page)
+    main.oninput = e => { if (!M || !e.target.matches('[data-mn]')) return; M.ans[M.i] = e.target.value; const b = $(`.mk-pal [data-go="${M.i}"]`); if (b) b.className = `s-${mkState(M.i)} cur`; };
+    main.onkeydown = e => { if (M && e.key === 'Enter' && e.target.matches('[data-mn]')) { e.preventDefault(); $('[data-m="next"]', main).click(); } };
   }
   function mockSubmit() {
     if (!M) return; clearInterval(tick);
     const X = M; M = null; if (X.on != null) X.tq[X.on] += Date.now() - X.ts;
     if (location.hash !== '#mock') { try { history.replaceState(null, '', '#mock'); } catch (e) {} setShell('mock'); toast('Time is up — your mock test was submitted.'); }
-    const ok = X.qs.map((q, i) => X.ans[i] >= 0 && isRight(q, X.ans[i])), r = ok.filter(Boolean).length, w = X.qs.filter((q, i) => X.ans[i] >= 0 && !ok[i]).length, n = X.qs.length;
-    const score = Math.round((r - (X.neg ? w / 3 : 0)) * 100) / 100, secs = Math.min(X.total, Math.round((Date.now() - X.t0) / 1000));
+    X.qs.forEach(q => { q.ty ||= 'mcq'; q.mk ||= 1; });
+    const ok = X.qs.map((q, i) => judge(q, X.ans[i])), att = X.qs.map((q, i) => isAns(q, X.ans[i])), r = ok.filter(Boolean).length, w = att.filter((a, i) => a && !ok[i]).length, n = X.qs.length;
+    const tot = X.qs.reduce((a, q) => a + q.mk, 0), got = X.qs.reduce((a, q, i) => a + (ok[i] ? q.mk : 0), 0), lost = X.qs.reduce((a, q, i) => a + penalty(q, X.ans[i], X.neg), 0);
+    const r2 = x => Math.round(x * 100) / 100, score = r2(got - lost), secs = Math.min(X.total, Math.round((Date.now() - X.t0) / 1000));
+    const split = key => { const g = {}; X.qs.forEach((q, i) => { const k = key(q), b = g[k] || (g[k] = [0, 0]); b[0]++; if (ok[i]) b[1]++; }); return Object.entries(g); };
+    const ansTxt = (q, a) => !isAns(q, a) ? 'none' : q.ty === 'nat' ? esc(a) : q.ty === 'msq' ? a.map(j => esc(q.opts[j].l || 'ABCD'[j])).join(', ') : esc(q.opts[a].l || 'ABCD'[a]) + (q.opts[a].h ? ' — ' + q.opts[a].h : '');
+    const rightTxt = q => q.ty === 'nat' ? esc(q.ans) : q.ty === 'msq' ? q.rs.map(j => esc(q.opts[j].l || 'ABCD'[j])).join(', ') : esc(q.opts[q.r].l || 'ABCD'[q.r]) + (q.opts[q.r].h ? ' — ' + q.opts[q.r].h : '');
     const by = {};
     X.qs.forEach((q, i) => { const b = by[q.t] || (by[q.t] = [0, 0]); b[0]++; if (ok[i]) b[1]++; });
     // every question is recorded (a blank counts as not known)
     X.qs.forEach((q, i) => { const m = isF(q.id) ? P.f : P.q; srStep(q.id, m[q.id], ok[i]); const e = m[q.id] || (m[q.id] = [0, 0, 0, 0]); e[0]++; if (ok[i]) e[1]++; e[2] = ok[i] ? 1 : 0; e[3] = now(); if (q.t) P.seen[q.t] = now(); logDay(ok[i]); });
-    P.mocks.unshift({ ts: Date.now(), n, r, w, score, pc: Math.round(Math.max(0, score) / n * 100), secs, neg: X.neg, by }); P.mocks.length = Math.min(P.mocks.length, 30); changed();
+    P.mocks.unshift({ ts: Date.now(), n, r, w, score, tot, pc: Math.round(Math.max(0, score) / tot * 100), secs, neg: X.neg, by }); P.mocks.length = Math.min(P.mocks.length, 30); changed();
     const rowsT = Object.entries(by).map(([tid, [a, rr]]) => ({ t: T(tid), a, r: rr })).filter(x => x.t).sort((x, y) => x.r / x.a - y.r / y.a);
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Mock test result</div><div class="con">
-      <section class="panel"><h2>Mock test result</h2><div class="kpis">${[[`${score} / ${n}`, 'score' + (X.neg ? ' (−⅓ per wrong)' : '')], [Math.round(Math.max(0, score) / n * 100) + ' %', 'percent'], [r, 'right'], [w, 'wrong'], [n - r - w, 'not attempted'], [X.neg ? `−${Math.round(w / 3 * 100) / 100}` : '0', 'negative marks'], [r + w ? pct(r, r + w) + ' %' : '–', 'accuracy (of attempted)'], [`${Math.floor(secs / 60)} min ${secs % 60} s`, 'time used'], [`${Math.round(X.tq.reduce((a, b) => a + b, 0) / 1000 / Math.max(1, X.tq.filter(Boolean).length))} s`, 'average per question seen']].map(([b, s]) => `<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('')}</div>
-        ${X.tq.some(Boolean) ? `<p class="pg">Slowest: ${X.tq.map((t, i) => [t, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([t, i]) => `Q${i + 1} (${Math.round(t / 1000)} s, ${ok[i] ? 'right' : X.ans[i] < 0 ? 'not answered' : 'wrong'})`).join(' · ')}</p>` : ''}
+      <section class="panel"><h2>Mock test result</h2><div class="kpis">${[[`${score} / ${tot}`, 'marks' + (X.neg ? ' (after negative marks)' : '')], [Math.round(Math.max(0, score) / tot * 100) + ' %', 'percent'], [r, 'right'], [w, 'wrong'], [n - r - w, 'not attempted'], [lost ? `−${r2(lost)}` : '0', 'negative marks'], [r + w ? pct(r, r + w) + ' %' : '–', 'accuracy (of attempted)'], [`${Math.floor(secs / 60)} min ${secs % 60} s`, 'time used'], [`${Math.round(X.tq.reduce((a, b) => a + b, 0) / 1000 / Math.max(1, X.tq.filter(Boolean).length))} s`, 'average per question seen']].map(([b, s]) => `<div class="kpi"><b>${b}</b><span>${s}</span></div>`).join('')}</div>
+        ${X.tq.some(Boolean) ? `<p class="pg">Slowest: ${X.tq.map((t, i) => [t, i]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([t, i]) => `Q${i + 1} (${Math.round(t / 1000)} s, ${ok[i] ? 'right' : !att[i] ? 'not answered' : 'wrong'})`).join(' · ')}</p>` : ''}
+        <div class="srcs">${split(q => q.ty.toUpperCase()).map(([k, [a, b]]) => `<span>${k}: ${b}/${a} right</span>`).join('')}${split(q => q.mk + '-mark').length > 1 ? split(q => q.mk + '-mark').map(([k, [a, b]]) => `<span>${k}: ${b}/${a}</span>`).join('') : ''}</div>
         <div class="acts"><a class="btn go" href="#progress">📊 See it in my progress console</a><button class="btn" data-r="again">Another mock test</button></div></section>
       <section class="panel"><h2>By topic <small>weakest first — this is where to improve</small></h2><table class="ttab"><thead><tr><th>Topic</th><th>Right</th><th></th></tr></thead><tbody>${rowsT.map(x => `<tr><td data-l="Topic"><a href="#t-${x.t.id}">${esc(x.t.t)}</a></td><td class="num" data-l="Right"><span class="bar" style="--col:${tone(pct(x.r, x.a))[2]}"><i style="width:${Math.max(3, pct(x.r, x.a))}%"></i></span>${x.r}/${x.a}</td><td><span class="acts"><a class="btn" href="#t-${x.t.id}">Study</a><button class="btn go" data-r="prac" data-t="${x.t.id}">Practise</button></span></td></tr>`).join('')}</tbody></table></section>
-      <section class="panel"><h2>Every question, with the answer</h2>${X.qs.map((q, i) => `<details class="rv"><summary><b class="${ok[i] ? 'up' : 'dn'}">${ok[i] ? '✓' : X.ans[i] < 0 ? '–' : '✗'} Q${i + 1}</b><span>${esc(q.ml ? 'Missing letter — ' + q.nm : plain(q.q).slice(0, 120))}</span></summary><div><div class="qs pg">${esc(q.src)}</div><div class="qq">${q.q}</div>
-        <p>Your answer: <b>${X.ans[i] < 0 ? 'none' : esc(q.opts[X.ans[i]].l || 'ABCD'[X.ans[i]]) + (q.opts[X.ans[i]].h ? ' — ' + q.opts[X.ans[i]].h : '')}</b> · Right answer: <b>${esc(q.opts[q.r].l || 'ABCD'[q.r])}${q.opts[q.r].h ? ' — ' + q.opts[q.r].h : ''}</b></p><div class="expl">${q.ex}</div></div></details>`).join('')}</section></div>`;
+      <section class="panel"><h2>Every question, with the answer</h2>${X.qs.map((q, i) => `<details class="rv"><summary><b class="${ok[i] ? 'up' : 'dn'}">${ok[i] ? '✓' : !att[i] ? '–' : '✗'} Q${i + 1}</b><span>${esc(q.ml ? 'Missing letter — ' + q.nm : plain(q.q).slice(0, 120))}</span></summary><div><div class="qs pg">${esc(q.src)}</div><div class="qq">${q.q}</div>
+        <p>Your answer: <b>${ansTxt(q, X.ans[i])}</b> · Right answer: <b>${rightTxt(q)}</b> <span class="pg">· ${q.mk} mark${q.mk > 1 ? 's' : ''}${ok[i] ? ` · +${q.mk}` : penalty(q, X.ans[i], X.neg) ? ` · −${r2(penalty(q, X.ans[i], X.neg))}` : ''}</span></p><div class="expl">${q.ex}</div></div></details>`).join('')}</section></div>`;
     lazy();
     main.onclick = e => { const b = e.target.closest('[data-r]'); if (!b) return; if (b.dataset.r === 'again') viewMock(RT); if (b.dataset.r === 'prac') quiz(topicMix(b.dataset.t, 10), `Practise · ${T(b.dataset.t).t}`); };
     toTop();
@@ -1410,14 +1745,14 @@
     toTop();
   }
   async function viewSims(tok) {
-    setShell('sims'); document.title = 'Simulators · TNEB AE Study Site';
+    setShell('sims'); document.title = 'Formula labs by topic · TNEB AE Study Site'; main.onclick = null; main.oninput = null;
     main.innerHTML = '<p class="loading">Loading the simulators…</p>';
     await Promise.all([loadSims(), loadF()]); if (tok !== RT) return;
     const by = {}; LABS.forEach(L => { if (L.home === L.t) (by[L.t] ||= []).push(L); });
     const g = {}; IX.T.forEach(t => { if (LABN[t.id]) (g[t.s] ||= []).push(t); });
     const tot = Object.values(LABN).reduce((a, b) => a + b, 0);
-    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Simulators</div>
-      <section class="hero"><h1>⚙ Formula & concept simulators</h1><p>${tot} live labs on ${Object.keys(LABN).length} topics. Each lab is built on a formula of your book: change the numbers and watch every result move, plot any output against any input, see what a 10 % change does, and recompute the book's own worked examples (${LABS.reduce((a, L) => a + (L.ck || []).length, 0)} checks, all matching the book).</p>
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#sims">Simulation Lab</a> › Formula labs by topic</div>
+      <section class="hero"><h1>⚙ Formula labs by topic</h1><p>${tot} live labs on ${Object.keys(LABN).length} topics. Each lab is built on a formula of your book: change the numbers and watch every result move, plot any output against any input, see what a 10 % change does, and recompute the book's own worked examples (${LABS.reduce((a, L) => a + (L.ck || []).length, 0)} checks, all matching the book).</p>
       <div class="acts"><a class="btn go" href="${SIM_URL}"${SIM_TGT}>⚙ Full Transformer simulator (phasors, 3-phase, parallel, inrush)</a></div></section>
       ${IX.S.filter(([k]) => g[k]).map(([k, n]) => `<section class="subj" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small>${g[k].reduce((a, t) => a + LABN[t.id], 0)} labs</small></h2><div class="tcards">${g[k].map(t => `<a class="tc" href="#t-${t.id}-sim" style="--c:${SC[t.s]}" data-s="${esc(t.t)}"><h3>${esc(t.t.replace(/^Code 400 · /, ''))}</h3><div class="meta">${t.t.startsWith('Code 400') ? '<span class="chip c4">CODE 400</span>' : ''}<span>${LABN[t.id]} labs</span></div><p class="lnames">${(by[t.id] || LABS.filter(L => L.t === t.id)).map(L => esc(L.n)).join(' · ')}</p></a>`).join('')}</div></section>`).join('')}
       <footer class="foot">Every lab uses the formula as printed in your Complete Book; the book link on each lab shows which formula and page. The ✓ Book checks are the book's solved sums, ratio sums, key-formula examples, one-minute sums, quick checks and value tables.</footer>`;
@@ -1546,7 +1881,7 @@
   }
   function predTimed(X) {
     const qs = X.q.filter(x => x.ty === 'mcq').map(x => { const oh = x.qh != null ? Object.fromEntries(x.oh) : null;
-      return { id: x.id, t: '', sec: x.sec.replace(/^Part [IVX]+ — /, ''), src: x.topic || x.lab, q: oh ? `<div class="uq">${x.qh}</div>` : `<div class="im wide">${spu(x.qs, x.lab)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>`,
+      return { id: x.id, t: '', ty: 'mcq', mk: 1, sec: x.sec.replace(/^Part [IVX]+ — /, ''), src: x.topic || x.lab, q: oh ? `<div class="uq">${x.qh}</div>` : `<div class="im wide">${spu(x.qs, x.lab)}<span class="zoomhint">Swipe sideways to read the whole line · tap to zoom</span></div>`,
         opts: x.L.map(l => ({ l, h: oh && oh[l] || '' })), r: x.L.indexOf(x.ok[0]), ex: x.sh ? solHtml(x) : spu(x.ss, 'Answer and working') }; });
     M = { qs, ans: qs.map(() => -1), flag: qs.map(() => false), vis: qs.map(() => false), tq: qs.map(() => 0), tab: '', i: 0, end: Date.now() + 120 * 60 * 1000, total: 7200, neg: true, t0: Date.now(), title: X.t };
     showMock(); startTick();

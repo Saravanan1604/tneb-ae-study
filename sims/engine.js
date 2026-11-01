@@ -138,6 +138,7 @@
     } else law = dir > 0 ? 'rises' : 'falls';
     return { y0, y1: up, p, dir, law };
   }
+  window.SIMS.relation = relation;
   function whatIf(L, v) {
     const nums = L.i.filter(isNum), outs = L.o.filter(s => typeof v[s[0]] === 'number');
     if (!nums.length) return '<p class="pg">No numeric inputs.</p>';
