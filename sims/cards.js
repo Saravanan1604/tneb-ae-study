@@ -935,7 +935,7 @@
   }
 
   /* ================= the atlas pages: #pe (circuits) and #pe-<tab> ================= */
-  const TABS = [['atlas', 'Circuits'], ['compare', 'Inputs vs outputs'], ['table', 'All formulas'], ['lab', 'Waveform ↔ formula'], ['regen', 'Regenerative words'], ['asked', 'How PYQs ask'], ['check', 'PYQ formula check']];
+  const TABS = [['atlas', 'Circuits'], ['compare', 'Inputs vs outputs'], ['currents', 'Currents compared'], ['table', 'All formulas'], ['lab', 'Waveform ↔ formula'], ['regen', 'Regenerative words'], ['asked', 'How PYQs ask'], ['check', 'PYQ formula check']];
   const GRP = ['Single-phase rectifiers', 'Three-phase rectifiers', 'AC voltage controllers', 'DC–DC converters (choppers)', 'Inverters (DC → AC)'];
   const tabHref = k => k === 'atlas' ? '#pe' : '#pe-' + k;
   const sb = (a, b, rest = '') => `${a}<tspan dy="3" font-size="8">${b}</tspan>${rest ? `<tspan dy="-3">${rest}</tspan>` : ''}`;
@@ -1079,7 +1079,7 @@
       ['R–L–E load', 'I<sub>o</sub> = (V<sub>o</sub> − E)/R', 'inverting: α > 90° with E reversed'], ['Source inductance L<sub>s</sub>', 'V<sub>o</sub> = (2V<sub>m</sub>/π) cos α − (2ωL<sub>s</sub>/π)I<sub>d</sub>; cos α − cos(α + μ) = 2ωL<sub>s</sub>I<sub>d</sub>/V<sub>m</sub>', 'overlap μ'], ['Displacement factor with overlap', 'DF ≈ cos(α + μ/2)', 'the current is delayed by about μ/2 more (checked against the overlap circuit)'], ['Inverter limit', 'α ≤ 180° − μ − γ (γ = ωt<sub>q</sub>)', '']]],
     ['1-φ semi-converter and the 3-SCR + 1-diode bridge', ['semi-converter', 'asym'], [['Average output', 'V<sub>o</sub> = (V<sub>m</sub>/π)(1 + cos α)', 'any load: the output never goes negative'], ['RMS output', 'V<sub>rms</sub> = V<sub>s</sub>√[(π − α + ½ sin 2α)/π]', ''],
       ['Supply current', 'I<sub>s</sub> = I<sub>d</sub>√[(π − α)/π]; I<sub>s1</sub> = (2√2/π)I<sub>d</sub> cos(α/2); I<sub>s1,peak</sub> = (4I<sub>d</sub>/π) cos(α/2)', 'quasi-square of width π − α'], ['Power factor', 'DF = cos(α/2); pf = 2√2 cos²(α/2)/√[π(π − α)]', ''],
-      ['Freewheeling', 'α of each half cycle: v<sub>o</sub> = 0 and i<sub>s</sub> = 0', 'one quadrant: cannot regenerate'], ['3 SCRs + 1 diode', 'V<sub>o</sub> = (V<sub>m</sub>/2π)(1 + 3 cos α)', 'T1, T3 at α; T2 at π + α']]],
+      ['Freewheeling', 'α of each half cycle: v<sub>o</sub> = 0 and i<sub>s</sub> = 0', 'one quadrant: cannot regenerate'], ['Thyristor and freewheeling currents', 'I<sub>T,avg</sub> = I<sub>d</sub>(π − α)/2π; I<sub>T,rms</sub> = I<sub>d</sub>√[(π − α)/2π]; freewheeling path I<sub>avg</sub> = I<sub>d</sub>α/π', 'ripple-free I<sub>d</sub> · all rectifiers: Currents compared tab'], ['3 SCRs + 1 diode', 'V<sub>o</sub> = (V<sub>m</sub>/2π)(1 + 3 cos α)', 'T1, T3 at α; T2 at π + α']]],
     ['1-φ diode rectifiers (full wave)', ['bridge-diode'], [['Average and rms', 'V<sub>o</sub> = 2V<sub>m</sub>/π = 0.9V<sub>s</sub>; V<sub>rms</sub> = V<sub>m</sub>/√2', ''], ['Factors, R load', 'FF = 1.11; RF = 0.482; η = 81.2 %', ''], ['PIV and TUF', 'bridge: PIV = V<sub>m</sub>, TUF = 0.812; centre-tap: PIV = 2V<sub>m</sub>, TUF = 0.672', ''], ['Ripple frequency', '2f', '']]],
     ['3-φ half-wave (3-pulse)', ['3hw'], [['Average output, continuous', 'V<sub>o</sub> = (3√3V<sub>mp</sub>/2π) cos α = 1.17V<sub>ph</sub> cos α', 'R load: also for α ≤ 30°'], ['Average output, R, α > 30°', 'V<sub>o</sub> = (3V<sub>mp</sub>/2π)[1 + cos(α + 30°)]', '30° ≤ α ≤ 150°'],
       ['Thyristors', 'I<sub>T,avg</sub> = I<sub>d</sub>/3; I<sub>T,rms</sub> = I<sub>d</sub>/√3; PIV = √3V<sub>mp</sub>', ''], ['Ripple frequency', '3f', '']]],
@@ -1097,13 +1097,19 @@
     ['Choppers and DC–DC converters', ['buck', 'buck-lc', 'boost', 'buckboost'], [['Step-down (buck)', 'V<sub>o</sub> = DV<sub>s</sub>; V<sub>rms</sub> = √D V<sub>s</sub>; I<sub>o</sub> = (DV<sub>s</sub> − E)/R; I<sub>s</sub> = DI<sub>o</sub>', 'D = T<sub>on</sub>/T = T<sub>on</sub>f'],
       ['Buck current limits', 'I<sub>max</sub> = (V<sub>s</sub>/R)(1 − e<sup>−DT/τ</sup>)/(1 − e<sup>−T/τ</sup>) − E/R; I<sub>min</sub> = (V<sub>s</sub>/R)(e<sup>DT/τ</sup> − 1)/(e<sup>T/τ</sup> − 1) − E/R', 'τ = L/R'], ['Buck ripple', 'Δi = V<sub>s</sub>D(1 − D)/(fL), largest V<sub>s</sub>/(4fL) at D = ½', 'R ≪ fL'],
       ['Buck with L–C', 'ΔI<sub>L</sub> = V<sub>o</sub>(1 − D)/(fL); I<sub>peak</sub> = I<sub>o</sub> + ΔI<sub>L</sub>/2; ΔV<sub>o</sub> = ΔI<sub>L</sub>/(8fC); L<sub>min</sub> = (1 − D)R/(2f)', ''], ['Step-up (boost)', 'V<sub>o</sub> = V<sub>s</sub>/(1 − D); I<sub>L</sub> = I<sub>o</sub>/(1 − D); ΔI<sub>L</sub> = V<sub>s</sub>D/(fL); ΔV<sub>o</sub> = I<sub>o</sub>D/(fC); R<sub>in</sub> = R(1 − D)²', ''],
-      ['Buck–boost and Ćuk', 'V<sub>o</sub> = −DV<sub>s</sub>/(1 − D); the switch blocks V<sub>s</sub> + |V<sub>o</sub>|', ''], ['Quadrant classes', 'A: +V +I (motoring); B: +V −I (regenerating, V<sub>o</sub> = (1 − D)V<sub>s</sub>); C: A + B; D: ±V +I, V<sub>o</sub> = (2D − 1)V<sub>s</sub>; E: all four', '']]],
+      ['Buck–boost and Ćuk', 'V<sub>o</sub> = −DV<sub>s</sub>/(1 − D); the switch blocks V<sub>s</sub> + |V<sub>o</sub>|', ''], ['Buck–boost currents', 'I<sub>L</sub> = I<sub>o</sub>/(1 − D) = I<sub>s</sub> + I<sub>o</sub>; I<sub>s</sub> = DI<sub>o</sub>/(1 − D); I<sub>D</sub> = I<sub>o</sub>; ΔI<sub>L</sub> = V<sub>s</sub>D/(fL); ΔV<sub>o</sub> = I<sub>o</sub>D/(fC); R<sub>in</sub> = R(1 − D)²/D²', 'GATE 2021 Q54, 2022 Q61 · all currents: Currents compared tab'],
+      ['Currents at the switch node (any converter)', 'i<sub>L</sub> = i<sub>SW</sub> + i<sub>D</sub> → I<sub>SW</sub> = DI<sub>L</sub>, I<sub>D</sub> = (1 − D)I<sub>L</sub>; average I<sub>C</sub> = 0; average v<sub>L</sub> = 0', 'continuous i<sub>L</sub>'], ['Boost peak inductor current', 'I<sub>L,peak</sub> = I<sub>o</sub>/(1 − D) + V<sub>s</sub>D/(2fL)', 'GATE 2024 Q64'],
+      ['Current-source fed switch', 'the switch shorts I for DT → I<sub>D,avg</sub> = I(1 − D); P = VI(1 − D)', 'GATE 2025 Q34'], ['Inductor current building up (no steady state yet)', 'Δi per cycle = [V<sub>on</sub>DT − V<sub>off</sub>(1 − D)T]/L; after n cycles i = nΔi; E = ½Li²', 'GATE 2020 Q50'],
+      ['Two switches into a current source', 'V<sub>avg</sub> = V<sub>s</sub> × (time the source is connected)/T; the current direction decides which switch or diode carries it', 'GATE 2023 Q23'], ['Quadrant classes', 'A: +V +I (motoring); B: +V −I (regenerating, V<sub>o</sub> = (1 − D)V<sub>s</sub>); C: A + B; D: ±V +I, V<sub>o</sub> = (2D − 1)V<sub>s</sub>; E: all four', '']]],
     ['Inverters', ['inv-half', 'inv-full', 'inv-quasi', 'inv-spwm', 'inv-180', 'inv-120'], [['Half bridge, square', 'V<sub>o</sub> = V<sub>dc</sub>/2; V<sub>1</sub> = 2V<sub>dc</sub>/(π√2) = 0.45V<sub>dc</sub>; V<sub>n</sub> = V<sub>1</sub>/n', 'rms values'],
       ['Full bridge, square', 'V<sub>o</sub> = V<sub>dc</sub>; V<sub>1</sub> = 4V<sub>dc</sub>/(π√2) = 0.9V<sub>dc</sub>; v<sub>o</sub> = Σ (4V<sub>dc</sub>/nπ) sin nωt', 'THD 48.3 %'], ['Pure L load (square wave)', 'triangular current: full bridge I<sub>p</sub> = V<sub>dc</sub>T/(4L); half bridge V<sub>dc</sub>T/(8L)', ''],
       ['Single pulse, width 2d', 'V<sub>o</sub> = V<sub>dc</sub>√(2d/π); V<sub>n</sub> = (4V<sub>dc</sub>/nπ√2) sin nd', 'the n-th harmonic is zero when 2d = 360°/n'], ['Sinusoidal PWM', 'V<sub>1,peak</sub> = mV<sub>dc</sub> (full bridge), mV<sub>dc</sub>/2 (half bridge, 3-φ phase); m = V<sub>r</sub>/V<sub>c</sub> ≤ 1', 'm<sub>f</sub> = f<sub>c</sub>/f'], ['SPWM harmonics', 'bipolar: the harmonics cluster at f<sub>s</sub> (m<sub>f</sub>) and its multiples; unipolar: the first cluster is at 2f<sub>s</sub> (2m<sub>f</sub>), so the ripple is smaller', 'book p 978'],
       ['3-φ, 180°', 'V<sub>L</sub> = 0.816V<sub>dc</sub>; V<sub>ph</sub> = 0.471V<sub>dc</sub>; V<sub>L1</sub> = 0.78V<sub>dc</sub>; V<sub>ph1</sub> = 0.45V<sub>dc</sub>', 'three switches on; no triplen harmonics'], ['3-φ, 120°', 'V<sub>L</sub> = V<sub>dc</sub>/√2 = 0.707V<sub>dc</sub>; V<sub>ph</sub> = V<sub>dc</sub>/√6 = 0.408V<sub>dc</sub>; V<sub>L1</sub> = (3/π√2)V<sub>dc</sub> = 0.675V<sub>dc</sub>', 'two switches on'],
-      ['Series resonant', 'ω<sub>r</sub> = √(1/LC − R²/4L²)', 'needs R² < 4L/C']]],
-    ['Thyristor commutation', ['commut'], [['Voltage (impulse) commutation', 't<sub>c</sub> = CV<sub>s</sub>/I<sub>L</sub>; v<sub>o</sub> jumps to 2V<sub>s</sub>; interval 2CV<sub>s</sub>/I<sub>L</sub>', 'needs t<sub>c</sub> > t<sub>q</sub>'], ['Resonant (L–C) commutation', 'i = V<sub>s</sub>√(C/L) sin ω<sub>0</sub>t; ω<sub>0</sub> = 1/√(LC); half period π√(LC)', ''], ['dv/dt protection (snubber)', 'C ≥ I/(dv/dt)', 'C = snubber capacitor, I = load current; book p 973']]]];
+      ['Series resonant', 'ω<sub>r</sub> = √(1/LC − R²/4L²)', 'needs R² < 4L/C'],
+      ['Quasi-square: the two angle forms', 'm = V<sub>1,peak</sub>/V<sub>dc</sub> = (4/π) sin d = (4/π) cos θ (θ = 90° − d); V<sub>5</sub>/V<sub>1</sub> = sin 5d/(5 sin d) → 20 % at 2d = 120°', 'GATE 2021 Q55: θ = 51.07°'],
+      ['Power from a square-wave inverter', 'P = Σ V<sub>n</sub>I<sub>n</sub> cos φ<sub>n</sub>; with a sinusoidal (filtered) current only the fundamental carries power: P = V<sub>1</sub>I<sub>1</sub> cos φ<sub>1</sub>', 'rms values'],
+      ['3-φ VSI (SPWM) from its rating', 'S = 3V<sub>ph</sub>I<sub>ph</sub>; V<sub>ph1,peak</sub> = mV<sub>dc</sub>/2 → m = 2√2V<sub>ph</sub>/V<sub>dc</sub>', 'V<sub>ph</sub> rms']]],
+    ['Thyristor commutation', ['commut'], [['Voltage (impulse) commutation', 't<sub>c</sub> = CV<sub>s</sub>/I<sub>L</sub>; v<sub>o</sub> jumps to 2V<sub>s</sub>; interval 2CV<sub>s</sub>/I<sub>L</sub>', 'needs t<sub>c</sub> > t<sub>q</sub>'], ['Resonant (L–C) commutation', 'i = V<sub>s</sub>√(C/L) sin ω<sub>0</sub>t; ω<sub>0</sub> = 1/√(LC); half period π√(LC)', ''], ['Resonant commutation: thyristor conduction time', 't = [π + sin<sup>−1</sup>(I<sub>L</sub>/I<sub>p</sub>)]√(LC); I<sub>p</sub> = V<sub>s</sub>√(C/L)', 'checked: 100 V, 1 µF, 4 µH, 25 A → 7.33 µs'], ['dv/dt protection (snubber)', 'C ≥ I/(dv/dt)', 'C = snubber capacitor, I = load current; book p 973']]]];
   function tabTable(B, A) {
     const U = A.U, seen = new Set(), book = U && U.subs ? U.subs.filter(s => s && s[1] && !seen.has(s[0]) && seen.add(s[0])) : [];
     B.innerHTML = `<section class="pehow"><h2>Every converter formula, as one tree</h2><p>Grouped converter by converter, load by load. These are the standard results (added for this atlas); where a live circuit exists, the same formula is checked against its simulated waveform on that page. Your Question Book's own sub-topic formulas follow at the end, exactly as written there.</p>
@@ -1288,13 +1294,115 @@
       <h2 class="vgh">By sub-topic</h2>${Object.entries(grp).sort((a, b) => b[1].length - a[1].length).map(([s, L]) => `<details class="pesec"><summary>${esc(s)}<span>${L.length}</span></summary><p class="pelive">${[...new Set(L.flatMap(r => r.pg))].map(pageChip).join('') || '<span class="pechip th">theory</span>'}</p><div class="peql">${L.map(r => `<div class="peqi">${qLink(r.q)}<p class="pegv"><span class="pest ${lab[r.st][1]}">${lab[r.st][0]}</span>${r.pg.map(pageChip).join('')}</p></div>`).join('')}</div></details>`).join('')}`;
   }
 
+
+  // ---------- tab: every current compared — I_o, I_L, I_C, I_s, I_SW, I_D (added; checked by step simulation) ----------
+  const sub = (a, b) => `${a}<sub>${b}</sub>`, Io = sub('I', 'o'), IL = sub('I', 'L'), Is = sub('I', 's'), Isw = sub('I', 'SW'), Id_ = sub('I', 'D'), Ic = sub('I', 'C'), Vs_ = sub('V', 's'), Vo_ = sub('V', 'o');
+  const DCK = [['buck', 'Buck (step-down)'], ['boost', 'Boost (step-up)'], ['bb', 'Buck–boost'], ['cuk', 'Ćuk']];
+  // rows: [quantity, buck, boost, buck–boost, Ćuk]
+  const CUR = [
+    ['Output voltage ' + Vo_, `D${Vs_}`, `${Vs_}/(1 − D)`, `−D${Vs_}/(1 − D)`, `−D${Vs_}/(1 − D)`],
+    ['Load (output) current ' + Io, `${Vo_}/R`, `${Vo_}/R`, `|${Vo_}|/R`, `|${Vo_}|/R`],
+    ['Average inductor current ' + IL, `${IL} = ${Io}`, `${IL} = ${Io}/(1 − D)`, `${IL} = ${Io}/(1 − D) = ${Is} + ${Io}`, `${sub('I', 'L1')} = ${Is} = D${Io}/(1 − D); ${sub('I', 'L2')} = ${Io}`],
+    ['Average input (supply) current ' + Is, `D${Io}`, `${IL} = ${Io}/(1 − D)`, `D${IL} = D${Io}/(1 − D)`, `D${Io}/(1 − D)`],
+    ['Average switch current ' + Isw, `D${IL} = D${Io}`, `D${IL} = D${Io}/(1 − D)`, `D${IL} = D${Io}/(1 − D)`, `D(${sub('I', 'L1')} + ${sub('I', 'L2')}) = D${Io}/(1 − D)`],
+    ['Average diode current ' + Id_, `(1 − D)${IL} = (1 − D)${Io}`, `(1 − D)${IL} = ${Io}`, `(1 − D)${IL} = ${Io}`, `(1 − D)(${sub('I', 'L1')} + ${sub('I', 'L2')}) = ${Io}`],
+    ['Average capacitor current ' + Ic, '0 (charge balance)', '0', '0', '0 (both capacitors)'],
+    ['Capacitor current shape', `i${sub('', 'L')} − ${Io}: triangle ±ΔI${sub('', 'L')}/2`, `−${Io} while on; i${sub('', 'L')} − ${Io} while off`, `−${Io} while on; i${sub('', 'L')} − ${Io} while off`, `C₂: i${sub('', 'L2')} − ${Io} (triangle)`],
+    ['RMS capacitor current', `ΔI${sub('', 'L')}/(2√3)`, `≈ ${Io}√[D/(1 − D)]`, `≈ ${Io}√[D/(1 − D)]`, `ΔI${sub('', 'L2')}/(2√3)`],
+    ['Inductor ripple ΔI' + sub('', 'L') + ' (peak to peak)', `${Vo_}(1 − D)/(fL) = (${Vs_} − ${Vo_})D/(fL)`, `${Vs_}D/(fL)`, `${Vs_}D/(fL)`, `${Vs_}D/(f${sub('L', '1')}); ${Vs_}D/(f${sub('L', '2')})`],
+    ['Peak inductor = peak switch = peak diode current', `${Io} + ΔI${sub('', 'L')}/2`, `${Io}/(1 − D) + ΔI${sub('', 'L')}/2`, `${Io}/(1 − D) + ΔI${sub('', 'L')}/2`, `${sub('I', 'L1')} + ${sub('I', 'L2')} + ripples/2`],
+    ['RMS switch / diode current (small ripple)', `${IL}√D / ${IL}√(1 − D)`, `${IL}√D / ${IL}√(1 − D)`, `${IL}√D / ${IL}√(1 − D)`, `(${sub('I', 'L1')} + ${sub('I', 'L2')})√D / √(1 − D)`],
+    ['Output ripple ΔV' + sub('', 'o'), `ΔI${sub('', 'L')}/(8fC)`, `${Io}D/(fC)`, `${Io}D/(fC)`, `ΔI${sub('', 'L2')}/(8f${sub('C', '2')})`],
+    ['Input resistance ' + sub('R', 'in') + ' = ' + Vs_ + '/' + Is, 'R/D²', 'R(1 − D)²', 'R(1 − D)²/D²', 'R(1 − D)²/D²'],
+    ['Switch and diode block', Vs_, Vo_, `${Vs_} + |${Vo_}|`, `${Vs_}/(1 − D) (= ${sub('V', 'C1')})`],
+    ['Boundary of continuous current', `${sub('L', 'min')} = (1 − D)R/(2f)`, `${sub('L', 'min')} = D(1 − D)²R/(2f)`, `${sub('L', 'min')} = (1 − D)²R/(2f)`, '—']];
+  // ideal step simulation of the four converters; returns every current over the last two periods
+  function simDC(p, kind) {
+    // one switching period is a linear map x → Ax + b while the inductor current stays continuous: solve the steady
+    // state x* = (I − A)⁻¹b directly, then simulate two periods from it (falls back to a long run when i_L hits zero)
+    const f = p.fs * 1000, n = 400, dt = 1 / f / n, L = p.L / 1000, C = p.C / 1e6, C1 = 100e-6, D = p.D, Vs = p.Vs, R = p.R, cuk = kind === 'cuk';
+    const period = (x0, rec, clamp, src = 1) => { let [iL, v, i2, vc1] = x0; let dcm = false;
+      for (let k = 0; k < n; k++) { const on = k + 0.5 < D * n, V = Vs * src; let isw, idd, ic, isrc;
+        if (kind === 'buck') { isw = on ? iL : 0; idd = on ? 0 : iL; ic = iL - v / R; isrc = isw; iL += (on ? V - v : -v) / L * dt; v += ic / C * dt; }
+        else if (cuk) { const v1 = on ? V : V - vc1, v2 = on ? vc1 - v : -v, ic1 = on ? -i2 : iL; isw = on ? iL + i2 : 0; idd = on ? 0 : iL + i2; ic = i2 - v / R; isrc = iL;
+          iL += v1 / L * dt; i2 += v2 / L * dt; vc1 += ic1 / C1 * dt; v += ic / C * dt; }
+        else { const live = !clamp || on || iL > 0; isw = on ? iL : 0; idd = on || !live ? 0 : iL; ic = (on || !live ? 0 : iL) - v / R; isrc = kind === 'boost' ? iL : isw;
+          if (live) iL += (on ? V : kind === 'boost' ? V - v : -v) / L * dt; v += ic / C * dt; }
+        if (clamp && !cuk && iL < 0) { iL = 0; dcm = true; }
+        if (rec) { rec.iL.push(iL); rec.i2.push(i2); rec.isw.push(isw); rec.id.push(idd); rec.ic.push(ic); rec.io.push(v / R); rec.is.push(isrc); rec.vo.push(kind === 'bb' || cuk ? -v : v); }
+      }
+      return { x: [iL, v, i2, vc1], dcm }; };
+    const m = cuk ? 4 : 2, b = period([0, 0, 0, 0], null, false).x.slice(0, m), A = [];
+    for (let j = 0; j < m; j++) { const e = [0, 0, 0, 0]; e[j] = 1; const y = period(e, null, false, 0).x; A.push(y.slice(0, m)); }   // column j of A (source off)
+    const M = Array.from({ length: m }, (_, r) => [...Array.from({ length: m }, (_, c) => (r === c ? 1 : 0) - A[c][r]), b[r]]);
+    for (let c = 0; c < m; c++) { let pv = c; for (let r = c + 1; r < m; r++) if (Math.abs(M[r][c]) > Math.abs(M[pv][c])) pv = r; [M[c], M[pv]] = [M[pv], M[c]];
+      for (let r = 0; r < m; r++) if (r !== c) { const k = M[r][c] / M[c][c]; for (let q = c; q <= m; q++) M[r][q] -= k * M[c][q]; } }
+    let x = [0, 0, 0, 0]; for (let r = 0; r < m; r++) x[r] = M[r][m] / M[r][r];
+    const S = { iL: [], i2: [], isw: [], id: [], ic: [], io: [], is: [], vo: [], x: [], T: true, n };
+    if (!x.every(Number.isFinite) || (!cuk && Math.min(...[x[0]]) < 0) || period(x, null, true).dcm) {   // discontinuous: run it out
+      const Vo = kind === 'buck' ? D * Vs : kind === 'boost' ? Vs / (1 - D) : Vs * D / (1 - D); x = [Vo / R, Vo, Vo / R, Vs + Vo];
+      for (let c = 0; c < 1500; c++) x = period(x, null, true).x;
+    }
+    x = period(x, S, true).x; period(x, S, true); for (let j = 0; j < 2 * n; j++) S.x.push(j / n);
+    return S;
+  }
+  function curRows(kind, p, S) {
+    const lp = k => S[k].slice(S[k].length - S.n), f = p.fs * 1000, L = p.L / 1000, C = p.C / 1e6, D = p.D, Vs = p.Vs, R = p.R;
+    const Vo = kind === 'buck' ? D * Vs : kind === 'boost' ? Vs / (1 - D) : Vs * D / (1 - D), I0 = Vo / R, iL = lp('iL'), pp = a => Math.max(...a) - Math.min(...a);
+    const ILf = kind === 'buck' ? I0 : kind === 'cuk' ? D * I0 / (1 - D) : I0 / (1 - D), dI = kind === 'buck' ? Vo * (1 - D) / (f * L) : Vs * D / (f * L);
+    const Iin = kind === 'boost' ? ILf : kind === 'buck' ? D * I0 : D * I0 / (1 - D), Isum = kind === 'cuk' ? ILf + I0 : ILf;
+    const icr = kind === 'buck' ? dI / (2 * sq(3)) : I0 * sq(D / (1 - D)), dv = kind === 'buck' ? dI / (8 * f * C) : kind === 'cuk' ? Vs * D / (f * L) / (8 * f * C) : I0 * D / (f * C);
+    const warn = Math.min(...iL) <= 1e-6 ? [['The inductor current reaches zero (discontinuous)', 'these formulas assume continuous i<sub>L</sub>: raise L or f, or lower R', NaN, null, '']] : [];
+    return [...warn, ['Output voltage', CUR[0][1 + DCK.findIndex(x => x[0] === kind)], kind === 'bb' || kind === 'cuk' ? -Vo : Vo, mean(lp('vo')), 'V'], ['Load current ' + Io, Vo_ + '/R', I0, Math.abs(mean(lp('io'))), 'A'],
+      ['Average inductor current ' + (kind === 'cuk' ? sub('I', 'L1') : IL), CUR[2][1 + DCK.findIndex(x => x[0] === kind)], ILf, mean(iL), 'A'], ...(kind === 'cuk' ? [['Average current in L₂', `${sub('I', 'L2')} = ${Io}`, I0, mean(lp('i2')), 'A']] : []),
+      ['Average input current ' + Is, CUR[3][1 + DCK.findIndex(x => x[0] === kind)], Iin, mean(lp('is')), 'A'], ['Average switch current ' + Isw, `D × ${kind === 'cuk' ? '(I<sub>L1</sub> + I<sub>L2</sub>)' : IL}`, D * Isum, mean(lp('isw')), 'A'],
+      ['Average diode current ' + Id_, `(1 − D) × ${kind === 'cuk' ? '(I<sub>L1</sub> + I<sub>L2</sub>)' : IL}`, (1 - D) * Isum, mean(lp('id')), 'A'], ['Average capacitor current ' + Ic, '0 in steady state', 0, mean(lp('ic')), 'A'],
+      ['Inductor ripple (peak to peak)', CUR[9][1 + DCK.findIndex(x => x[0] === kind)].split(';')[0], dI, pp(iL), 'A'], ['Peak switch current', 'average + half the ripple', Isum + dI / 2 + (kind === 'cuk' ? Vs * D / (f * L) / 2 : 0), Math.max(...lp('isw')), 'A'],
+      ...(kind === 'cuk' ? [] : [['RMS capacitor current', CUR[8][1 + DCK.findIndex(x => x[0] === kind)], icr, rmsOf(lp('ic')), 'A', 0.06 * icr]]),
+      ['Input resistance R<sub>in</sub>', CUR[13][1 + DCK.findIndex(x => x[0] === kind)], kind === 'buck' ? R / D / D : kind === 'boost' ? R * (1 - D) ** 2 : R * (1 - D) ** 2 / D / D, Vs / mean(lp('is')), 'Ω'],
+      ['Output ripple ΔV<sub>o</sub>', CUR[12][1 + DCK.findIndex(x => x[0] === kind)], dv, pp(lp('vo')), 'V', 0.08 * dv]];
+  }
+  // controlled rectifiers with a ripple-free load current I_d (checked by building the conduction intervals)
+  const Td = sub('I', 'd');
+  const RCUR = [['1-φ half-wave + freewheeling diode', `${Td}(π − α)/2π`, `${Td}√[(π − α)/2π]`, `FD: ${Td}(π + α)/2π`, `${Td}√[(π − α)/2π] (has a dc part)`, '—'],
+    ['1-φ full converter (4 SCRs, continuous)', `${Td}/2`, `${Td}/√2`, '—', Td, `(2√2/π)${Td} = 0.9${Td}`],
+    ['1-φ semi-converter (2 SCRs + 2 diodes)', `${Td}(π − α)/2π`, `${Td}√[(π − α)/2π]`, `freewheel: ${Td}α/π`, `${Td}√[(π − α)/π]`, `(2√2/π)${Td} cos(α/2)`],
+    ['3-φ half-wave (3-pulse)', `${Td}/3`, `${Td}/√3`, '—', `${Td}/√3 (secondary, has a dc part)`, '—'],
+    ['3-φ full converter (6-pulse)', `${Td}/3`, `${Td}/√3`, '—', `√(2/3)${Td} = 0.816${Td}`, `(√6/π)${Td} = 0.78${Td}`]];
+  const CURQ = /inductor current|capacitor current|diode current|switch current|input current|supply current|source current|load current|average current|rms current|peak current|current ripple|ripple current|input resistance|resistance (as )?seen|R ?in\b|current source|thyristor current|current rating|power delivered by the current source|energy stored in the inductor/i;
+  function tabCurrents(B, A) {
+    const U = A.U, st = { k: 'boost', p: { Vs: 24, D: 0.4, fs: 25, R: 10, L: 1, C: 470 } };
+    const PQ = U && U.q ? U.q.filter(q => CURQ.test(stemOf(q)) || CURQ.test(String((q.cf || [])[0] || ''))) : [];
+    const sl = [['Vs', 'Input V<sub>s</sub>', 'V', 5, 200, 1], ['D', 'Duty ratio D', '', 0.05, 0.9, 0.01], ['fs', 'Switching f', 'kHz', 5, 100, 1], ['R', 'Load R', 'Ω', 2, 100, 1], ['L', 'Inductance L', 'mH', 0.1, 10, 0.1], ['C', 'Output C', 'µF', 22, 2200, 1]];
+    B.innerHTML = `<section class="pehow"><h2>Every current, side by side</h2><p>Load current ${Io}, inductor current ${IL}, capacitor current ${Ic}, input current ${Is}, switch current ${Isw} and diode current ${Id_} — for the four DC–DC converters and the controlled rectifiers. <b>Added</b> for this atlas (the book gives only some of them, spread over its chapters); every line was checked against a step-by-step simulation, and the live check below repeats that for any values you pick.</p></section>
+      <section class="pefm"><h2 class="peh">Four rules give every current</h2><ol class="perules"><li><b>Average inductor voltage = 0</b> (volt-second balance): (voltage while on) × DT = (voltage while off) × (1 − D)T → the voltage gain.</li><li><b>Average capacitor current = 0</b> (charge balance): the average diode current that reaches the output node equals ${Io} (boost, buck–boost); in the buck ${IL} = ${Io}.</li><li><b>At the switch node, at every instant</b> i<sub>L</sub> = i<sub>SW</sub> + i<sub>D</sub>: the switch carries the inductor current for DT, the diode for (1 − D)T → ${Isw} = D${IL}, ${Id_} = (1 − D)${IL}.</li><li><b>Power in = power out</b> (ideal): ${Vs_}${Is} = ${Vo_}${Io} → ${Is}/${Io} = ${Vo_}/${Vs_}.</li></ol></section>
+      <section class="pefm"><h2 class="peh">DC–DC converters (continuous inductor current, small ripple)</h2><div class="pescroll"><table class="petab pecards pecur"><thead><tr><th>Quantity</th>${DCK.map(x => `<th>${x[1]}</th>`).join('')}</tr></thead><tbody>${CUR.map(r => `<tr><td>${r[0]}</td>${r.slice(1).map((c, j) => `<td class="pefx" data-h="${DCK[j][1]}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <p class="pg">Ćuk: L₁ on the input side, L₂ on the output side, C₁ the transfer capacitor (V<sub>C1</sub> = V<sub>s</sub> + |V<sub>o</sub>|). The buck–boost and Ćuk outputs are reversed in polarity.</p></section>
+      <section class="pefm"><h2 class="peh">Live check: formula vs simulation</h2><div class="vcctl"><div class="vcch"><span>Converter</span><div>${DCK.map(([k, n]) => `<button type="button" data-ck="${k}" aria-pressed="${k === st.k}">${n}</button>`).join('')}</div></div>
+        ${sl.map(([k, n, u, a, b, s]) => `<label class="vcr"><span>${n} <b data-o="${k}">${nf(st.p[k])} ${u}</b></span><input type="range" min="${a}" max="${b}" step="${s}" value="${st.p[k]}" data-k="${k}" aria-label="${n.replace(/<[^>]+>/g, '')}"></label>`).join('')}</div>
+        <div class="pecw"></div><div class="pecr"></div></section>
+      <section class="pefm"><h2 class="peh">Controlled rectifiers: device and supply currents (ripple-free ${Td})</h2><div class="pescroll"><table class="petab pecards pecur"><thead><tr><th>Converter</th><th>Thyristor average</th><th>Thyristor rms</th><th>Freewheeling</th><th>Supply rms ${Is}</th><th>Supply fundamental ${sub('I', 's1')}</th></tr></thead><tbody>${RCUR.map(r => `<tr><td>${r[0]}</td>${r.slice(1).map((c, j) => `<td class="pefx" data-h="${['Thyristor average', 'Thyristor rms', 'Freewheeling', 'Supply rms', 'Supply fundamental'][j]}">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+      <p class="pg">Distortion (current) factor = ${sub('I', 's1')}/${Is}: 0.9 (1-φ full), 3/π = 0.955 (6-pulse), and for the semi-converter (2√2/π) cos(α/2)/√[(π − α)/π] → 0.955 at α = 60° (GATE 2024 Q62). Input power factor = distortion factor × displacement factor.</p></section>
+      <details class="pesec" open><summary>Past questions on these currents<span>${PQ.length}</span></summary><div class="peql">${PQ.map(q => `<div class="peqi">${qLink(q)}</div>`).join('') || '<p class="pg">Past questions could not be loaded (offline?).</p>'}</div></details>`;
+    const paint = () => { const S = simDC(st.p, st.k), lp = k => S[k].slice(S[k].length - S.n), tk = [[0, '0'], [0.5, 'T/2'], [1, 'T'], [1.5, '3T/2'], [2, '2T']];
+      const pan = [{ n: st.k === 'cuk' ? 'Input inductor current i<tspan dy="3" font-size="8">L1</tspan>' : 'Inductor current i<tspan dy="3" font-size="8">L</tspan>', s: [{ ys: S.iL, col: K.io }], avg: mean(lp('iL')) }, ...(st.k === 'cuk' ? [{ n: 'Output inductor current i<tspan dy="3" font-size="8">L2</tspan>', s: [{ ys: S.i2, col: K.y }], avg: mean(lp('i2')) }] : []),
+        { n: 'Switch current i<tspan dy="3" font-size="8">SW</tspan>', s: [{ ys: S.isw, col: K.is }], avg: mean(lp('isw')) }, { n: 'Diode current i<tspan dy="3" font-size="8">D</tspan>', s: [{ ys: S.id, col: K.g }], avg: mean(lp('id')) },
+        { n: 'Capacitor current i<tspan dy="3" font-size="8">C</tspan>', s: [{ ys: S.ic, col: K.r }], avg: mean(lp('ic')) }, { n: 'Load current i<tspan dy="3" font-size="8">o</tspan>', s: [{ ys: S.io.map(Math.abs), col: K.vo }], avg: Math.abs(mean(lp('io'))) }];
+      B.querySelector('.pecw').innerHTML = plot(S.x, pan, { ticks: tk, lab: 'Converter currents' }); B.querySelector('.pecr').innerHTML = rowsHtml(curRows(st.k, st.p, S)); };
+    let tm = null;
+    B.oninput = e => { const k = e.target.dataset.k; if (!k) return; st.p[k] = +e.target.value; const b = B.querySelector(`[data-o="${k}"]`); if (b) b.textContent = `${nf(st.p[k])} ${(sl.find(x => x[0] === k) || [])[2] || ''}`; clearTimeout(tm); tm = setTimeout(paint, 80); };
+    B.onclick = e => { const b = e.target.closest('[data-ck]'); if (!b) return; st.k = b.dataset.ck; B.querySelectorAll('[data-ck]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); paint(); };
+    paint();
+  }
+  W.PE_CUR = { CUR, RCUR, DCK, simDC, curRows };
+
   function page(box, tab, A = {}) {
     tab = TABS.some(t => t[0] === tab) ? tab : 'atlas';
     const j = TABS.findIndex(t => t[0] === tab), pv = TABS[j - 1], nx = TABS[j + 1];
     box.innerHTML = `<nav class="petabs" aria-label="Atlas sections">${TABS.map(([k, n]) => `<a href="${tabHref(k)}"${k === tab ? ' aria-current="page"' : ''}>${n}</a>`).join('')}</nav><div class="pebody"></div>
       <div class="vcnav">${pv ? `<a class="btn" href="${tabHref(pv[0])}" data-sw="prev" data-n="${pv[1]}">← ${pv[1]}</a>` : '<span></span>'}${nx ? `<a class="btn go" href="${tabHref(nx[0])}" data-sw="next" data-n="${nx[1]}">${nx[1]} →</a>` : '<span></span>'}</div>`;
     const cur = box.querySelector('[aria-current]'); if (cur) cur.scrollIntoView({ block: 'nearest', inline: 'center' });
-    ({ atlas: tabAtlas, compare: tabCompare, table: tabTable, lab: tabLab, regen: tabRegen, asked: tabAsked, check: tabCheck })[tab](box.querySelector('.pebody'), A);
+    ({ atlas: tabAtlas, compare: tabCompare, currents: tabCurrents, table: tabTable, lab: tabLab, regen: tabRegen, asked: tabAsked, check: tabCheck })[tab](box.querySelector('.pebody'), A);
   }
   W.PE = {
     list: CV, plot, degTicks, mean, rmsOf, fund, nf, page, askedFor, tabs: TABS, parseExpr, pagesFor, askOf,
