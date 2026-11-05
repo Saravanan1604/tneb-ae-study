@@ -352,6 +352,15 @@
       <section class="hero"><h1>⚡ Power electronics atlas</h1><p>${L.length} converters as live circuits — diagram, input and output waveforms, who conducts when, and every formula checked against its own waveform. Then: all formulas in one tree, waveform ↔ formula, the words that flip a sign, and how the past questions ask.</p></section><div id="pebox"></div>`;
     PE.page($('#pebox'), rest || 'atlas', { U }); toTop();
   }
+  /* ---------- power systems atlas (#psys, #psys-<tab>): every power formula by area, every power past question filed under its formula (window.PS) ---------- */
+  async function viewPS(rest, tok) {
+    setShell('cards'); main.innerHTML = '<p class="loading">Loading the power systems atlas…</p>';
+    await loadCards(); if (tok !== RT) return;
+    const PS = window.PS, st = PS && PS.stats(); document.title = 'Power systems atlas · TNEB AE Study Site';
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Power systems atlas</div>
+      <section class="hero"><h1>🔌 Power systems atlas</h1><p>${st ? `${st.f} formulas (${st.added} added) and ${st.q} past questions — GATE 2007–2026, TNEB, TNPSC, APGENCO and ESE — each question filed under the formula it needs.` : ''} Generation and economics, lines, cables, faults, load flow, stability, control, protection and switchgear, utilization.</p></section><div id="psbox"></div>`;
+    PS.page($('#psbox'), rest || 'formulas'); toTop();
+  }
   /* ---------- theory to read (#read, #read-<topic>): every concept question with its answer and reasoning laid open ----------
      The Question Book's own Part A (its concept questions) plus the chapter questions that carry no numbers. Read at your
      own pace: tick what you have read; "Continue" takes you back to the next unread one. */
@@ -1072,7 +1081,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261105151252';
+  const SWV = 'ae-20261105152152';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -1127,6 +1136,7 @@
   /* ---------- router ---------- */
   let RT = 0, M = null, PENDQ = null, GOSEC = null, GOU = null;
   addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[data-gou]'); if (a) GOU = a.dataset.gou; }, true);
+  addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[data-gosec]'); if (a) GOSEC = a.dataset.gosec; }, true);
   addEventListener('hashchange', () => { if (!lb.hidden) lbClose(); route(); });
 
   /* ---------- swipe left / right on touch screens: next or previous question, tab or page ----------
@@ -1219,6 +1229,7 @@
       if (a === 'cards') return await viewCards(tok);
       const vcm = h.match(/^cards-([a-z0-9-]+)$/); if (vcm) return await viewCard(vcm[1], tok);
       const pem = h.match(/^pe(?:-([a-z0-9-]+))?$/); if (pem) return await viewPE(pem[1] || '', tok);
+      const psm = h.match(/^psys(?:-([a-z]+))?$/); if (psm) return await viewPS(psm[1] || '', tok);
       const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
       if (a === 'base') return viewBase(tok);
@@ -1397,6 +1408,9 @@
     if (TMAP[id]) sec('learn', 'base', '🧮', 'Before you start: maths & basics', 't-blue', baseHtml(id), '', 'Maths & basics');
     const peA = `<a class="simlink tsl" href="#pe"><i>⚡</i><span><b>Open the power electronics atlas →</b><small>every converter as a live circuit: waveforms, who conducts when, all formulas checked against the waveform, waveform ↔ formula, regenerative words, and how each past question asks</small></span></a>`;
     if (id === '961') sec('learn', 'peatlas', '⚡', 'Power electronics atlas', 't-pur', peA, '', 'Atlas');
+    const PSYS = ['580', '601', '607', '614', '621', '627', '657', '663', '678', '696', '714', '723', '759', '1055'];
+    const psA = `<a class="simlink tsl" href="#psys"><i>🔌</i><span><b>Open the power systems atlas →</b><small>every power-system formula by area, the added ones every past question needs, and all GATE, TNEB, TNPSC, APGENCO and ESE power questions filed under their formula</small></span></a>`;
+    if (PSYS.includes(id)) sec('learn', 'psatlas', '🔌', 'Power systems atlas', 't-pur', psA, '', 'Atlas');
     const nTh = UA ? UA.filter(x => x.t === id && x.lab && x.lab[0] === 'A').length : 0;
     if (nTh) sec('learn', 'readth', '📖', 'Theory to read', 't-teal', `<a class="simlink tsl" href="#read-${id}"><i>📖</i><span><b>Read the ${nTh} theory questions of this topic →</b><small>past concept questions with the answer marked and the reasoning open — tick each as you read; Continue picks up where you stopped</small></span></a>`, '', 'Theory');
     sec('learn', 'c60', '⏱', 'Concept in 60 seconds', 't-yel', c60Html(D, ch, id, vn), '', 'Concept in 60 s');
@@ -2231,7 +2245,7 @@
     const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids, c) => `<section class="subj shelfsec" style="--c:${c}"><h2><i></i>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:${shc(s[0])}"><h3><span class="shi">${s[1]}</span> ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
       <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book (${R.g.reduce((a, g) => a + g.p.length, 0)} pages), set for easy reading on a phone — one card per row, every word as printed; the printed page is one tap away. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
-      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#cards">🖼 Visual cards</a><a class="btn" href="#pe">⚡ Power electronics atlas</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
+      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#cards">🖼 Visual cards</a><a class="btn" href="#pe">⚡ Power electronics atlas</a><a class="btn" href="#psys">🔌 Power systems atlas</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
       ${sec('🔤 Letters & formulas', ['which', 'sym', 'az', 'words', 'cards', 'keyvals'], '#2563eb')}
       ${sec('🔢 Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'], '#db2777')}
       ${sec('🖼 Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'], '#059669')}
