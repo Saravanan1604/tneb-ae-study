@@ -351,6 +351,76 @@
       <section class="hero"><h1>⚡ Power electronics atlas</h1><p>${L.length} converters as live circuits — diagram, input and output waveforms, who conducts when, and every formula checked against its own waveform. Then: all formulas in one tree, waveform ↔ formula, the words that flip a sign, and how the past questions ask.</p></section><div id="pebox"></div>`;
     PE.page($('#pebox'), rest || 'atlas', { U }); toTop();
   }
+  /* ---------- theory to read (#read, #read-<topic>): every concept question with its answer and reasoning laid open ----------
+     The Question Book's own Part A (its concept questions) plus the chapter questions that carry no numbers. Read at your
+     own pace: tick what you have read; "Continue" takes you back to the next unread one. */
+  const RD_EX = [['all', 'All'], ['tneb', 'TNEB AE'], ['tnpsc', 'TNPSC'], ['gate', 'GATE'], ['book', 'Book chapters'], ['other', 'Other exams']];
+  const rdExOf = r => r.ex === 'TANGEDCO' || r.ex === 'TNEB' ? 'tneb' : r.ex === 'TNPSC' ? 'tnpsc' : r.ex === 'GATE' ? 'gate' : r.ex === 'BOOK' ? 'book' : 'other';
+  let RDI = null;
+  function theoryItems() {
+    if (RDI) return RDI;
+    const u = UA.filter(x => x.lab && x.lab[0] === 'A' && T(x.t)).map(x => ({ k: 'u', id: x.id, t: x.t, ex: x.ex, x, s: norm(plain((x.qh || x.x || '') + ' ' + (x.sb || '') + ' ' + (x.c || ''))) }));
+    const b = QA.filter(x => T(x.t) && !/\d/.test(x.q) && !/calculate|find the value|determine the value/i.test(x.q)).map(x => ({ k: 'q', id: x.id, t: x.t, ex: (/^(GATE|TANGEDCO|TNPSC|ESE|APGENCO|TNEB)/.exec(x.src || '') || [])[1] || 'BOOK', x, s: norm(plain(x.q + ' ' + (x.why || ''))) }));
+    const order = Object.fromEntries(IX.T.map((t, i) => [t.id, i]));
+    return RDI = [...u, ...b].sort((p, q) => (order[p.t] - order[q.t]) || (p.k === q.k ? 0 : p.k === 'u' ? -1 : 1));
+  }
+  function readCard(r) {
+    const d = P.rd[r.id], x = r.x;
+    let body;
+    if (r.k === 'u') {
+      const ok = Array.isArray(x.ok) ? x.ok : [];
+      const q = x.qh != null ? `<div class="rq">${x.qh}</div>${x.oh && x.oh.length ? `<ol class="ropts">${x.oh.map(([l, h]) => `<li${ok.includes(l) ? ' class="ok"' : ''}><b>(${l})</b> ${h}${ok.includes(l) ? ' <i aria-label="correct">✓</i>' : ''}</li>`).join('')}</ol>` : ''}`
+        : x.rf ? qPic(x, x.src) : `<div class="im${x.wide ? ' wide' : ''}">${spu(x.qs, x.src)}</div>`;
+      body = `${q}<div class="ra">${x.sh ? solHtml(x) : `<div class="im">${spu(x.ss, 'Answer and worked solution')}</div>`}</div>`;
+    } else {
+      body = `<div class="rq">${esc(x.q)}</div><ol class="ropts">${(x.o || []).map((o, i) => `<li${i === x.r ? ' class="ok"' : ''}>${esc(o)}${i === x.r ? ' <i aria-label="correct">✓</i>' : ''}</li>`).join('')}</ol>
+        <div class="ra">${x.why ? `<p><b>Why:</b> ${esc(x.why)}</p>` : ''}${x.wrong && x.wrong.length ? `<details class="rw"><summary>Why not the others</summary><ul>${x.wrong.map(w => `<li>${esc(w)}</li>`).join('')}</ul></details>` : ''}</div>`;
+    }
+    return `<article class="rd${d ? ' done' : ''}" id="rd-${esc(r.id)}" data-rd="${esc(r.id)}"><header><span class="ex ex-${esc(r.ex)}">${esc(r.k === 'u' ? x.src : x.src || 'Book chapter')}</span>${r.k === 'u' && x.sb ? `<small>${esc(x.sb)}</small>` : ''}</header>${body}
+      <div class="racts">${starBtn(r.id)}<button class="btn rdb${d ? ' on' : ''}" data-rdb="${esc(r.id)}" aria-pressed="${!!d}">${d ? '✓ Read' : 'Mark as read'}</button></div></article>`;
+  }
+  async function viewRead(tid, tok) {
+    setShell('more'); document.title = 'Theory to read · TNEB AE Study Site'; main.innerHTML = '<p class="loading">Loading the theory questions…</p>';
+    await Promise.all([loadU(), loadQ()]); if (tok !== RT) return;
+    const ALL = theoryItems(); let st = { ex: 'all', un: false }; try { st = { ...st, ...JSON.parse(localStorage.getItem('ae-rd') || '{}') }; } catch (e) {}
+    const keep = () => { try { localStorage.setItem('ae-rd', JSON.stringify(st)); } catch (e) {} };
+    const vis = r => (st.ex === 'all' || rdExOf(r) === st.ex) && (!st.un || !P.rd[r.id]);
+    const subj = IX.S.filter(([k]) => ALL.some(r => T(r.t).s === k));
+    const nRead = L => L.filter(r => P.rd[r.id]).length;
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Theory to read</div>
+      <section class="hero rdh"><h1>📖 Theory to read</h1><p>Every concept question — no numericals — with the right answer marked and the reasoning written out. Read when you have time; tick each one, and Continue brings you back to the next unread question.</p>
+        <div class="rdsum"></div><div class="acts"><button class="btn go" data-rdgo="cont">▶ Continue reading</button><span class="tsz" role="group" aria-label="Text size"><button class="btn" data-tsz="-1" aria-label="Smaller text">A−</button><button class="btn" data-tsz="1" aria-label="Larger text">A+</button></span></div></section>
+      <div class="rdbar"><div class="seg rdex" role="group" aria-label="Exam">${RD_EX.map(([k, n]) => `<button data-rdex="${k}" aria-pressed="${st.ex === k}">${n}</button>`).join('')}</div>
+        <label class="rdun"><input type="checkbox" data-rdun${st.un ? ' checked' : ''}> Unread only</label>${filterBox('Search the theory questions: e.g. latching, Ferranti, Buchholz')}</div>
+      <div id="rdres" hidden></div><div id="rdtree">${subj.map(([k, n]) => `<section class="rds" style="--c:${SC[k]}"><h2><i></i>${esc(n)} <small data-rdsn="${k}"></small></h2>
+        ${IX.T.filter(t => t.s === k && ALL.some(r => r.t === t.id)).map(t => `<details class="rdt" data-t="${t.id}" id="rdt-${t.id}"><summary><b>${esc(short(t))}</b><span class="rdn" data-rdn="${t.id}"></span><span class="rdp"><i data-rdp="${t.id}"></i></span></summary><div class="rdl"></div></details>`).join('')}</section>`).join('')}</div>`;
+    const paintCounts = () => {
+      const L = ALL.filter(r => st.ex === 'all' || rdExOf(r) === st.ex), n = nRead(L);
+      $('.rdsum', main).innerHTML = `<div class="lxk"><div><b>${L.length}</b><span>theory questions${st.ex === 'all' ? '' : ' (' + RD_EX.find(e => e[0] === st.ex)[1] + ')'}</span></div><div><b>${n}</b><span>read</span></div><div><b>${L.length ? Math.round(n / L.length * 100) : 0} %</b><span>done</span></div></div>`;
+      $$('.rdt', main).forEach(d => { const T0 = L.filter(r => r.t === d.dataset.t), m = nRead(T0); d.hidden = !T0.length; $(`[data-rdn="${d.dataset.t}"]`, main).textContent = `${m}/${T0.length}`; $(`[data-rdp="${d.dataset.t}"]`, main).style.width = (T0.length ? m / T0.length * 100 : 0) + '%'; });
+      subj.forEach(([k]) => { const S0 = L.filter(r => T(r.t).s === k); $(`[data-rdsn="${k}"]`, main).textContent = `${nRead(S0)}/${S0.length} read`; });
+    };
+    const fill = d => { const L = ALL.filter(r => r.t === d.dataset.t && vis(r)); $('.rdl', d).innerHTML = L.length ? L.map(readCard).join('') : '<p class="empty">All read here — untick “Unread only” to see them again.</p>'; lazy(d); };
+    const refill = () => { $$('.rdt[open]', main).forEach(fill); paintCounts(); };
+    $$('.rdt', main).forEach(d => d.addEventListener('toggle', () => { if (d.open && !$('.rd, .empty', d)) fill(d); }));
+    main.onclick = e => {
+      const x = e.target.closest('[data-rdex]'); if (x) { st.ex = x.dataset.rdex; keep(); $$('[data-rdex]', main).forEach(b => b.setAttribute('aria-pressed', String(b === x))); refill(); return; }
+      const b = e.target.closest('[data-rdb]'); if (b) { const id = b.dataset.rdb, on = !P.rd[id]; if (on) P.rd[id] = Math.round(Date.now() / 60000); else delete P.rd[id]; P.rdl = id; changed();
+        $$(`[data-rdb="${CSS.escape(id)}"]`, main).forEach(y => { y.classList.toggle('on', on); y.setAttribute('aria-pressed', String(on)); y.textContent = on ? '✓ Read' : 'Mark as read'; y.closest('.rd').classList.toggle('done', on); });
+        paintCounts(); if (on) toast('Marked as read'); return; }
+      if (e.target.closest('[data-rdgo="cont"]')) { const L = ALL.filter(vis), j = Math.max(0, ALL.findIndex(r => r.id === P.rdl)), nx = ALL.slice(j).find(r => vis(r) && !P.rd[r.id]) || L.find(r => !P.rd[r.id]);
+        if (!nx) { toast('Everything here is read — well done.'); return; } openAt(nx.t, nx.id); }
+    };
+    main.onchange = e => { if (e.target.matches('[data-rdun]')) { st.un = e.target.checked; keep(); refill(); } };
+    const openAt = (t, id) => { const d = $(`#rdt-${t}`, main); if (!d) return; d.open = true; if (!$('.rd', d)) fill(d); const el = id ? document.getElementById('rd-' + id) : d;
+      requestAnimationFrame(() => (el || d).scrollIntoView({ block: 'start' })); setTimeout(() => { if ((el || d).isConnected) (el || d).scrollIntoView({ block: 'start' }); }, 500); };
+    const inp = $('.fbox input', main), res = $('#rdres', main), tree = $('#rdtree', main);
+    inp.oninput = () => { const W = words(inp.value); if (!W.length) { res.hidden = true; tree.hidden = false; return; }
+      const L = ALL.filter(r => vis(r) && hitAll(r.s, W)); res.hidden = false; tree.hidden = true;
+      res.innerHTML = `<p class="pg">${L.length} match${L.length === 1 ? '' : 'es'}${L.length > 60 ? ' — the first 60 shown; add a word to narrow' : ''}.</p>${L.slice(0, 60).map(r => `<p class="rdtn">${esc(short(T(r.t)))}</p>${readCard(r)}`).join('')}`; lazy(res); };
+    paintCounts();
+    if (tid && T(tid)) openAt(tid); else toTop();
+  }
   // the progress console tile
   function labTile() {
     const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
@@ -405,7 +475,7 @@
 
   /* ---------- progress store ---------- */
   const KEY = 'tneb-ae-progress-v1';
-  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {}, lp: {}, mt: {}, lab: { x: {}, d: {}, f: {} } });
+  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {}, lp: {}, mt: {}, lab: { x: {}, d: {}, f: {} }, rd: {}, rdl: null });
   let P = EMPTY(), where = 'browser', ref = null, saving = false, again = false, timer = 0, SV = 0, STC = null;
   try { const s = localStorage.getItem(KEY); if (s) P = { ...EMPTY(), ...JSON.parse(s) }; } catch (e) {}
   const keepLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
@@ -414,11 +484,12 @@
   const dayStart = () => Math.round(new Date().setHours(0, 0, 0, 0) / 60000);
   // before the day log existed only each question's last answer was kept: seed the log from those, once.
   // Never let an odd saved record stop the app: anything unreadable is simply started afresh.
-  const fixP = () => { try { fixP0(); } catch (e) { for (const k of ['star', 'sr', 'lp', 'mt', 'days']) if (!P[k] || typeof P[k] !== 'object') P[k] = {}; if (!P.lab || typeof P.lab !== 'object' || !P.lab.x || !P.lab.d || !P.lab.f) P.lab = { x: {}, d: {}, f: {} }; } };
+  const fixP = () => { try { fixP0(); } catch (e) { for (const k of ['star', 'sr', 'lp', 'mt', 'days', 'rd']) if (!P[k] || typeof P[k] !== 'object') P[k] = {}; if (!P.lab || typeof P.lab !== 'object' || !P.lab.x || !P.lab.d || !P.lab.f) P.lab = { x: {}, d: {}, f: {} }; } };
   const fixP0 = () => {
     P.star = P.star && typeof P.star === 'object' ? P.star : {};
     P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {};
     P.lp = P.lp && typeof P.lp === 'object' ? P.lp : {}; P.mt = P.mt && typeof P.mt === 'object' ? P.mt : {};
+    P.rd = P.rd && typeof P.rd === 'object' && !Array.isArray(P.rd) ? P.rd : {}; if (typeof P.rdl !== 'string') P.rdl = null;
     const LB = P.lab && typeof P.lab === 'object' ? P.lab : {}, ob = o => o && typeof o === 'object' && !Array.isArray(o) ? o : {};
     P.lab = { x: ob(LB.x), d: ob(LB.d), f: ob(LB.f) }; for (const k in P.lab.x) if (!P.lab.x[k] || typeof P.lab.x[k] !== 'object') delete P.lab.x[k];
     if (!P.days || typeof P.days !== 'object') { P.days = {}; for (const m of [P.q, P.f]) for (const id in m) { const e = m[id]; if (!e[3]) continue; const k = dayOf(e[3] * 60000), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (e[2]) d[1]++; } }
@@ -509,7 +580,7 @@
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const TP = topicProgress();
-    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
+    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#read">📖 Theory to read</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
       IX.S.map(([k, n]) => { const ts = (g[k] || []).map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / Math.max(1, ts.length) * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null;
         return `<details class="sg" data-s="${k}"><summary style="--c:${SC[k]}"><h4><i></i>${esc(n)}</h4><span class="sgp"><span class="bar" style="--col:${SC[k]}"><i style="width:${cov}%"></i></span><small>${cov} % covered${acc != null ? ` · ${acc} % right` : ''}</small></span></summary>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('') + '</details>'; }).join('');
     $('#sidex').onclick = () => drawer(false);
@@ -796,7 +867,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261105005644';
+  const SWV = 'ae-20261105010945';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -943,6 +1014,7 @@
       const pem = h.match(/^pe(?:-([a-z0-9-]+))?$/); if (pem) return await viewPE(pem[1] || '', tok);
       const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
+      const rdm = h.match(/^read(?:-(\d+))?$/); if (rdm) return await viewRead(rdm[1] || '', tok);
       if (a === 'practice') return await viewPractice(tok);
       if (a === 'qbook') return await viewQbook(tok);
       if (a === 'starred') return await viewStarred(tok);
@@ -1115,6 +1187,8 @@
     /* Learn: concept in 60 seconds, then the chapter in the book's own order */
     const peA = `<a class="simlink tsl" href="#pe"><i>⚡</i><span><b>Open the power electronics atlas →</b><small>every converter as a live circuit: waveforms, who conducts when, all formulas checked against the waveform, waveform ↔ formula, regenerative words, and how each past question asks</small></span></a>`;
     if (id === '961') sec('learn', 'peatlas', '⚡', 'Power electronics atlas', 't-pur', peA, '', 'Atlas');
+    const nTh = UA ? UA.filter(x => x.t === id && x.lab && x.lab[0] === 'A').length : 0;
+    if (nTh) sec('learn', 'readth', '📖', 'Theory to read', 't-teal', `<a class="simlink tsl" href="#read-${id}"><i>📖</i><span><b>Read the ${nTh} theory questions of this topic →</b><small>past concept questions with the answer marked and the reasoning open — tick each as you read; Continue picks up where you stopped</small></span></a>`, '', 'Theory');
     sec('learn', 'c60', '⏱', 'Concept in 60 seconds', 't-yel', c60Html(D, ch, id, vn), '', 'Concept in 60 s');
     if (id === '961') sec('sim', 'peatlas2', '⚡', 'Power electronics atlas', 't-pur', peA, '', 'Atlas');
     if (ch) {

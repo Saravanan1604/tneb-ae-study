@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261105005644"></script>
+<script src="theme.js?v=ae-20261105010945"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1267,6 +1267,48 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .stprint{margin:12px 0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
 .stprint>summary{cursor:pointer;font-weight:700;color:var(--navy)}
 
+/* theory to read (#read): concept questions set for reading, answer marked and reasoning open */
+.rdh .acts{align-items:center}
+.rdsum .lxk{margin:8px 0}
+.rdbar{display:grid;gap:8px;margin:10px 0 14px}
+.rdex{display:flex;flex-wrap:wrap;gap:6px}
+.rdex button{border:1.5px solid var(--line);background:var(--paper);color:var(--navy);border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700;font-family:inherit}
+.rdex button[aria-pressed="true"]{background:var(--pur);border-color:var(--pur);color:#fff}
+.rdun{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--ink-2);font-weight:600}
+.rds{margin:14px 0}
+.rds>h2{display:flex;align-items:center;gap:8px;font-size:18px;color:var(--navy);margin:0 0 8px}
+.rds>h2 i{width:10px;height:22px;border-radius:4px;background:var(--c)}
+.rds>h2 small{margin-left:auto;font-size:12.5px;color:var(--ink-2);font-weight:700}
+.rdt{background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:14px;margin:7px 0}
+.rdt>summary{cursor:pointer;list-style:none;display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;padding:11px 12px;color:var(--navy)}
+.rdt>summary::-webkit-details-marker{display:none}
+.rdt>summary b{font-size:15.5px}
+.rdn{font-size:12.5px;font-weight:800;color:var(--ink-2)}
+.rdp{grid-column:1/-1;height:5px;border-radius:999px;background:var(--bg);overflow:hidden}
+.rdp i{display:block;height:100%;background:var(--c);border-radius:999px}
+.rdl{display:grid;gap:10px;padding:2px 10px 12px;grid-template-columns:minmax(0,1fr)}
+.rd,.rdt,.rds,#rdres,#rdtree{min-width:0;max-width:100%}
+.rd .im{max-width:100%;overflow-x:auto;padding:4px 0}
+.rd .usol,.rd .ra>*{max-width:100%;min-width:0}
+.rd{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:12px 14px;font-size:calc(16.5px * var(--tsz,1));line-height:1.65;color:var(--ink);content-visibility:auto;contain-intrinsic-size:auto 320px;overflow-wrap:anywhere}
+.rd header{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;margin-bottom:6px}
+.rd header small{font-size:12.5px;color:var(--ink-2);font-weight:600}
+.rd .rq{font-weight:600;color:var(--navy)}
+.ropts{margin:8px 0;padding-left:0;list-style:none;display:grid;gap:4px}
+.ropts li{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:var(--paper)}
+.ropts li.ok{background:#dcfce7;border-color:#86efac;color:#14532d;font-weight:700}
+.ropts li i{font-style:normal;font-weight:900}
+.rd .ra{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
+.rd .ra p{margin:0 0 6px}
+.rw summary{cursor:pointer;font-weight:700;color:var(--navy);font-size:.9em}
+.rw ul{margin:6px 0 0;padding-left:20px}
+.racts{display:flex;justify-content:flex-end;gap:8px;align-items:center;margin-top:8px}
+.rdb.on{background:#dcfce7;border-color:#86efac;color:#14532d}
+.rd.done{opacity:.78}
+.rd.done header::after{content:'✓ read';margin-left:auto;font-size:12px;font-weight:800;color:#15803d}
+.rdtn{margin:14px 2px 4px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--pur)}
+html[data-theme="dark"] .ropts li.ok,html[data-theme="dark"] .rdb.on{background:#14532d;border-color:#166534;color:#dcfce7}
+
 /* power electronics atlas (#pe…): circuits, waveforms, formula rows, tabs */
 .pe1{display:grid;gap:12px;margin:6px 0 10px}
 .pesvg{display:block;width:100%;height:auto;overflow:visible}
@@ -1657,7 +1699,7 @@ a.btn{gap:.35em}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261105005644"></script>
+<script src="app.js?v=ae-20261105010945"></script>
 
 </body>
 </html>
