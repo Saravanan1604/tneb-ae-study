@@ -505,6 +505,126 @@
   }
   addEventListener('keydown', e => { if (!$('#mbox', main) || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
     const b = e.key === 'ArrowRight' ? $('[data-swb="next"]', main) : e.key === 'ArrowLeft' ? $('[data-swb="prev"]', main) : null; if (b && !b.disabled) { e.preventDefault(); b.click(); } });
+  /* ---------- maths base & prerequisites (added for this site, not from the book) ----------
+     MATHB: maths ideas → [name, maths topic id or '', [formula lines], what it is used for]
+     TMAP: topic → { m: maths ideas, b: [[topic, idea taken from it]], mb: [[short, idea that needs both]], own: [new in this topic] } */
+  const MATHB = {
+    units: ['Units & prefixes', '', ['k = 10³, M = 10⁶, m = 10⁻³, µ = 10⁻⁶, n = 10⁻⁹', '1 kWh = 3.6 MJ; 1 hp = 746 W', 'ω (rad/s) = 2πN/60 for N in rpm'], 'every numerical answer'],
+    prop: ['Ratio & proportion', '316', ['y ∝ x ⇒ y = kx;  y ∝ 1/x ⇒ y = k/x', 'y₂/y₁ = (x₂/x₁)ⁿ when y ∝ xⁿ', '% change = (new − old)/old × 100'], 'scaling a result when one quantity changes'],
+    line: ['Straight lines & graphs', '', ['y = mx + c: slope m, intercept c', 'slope = Δy/Δx', 'through (x₁, y₁): y − y₁ = m(x − x₁)'], 'characteristics, load lines, V–I graphs'],
+    quad: ['Quadratic equations', '', ['ax² + bx + c = 0 ⇒ x = [−b ± √(b² − 4ac)]/2a', 'real roots when b² ≥ 4ac', 'x + 1/x is least at x = 1'], 'maximum power, characteristic roots'],
+    lin: ['Simultaneous equations', '106', ['a₁x + b₁y = c₁, a₂x + b₂y = c₂', 'x = (c₁b₂ − c₂b₁)/(a₁b₂ − a₂b₁)', 'Cramer: x = Δₓ/Δ'], 'solving mesh and node equations'],
+    mat: ['Matrices & determinants', '106', ['|A| = ad − bc for [[a, b], [c, d]]', 'A⁻¹ = adj A/|A|', 'eigenvalues: |A − λI| = 0'], 'networks, state space, bus matrices'],
+    trig: ['Trigonometry', '', ['sin²θ + cos²θ = 1', 'sin(A ± B) = sin A cos B ± cos A sin B', 'cos θ = adjacent/hypotenuse, tan θ = opposite/adjacent'], 'power triangle, phase angles, resolving vectors'],
+    sine: ['Sine wave', '', ['v = V<sub>m</sub> sin(ωt + φ)', 'ω = 2πf, T = 1/f', 'V<sub>rms</sub> = V<sub>m</sub>/√2; average over a half cycle = 2V<sub>m</sub>/π'], 'every ac voltage and current'],
+    cplx: ['Complex numbers & phasors', '179', ['z = a + jb = r∠θ, r = √(a² + b²), θ = tan⁻¹(b/a)', 'r₁∠θ₁ × r₂∠θ₂ = r₁r₂∠(θ₁ + θ₂); dividing subtracts the angles', 'e<sup>jθ</sup> = cos θ + j sin θ, j² = −1'], 'impedance Z = R + jX and phasor sums'],
+    exp: ['Exponentials & logarithms', '', ['e<sup>−t/τ</sup>: 36.8 % left after τ, about 0 after 5τ', 'ln(ab) = ln a + ln b; log₁₀ x = ln x / 2.303', 'gain in dB = 20 log₁₀(V₂/V₁) = 10 log₁₀(P₂/P₁)'], 'transients, decay, decibels'],
+    diff: ['Differentiation', '123', ['d/dt(sin ωt) = ω cos ωt; d/dt(e<sup>at</sup>) = a e<sup>at</sup>', 'v = L di/dt, i = C dv/dt', 'maximum or minimum where dy/dx = 0'], 'rates of change, induced emf, maxima'],
+    int: ['Integration (area)', '140', ['∫ sin θ dθ = −cos θ; ∫ e<sup>at</sup> dt = e<sup>at</sup>/a', 'average = (1/T)∫ v dt', 'rms = √[(1/T)∫ v² dt]'], 'average and rms values, energy'],
+    ode: ['Differential equations', '166', ['τ dy/dt + y = K ⇒ y = K + (y₀ − K)e<sup>−t/τ</sup>', 's² + 2ζω<sub>n</sub>s + ω<sub>n</sub>² = 0', 'ζ < 1 underdamped, ζ = 1 critical, ζ > 1 overdamped'], 'transients and dynamics'],
+    lap: ['Laplace transform', '190', ['L{u(t)} = 1/s, L{e<sup>−at</sup>} = 1/(s + a), L{sin ωt} = ω/(s² + ω²)', 'L{df/dt} = sF(s) − f(0)', 'final value = lim<sub>s→0</sub> sF(s)'], 'transfer functions and transients'],
+    four: ['Fourier series', '201', ['f(t) = a₀ + Σ (a<sub>n</sub> cos nωt + b<sub>n</sub> sin nωt)', 'b<sub>n</sub> = (2/T)∫ f(t) sin nωt dt', 'odd function: sine terms only; half-wave symmetry: odd n only'], 'harmonics and spectra'],
+    zt: ['Z-transform', '212', ['Z{aⁿu[n]} = z/(z − a)', 'Z{x[n − 1]} = z⁻¹X(z)', 'stable when all poles are inside |z| = 1'], 'discrete-time systems'],
+    vec: ['Vectors', '154', ['A·B = AB cos θ; |A × B| = AB sin θ', 'F = q(E + v × B); F = BIl sin θ', 'resolve: A<sub>x</sub> = A cos θ, A<sub>y</sub> = A sin θ'], 'forces and fields with direction'],
+    vcal: ['Vector calculus', '154', ['∮ D·dA = Q (Gauss); ∮ H·dl = I (Ampère)', '∇·D = ρ<sub>v</sub>, ∇ × E = −∂B/∂t', 'E = −∇V'], 'Maxwell’s equations and fields'],
+    geo: ['Geometry & mensuration', '316', ['circle: A = πr², circumference 2πr', 'sphere: A = 4πr², V = (4/3)πr³', 'coaxial cylinders give ln(b/a) in C and L'], 'areas of conductors, fields around wires'],
+    hyp: ['Hyperbolic functions', '', ['cosh x = (eˣ + e⁻ˣ)/2, sinh x = (eˣ − e⁻ˣ)/2', 'cosh²x − sinh²x = 1', 'cosh x ≈ 1 + x²/2 for small x'], 'long-line ABCD constants'],
+    series: ['Series & approximations', '', ['eˣ ≈ 1 + x, (1 + x)ⁿ ≈ 1 + nx for small x', 'sin θ ≈ θ, cos θ ≈ 1 − θ²/2 (θ in radians)', 'AP: Sₙ = (n/2)[2a + (n − 1)d]; GP: Sₙ = a(rⁿ − 1)/(r − 1)'], 'small-signal and small-angle shortcuts'],
+    prob: ['Probability & statistics', '235', ['mean x̄ = Σx/n; σ = √[Σ(x − x̄)²/n]', 'P(A or B) = P(A) + P(B) − P(A and B)', 'normal curve: 68 % within ±1σ'], 'errors, reliability, noise'],
+    num: ['Numerical methods', '222', ['Newton–Raphson: x<sub>n+1</sub> = x<sub>n</sub> − f(x<sub>n</sub>)/f′(x<sub>n</sub>)', 'Gauss–Seidel: use each new value at once', 'trapezoidal rule: ∫ ≈ (h/2)[y₀ + 2(y₁ + … + y<sub>n−1</sub>) + y<sub>n</sub>]'], 'load flow and iterative answers'],
+    bool: ['Binary & Boolean algebra', '', ['A + AB = A; A + A′B = A + B', 'De Morgan: (A + B)′ = A′B′, (AB)′ = A′ + B′', 'binary → decimal: Σ bᵢ2ⁱ; 2’s complement = invert + 1'], 'logic gates and number systems'] };
+  const TMAP = {
+    252: { m: ['vec', 'trig', 'diff', 'int', 'quad'], b: [[283, 'Newton’s laws, units']], mb: [['Resolving forces', 'components of a force: vectors + trigonometry']], own: ['Equilibrium: ΣF = 0, ΣM = 0', 'Friction F = μN', 'Moment = force × distance'] },
+    265: { m: ['exp', 'int', 'prop'], b: [[283, 'heat, temperature, gas laws']], mb: [['Work = ∫p dV', 'integration + the gas law']], own: ['First law Q = ΔU + W', 'Carnot η = 1 − T₂/T₁', 'Conduction Q = kAΔT/x'] },
+    275: { m: ['prop', 'quad', 'geo'], b: [[252, 'force, pressure, energy'], [283, 'density, gravity']], mb: [['Q = A v', 'flow = area × velocity']], own: ['Bernoulli: p/ρg + v²/2g + z = constant', 'Hydraulic power P = ρgQH', 'Pump and turbine efficiency'] },
+    283: { m: ['vec', 'diff', 'int', 'sine', 'trig'], b: [], mb: [['Waves', 'y = A sin(ωt − kx): sine wave + motion']], own: ['Newton’s laws, work and energy', 'Waves, optics, sound', 'Modern physics'] },
+    296: { m: ['exp', 'prop'], b: [[283, 'atoms, electrons, energy bands']], mb: [['Nernst', 'cell emf with a logarithm']], own: ['Conductors, semiconductors, insulators', 'Dielectric and magnetic materials', 'Environment and pollution'] },
+    308: { m: ['bool'], b: [[913, 'number systems, logic']], mb: [['Binary arithmetic', 'Boolean algebra + digital logic']], own: ['C data types, loops, arrays, pointers', 'Algorithms and flowcharts'] },
+    316: { m: ['prop', 'series', 'prob', 'geo', 'quad'], b: [], mb: [], own: ['Time & work, speed, percentages', 'Logical reasoning', 'Data interpretation'] },
+    339: { m: ['lin', 'mat', 'prop', 'quad', 'diff'], b: [[283, 'charge, current, resistance R = ρl/A']], mb: [['Mesh & node', 'simultaneous equations from KVL/KCL'], ['Max power', 'R<sub>L</sub> = R<sub>th</sub>: calculus + Thevenin']], own: ['Ohm’s law, KVL, KCL', 'Thevenin, Norton, superposition', 'Star–delta: R<sub>Y</sub> = R₁R₂/ΣR'] },
+    365: { m: ['exp', 'diff', 'ode', 'int', 'lap'], b: [[339, 'KVL, KCL, Thevenin'], [440, 'C = εA/d, L = Nφ/I']], mb: [['First-order response', 'x(t) = x(∞) + [x(0) − x(∞)]e<sup>−t/τ</sup>']], own: ['τ = RC, τ = L/R', 'Stored energy ½CV², ½LI²', 'v<sub>C</sub> and i<sub>L</sub> cannot jump'] },
+    380: { m: ['sine', 'cplx', 'trig', 'int'], b: [[339, 'KVL, KCL, theorems'], [365, 'L, C, reactance']], mb: [['Phasors', 'Z = R + j(X<sub>L</sub> − X<sub>C</sub>): complex numbers + circuits'], ['Power triangle', 'P = VI cos φ: trigonometry + power']], own: ['Resonance f₀ = 1/(2π√LC), Q factor', 'Power factor and its correction', 'Series and parallel RLC'] },
+    409: { m: ['lap', 'ode', 'exp', 'cplx'], b: [[365, 'transients'], [380, 'phasors']], mb: [['s-domain', 'step and sine responses by Laplace']], own: ['Response numericals'] },
+    417: { m: ['cplx', 'trig', 'sine'], b: [[380, 'phasors, power factor']], mb: [['a = 1∠120°', 'three phasors 120° apart']], own: ['Star: V<sub>L</sub> = √3V<sub>ph</sub>; delta: I<sub>L</sub> = √3I<sub>ph</sub>', 'P = √3 V<sub>L</sub>I<sub>L</sub> cos φ', 'Two-wattmeter method'] },
+    429: { m: ['mat', 'lin', 'cplx'], b: [[339, 'network theorems'], [380, 'impedances']], mb: [['Parameter matrices', 'Z, Y, h, ABCD as 2 × 2 matrices']], own: ['Reciprocal: AD − BC = 1', 'Series, parallel, cascade connection', 'Converting between parameters'] },
+    440: { m: ['vec', 'vcal', 'int', 'geo', 'diff'], b: [[283, 'charge, Coulomb force']], mb: [['Gauss & Ampère', 'vector calculus + physics']], own: ['E = Q/4πε₀r²', 'C = εA/d, L = μN²A/l', 'Faraday e = −N dφ/dt; Maxwell’s equations'] },
+    468: { m: ['vcal', 'geo', 'int'], b: [[440, 'Gauss, Ampère, Faraday']], mb: [['Standard fields', 'line, sheet and sphere of charge']], own: ['Coupled coils M = k√(L₁L₂)'] },
+    475: { m: ['prop', 'line', 'units', 'quad'], b: [[440, 'Faraday’s law, force on a conductor'], [339, 'KVL in the armature circuit']], mb: [['E ∝ φN', 'E = PφZN/(60A): proportion + Faraday']], own: ['Motor V = E + I<sub>a</sub>R<sub>a</sub>', 'T = 0.159 PφZI<sub>a</sub>/A', 'Speed control, losses, efficiency'] },
+    497: { m: ['sine', 'cplx', 'prop', 'quad'], b: [[440, 'Faraday’s law, magnetic circuits'], [380, 'phasors, power factor']], mb: [['EMF equation', 'E = 4.44 f N φ<sub>m</sub>: sine wave + Faraday'], ['Phasor diagram', 'regulation: complex numbers + ac']], own: ['V₁/V₂ = N₁/N₂ = I₂/I₁', 'Max efficiency when copper loss = iron loss', 'Open-circuit and short-circuit tests'] },
+    526: { m: ['prop', 'cplx', 'quad', 'units'], b: [[497, 'equivalent circuit'], [417, 'rotating field from three phases']], mb: [['Slip', 's = (N<sub>s</sub> − N)/N<sub>s</sub>, N<sub>s</sub> = 120f/P']], own: ['Torque–slip curve; s<sub>max</sub> = R₂/X₂', 'Rotor copper loss = s × air-gap power', 'Starting methods'] },
+    550: { m: ['cplx', 'trig', 'sine', 'prop'], b: [[497, 'EMF equation'], [417, 'three-phase'], [380, 'phasor diagrams']], mb: [['Power angle', 'P = (EV/X<sub>s</sub>) sin δ: trigonometry + phasors']], own: ['Regulation: EMF, MMF, ZPF methods', 'V-curves and excitation', 'Parallel operation, synchronising'] },
+    572: { m: ['cplx', 'prop'], b: [[526, 'induction motor'], [475, 'dc machine']], mb: [['Two fields', 'double-revolving field theory']], own: ['Capacitor-start, shaded-pole motors', 'Stepper, BLDC, universal motors'] },
+    580: { m: ['prop', 'units', 'int'], b: [[265, 'thermal cycles'], [275, 'hydraulics P = ρgQH']], mb: [['Load factor', 'average ÷ maximum: area under the load curve']], own: ['Plant, diversity and capacity factors', 'Tariffs and depreciation', 'Thermal, hydro, nuclear plants'] },
+    601: { m: ['prop', 'units'], b: [[580, 'generation basics']], mb: [], own: ['Further generation formulas'] },
+    607: { m: ['units', 'prop', 'exp'], b: [[849, 'pn junction'], [283, 'radiation']], mb: [['Solar I–V', 'I = I<sub>L</sub> − I₀(e<sup>V/V<sub>T</sub></sup> − 1)']], own: ['Fill factor and efficiency', 'Maximum power point tracking'] },
+    614: { m: ['prop', 'geo', 'units'], b: [[275, 'fluid power'], [580, 'generation']], mb: [['Wind power', 'P = ½ρAv³ with A = πr²']], own: ['Betz limit 59.3 %', 'Smart grid, EV charging'] },
+    621: { m: ['units', 'exp', 'prop'], b: [[365, 'capacitor energy ½CV²'], [296, 'battery chemistry']], mb: [['Wh = V × Ah', 'units + battery ratings']], own: ['C-rate, depth of discharge', 'Batteries, supercapacitors, pumped hydro'] },
+    627: { m: ['cplx', 'hyp', 'exp', 'geo', 'mat'], b: [[440, 'L and C of conductors'], [380, 'phasors'], [429, 'ABCD parameters']], mb: [['L = 2×10⁻⁷ ln(D/r′)', 'logarithm + fields of a wire'], ['Long line', 'A = cosh γl: hyperbolic + ABCD']], own: ['Regulation and efficiency', 'Ferranti effect', 'Corona and sag'] },
+    657: { m: ['trig', 'prop'], b: [[961, 'controlled rectifiers'], [627, 'ac transmission']], mb: [['V<sub>d</sub> = 1.35V<sub>L</sub> cos α', 'the 6-pulse converter formula']], own: ['Monopolar, bipolar, homopolar links', 'Break-even distance'] },
+    663: { m: ['exp', 'geo'], b: [[440, 'capacitance, dielectric'], [339, 'circuits']], mb: [['ln(R/r)', 'insulation R = (ρ/2πl) ln(R/r); g<sub>max</sub> = V/(r ln(R/r))']], own: ['Grading of cables', 'Distributors fed at one or both ends', 'Ring mains'] },
+    678: { m: ['cplx', 'mat', 'prop'], b: [[417, 'three-phase'], [497, 'transformers']], mb: [['Symmetrical components', 'a = 1∠120°: complex + three-phase']], own: ['Z<sub>pu,new</sub> = Z<sub>pu,old</sub>(MVA<sub>new</sub>/MVA<sub>old</sub>)(kV<sub>old</sub>/kV<sub>new</sub>)²', 'Fault MVA = base MVA/Z<sub>pu</sub>', 'LG, LL, LLG fault currents'] },
+    696: { m: ['num', 'mat', 'trig', 'ode'], b: [[550, 'P = (EV/X) sin δ'], [678, 'per unit']], mb: [['Swing equation', 'M d²δ/dt² = P<sub>m</sub> − P<sub>e</sub>: ODE + machines'], ['Newton–Raphson', 'iterative load flow']], own: ['Equal-area criterion', 'Bus types: slack, PV, PQ', 'Y-bus'] },
+    714: { m: ['mat', 'cplx'], b: [[627, 'line performance'], [696, 'load flow']], mb: [['Z-bus', 'building it is matrix work']], own: ['Series and shunt compensation', 'SVC, STATCOM, TCSC'] },
+    723: { m: ['cplx', 'exp', 'prop', 'sine'], b: [[678, 'fault currents'], [807, 'CTs and PTs']], mb: [['Restriking voltage', 'f = 1/(2π√LC): sine + LC circuit']], own: ['Relay PSM, TMS, IDMT', 'Distance and differential relays', 'Circuit breakers, arc interruption'] },
+    759: { m: ['prop', 'geo'], b: [[723, 'protection basics']], mb: [], own: ['Earthing resistance; step and touch potential'] },
+    767: { m: ['lap', 'ode', 'cplx', 'exp'], b: [[365, 'transients'], [380, 'frequency response']], mb: [['Transfer function', 'G(s): Laplace of the system ODE'], ['ζ and ω<sub>n</sub>', 's² + 2ζω<sub>n</sub>s + ω<sub>n</sub>²']], own: ['Block diagrams, Mason’s gain', 'Routh, root locus, Bode, Nyquist', 'Steady-state error, K<sub>p</sub>, K<sub>v</sub>, K<sub>a</sub>'] },
+    800: { m: ['mat', 'lap'], b: [[767, 'transfer functions']], mb: [['State space', 'ẋ = Ax + Bu: matrices + ODE']], own: ['PID controllers', 'Controllability, observability'] },
+    807: { m: ['prob', 'prop', 'units', 'cplx'], b: [[339, 'bridges are circuits'], [380, 'ac bridges'], [440, 'deflecting torque']], mb: [['Bridge balance', 'Z₁Z₄ = Z₂Z₃ with complex numbers']], own: ['Shunt R<sub>sh</sub> = R<sub>m</sub>/(m − 1), multiplier', 'Wattmeters, energy meters', 'Errors, CRO'] },
+    838: { m: ['prob', 'units', 'bool'], b: [[807, 'meters'], [913, 'ADC/DAC']], mb: [], own: ['Transducers, DMM, DSO'] },
+    849: { m: ['exp', 'sine', 'int'], b: [[283, 'semiconductor physics'], [339, 'circuits']], mb: [['Rectifier averages', 'V<sub>dc</sub> = V<sub>m</sub>/π, 2V<sub>m</sub>/π: integration']], own: ['Diode equation I = I₀(e<sup>V/ηV<sub>T</sub></sup> − 1)', 'Zener regulator', 'Ripple factor, PIV'] },
+    867: { m: ['exp', 'line', 'prop', 'lin'], b: [[849, 'pn junction'], [339, 'Thevenin']], mb: [['Load line', 'straight line + KVL']], own: ['β = I<sub>C</sub>/I<sub>B</sub>, α = β/(1 + β)', 'Biasing and stability', 'h-parameters, gain'] },
+    888: { m: ['exp', 'cplx'], b: [[867, 'amplifiers'], [365, 'RC charging']], mb: [['555 timing', '0.693RC (ln 2) astable, 1.1RC (ln 3) monostable'], ['Barkhausen', 'Aβ = 1∠0°']], own: ['Inverting gain −R<sub>f</sub>/R₁', 'Non-inverting gain 1 + R<sub>f</sub>/R₁', 'Integrator, differentiator'] },
+    906: { m: ['exp'], b: [[867, 'amplifiers'], [888, 'op-amps']], mb: [], own: ['Further analog circuits'] },
+    913: { m: ['bool', 'series'], b: [[867, 'transistor as a switch']], mb: [['K-maps', 'Boolean algebra made visual']], own: ['Flip-flops, counters, registers', 'Combinational circuits', 'ADC/DAC resolution = V<sub>FS</sub>/2ⁿ'] },
+    935: { m: ['bool'], b: [[913, 'digital basics']], mb: [], own: ['Further digital circuits'] },
+    941: { m: ['bool'], b: [[913, 'registers, counters']], mb: [['Hex & flags', 'binary arithmetic in registers']], own: ['Instruction set, addressing modes', 'Timing diagrams, interrupts'] },
+    953: { m: ['bool'], b: [[941, '8085']], mb: [], own: ['Physical address = 16 × segment + offset', 'Interfacing 8255, 8253'] },
+    961: { m: ['sine', 'int', 'four', 'trig', 'exp'], b: [[849, 'diodes, rectifiers'], [380, 'rms, power factor'], [475, 'dc motor E = kφω']], mb: [['Chopped-sine averages', 'integration + rectifiers'], ['Harmonics, THD', 'Fourier + ac power']], own: ['Controlled rectifiers V<sub>o</sub> = (2V<sub>m</sub>/π) cos α', 'Choppers V<sub>o</sub> = DV<sub>s</sub>; inverters', 'Thyristor turn-on, turn-off, commutation'] },
+    998: { m: ['sine', 'int', 'prop'], b: [[961, 'converters'], [475, 'dc motors'], [526, 'induction motors']], mb: [['Converter-fed motor', 'V = E + IR with V = 0.9V<sub>s</sub> cos α']], own: ['Drives: speed control, braking'] },
+    1008: { m: ['four', 'lap', 'zt', 'int', 'cplx'], b: [[767, 'transfer functions']], mb: [['Convolution', 'y = x * h ↔ Y = XH']], own: ['Sampling f<sub>s</sub> ≥ 2f<sub>max</sub>', 'DFT and FFT', 'FIR and IIR filters'] },
+    1027: { m: ['four', 'trig', 'exp', 'prob'], b: [[1008, 'signals and spectra']], mb: [['AM sidebands', 'cos A cos B = ½[cos(A − B) + cos(A + B)]']], own: ['AM power P<sub>t</sub> = P<sub>c</sub>(1 + m²/2)', 'FM: Carson BW = 2(Δf + f<sub>m</sub>)', 'Shannon C = B log₂(1 + S/N)'] },
+    1042: { m: ['four', 'zt'], b: [[1008, 'DSP'], [1027, 'communication']], mb: [], own: ['Further DSP and communication'] },
+    1048: { m: ['units', 'prob', 'bool'], b: [[1027, 'communication']], mb: [], own: ['OSI and TCP/IP layers', 'Throughput and delay', 'Error detection: parity, CRC'] },
+    1055: { m: ['geo', 'prop', 'units'], b: [[283, 'light, heat'], [475, 'dc motors'], [526, 'induction motors']], mb: [['Illumination', 'E = I cos θ/d²: inverse square + trigonometry']], own: ['Electric heating, welding', 'Traction: speed–time curves', 'Lamps and lighting design'] } };
+
+  // three circles: Maths (top left), Other topics (top right), This topic (below); labels sit in the regions inside this topic
+  function vennSvg(t, E) {
+    const cut = (x, n) => { x = plain(x).replace(/\s+/g, ' ').trim(); return x.length > n ? x.slice(0, n - 1) + '…' : x; };
+    const lines = (L, n, max) => { const o = L.slice(0, max).map(x => cut(x, n)); if (L.length > max) o.push(`+ ${L.length - max} more`); return o; };
+    const txt = (x, y, L, cls, dy) => L.map((v, i) => `<text x="${x}" y="${(y - (L.length - 1) * dy / 2 + i * dy).toFixed(1)}" text-anchor="middle" class="${cls}">${esc(v)}</text>`).join('');
+    const col = SC[t.s], M = E.m.map(k => MATHB[k][0]), B = E.b.map(([x]) => T(String(x)) ? short(T(String(x))) : String(x));
+    return `<svg viewBox="0 0 400 346" class="venn" role="img" aria-label="Venn diagram: the maths and the other topics that ${esc(short(t))} is built on">
+      <circle cx="140" cy="120" r="100" fill="#2563eb" fill-opacity=".12" stroke="#2563eb" stroke-width="2"/><circle cx="260" cy="120" r="100" fill="#d97706" fill-opacity=".12" stroke="#d97706" stroke-width="2"/>
+      <circle cx="200" cy="215" r="100" fill="${col}" fill-opacity=".14" stroke="${col}" stroke-width="2.5"/>
+      <text x="92" y="78" text-anchor="middle" class="vt" fill="#1d4ed8">Maths</text><text x="92" y="93" text-anchor="middle" class="vs">${M.length} idea${M.length === 1 ? '' : 's'}</text>
+      <text x="308" y="78" text-anchor="middle" class="vt" fill="#b45309">Other topics</text><text x="308" y="93" text-anchor="middle" class="vs">${B.length ? B.length + ' topic' + (B.length === 1 ? '' : 's') : 'none needed'}</text>
+      ${txt(143, 193, lines(M, 12, 2), 'vr', 13)}${txt(257, 193, lines(B, 12, 2), 'vr', 13)}${E.mb.length ? txt(200, 151, lines(E.mb.map(x => x[0]), 11, 2), 'vc', 12) : ''}
+      ${txt(200, 268, lines(E.own, 28, 3), 'vo', 13)}<text x="200" y="338" text-anchor="middle" class="vn" fill="${col}">${esc(cut(short(t), 34))}</text></svg>`;
+  }
+  function baseHtml(id) {
+    const E = TMAP[id], t = T(id); if (!E || !t) return '';
+    const mcard = k => { const [n, mt, F, use] = MATHB[k]; return `<div class="bm"><h4>${esc(n)}</h4><div class="fx">${F.join('<br>')}</div><p>Used for ${esc(use)}${mt && T(mt) ? ` · <a href="#t-${mt}">${esc(short(T(mt)))} →</a>` : ''}</p></div>`; };
+    return `<p class="lead">What this topic stands on: the maths (each with its formula), the ideas it borrows from other topics, where the two meet, and what is new here. <small class="badd">Added for this site — not from the book.</small></p>
+      <div class="venw">${vennSvg(t, E)}</div>
+      <h3 class="bh">🧮 Maths you need first</h3><div class="bms">${E.m.map(mcard).join('')}</div>
+      ${E.b.length ? `<h3 class="bh">📚 Basics from other topics</h3><div class="bbs">${E.b.map(([x, w]) => T(String(x)) ? `<a class="bb" href="#t-${x}" style="--c:${SC[T(String(x)).s]}"><b>${esc(short(T(String(x))))}</b><span>${w}</span></a>` : '').join('')}</div>` : ''}
+      ${E.mb.length ? `<h3 class="bh">🎯 Where the maths and the basics meet here</h3><ul class="bl">${E.mb.map(([a, b]) => `<li><b>${a}</b> — ${b}</li>`).join('')}</ul>` : ''}
+      ${E.own.length ? `<h3 class="bh">✨ New in this topic</h3><ul class="bl">${E.own.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+      <p class="pg"><a href="#base">All the maths behind EEE, and which topics use each →</a></p>`;
+  }
+  // #base: every maths idea with its formulas, most-used first, and the EEE topics that need it
+  function viewBase(tok) {
+    setShell('more'); document.title = 'Maths base for EEE · TNEB AE Study Site';
+    const use = {}; Object.entries(TMAP).forEach(([id, E]) => E.m.forEach(k => { (use[k] ||= []).push(id); }));
+    const ks = Object.keys(MATHB).sort((a, b) => (use[b] || []).length - (use[a] || []).length);
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Maths base for EEE</div>
+      <section class="hero"><h1>🧮 Maths base for EEE</h1><p>The maths every electrical topic stands on, each with the formulas you need — the most used first. Learn the top ones before starting the EEE topics; each topic page also shows its own maths and a Venn diagram of what it borrows. <small class="badd">Added for this site — not from the book.</small></p></section>
+      ${filterBox('Find a maths idea or a topic: e.g. phasor, Laplace, transformers')}
+      <div class="bms bmx">${ks.map((k, i) => { const [n, mt, F, u] = MATHB[k], L = (use[k] || []).filter(x => T(x)).sort((a, b) => IX.T.findIndex(t => t.id === a) - IX.T.findIndex(t => t.id === b));
+        return `<div class="bm" data-s="${esc(n + ' ' + plain(F.join(' ')) + ' ' + u + ' ' + L.map(x => T(x).t).join(' '))}"><h4><i>${i + 1}</i>${esc(n)}<small>${L.length} topic${L.length === 1 ? '' : 's'}</small></h4><div class="fx">${F.join('<br>')}</div><p>Used for ${esc(u)}${mt && T(mt) ? ` · learn it: <a href="#t-${mt}">${esc(short(T(mt)))} →</a>` : ''}</p>
+          <div class="bbs sm">${L.map(x => `<a class="bb" href="#t-${x}" style="--c:${SC[T(x).s]}"><b>${esc(short(T(x)))}</b></a>`).join('')}</div></div>`; }).join('')}</div>`;
+    wireFilter('.bmx .bm'); toTop();
+  }
   // the progress console tile
   function labTile() {
     const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
@@ -665,7 +785,7 @@
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const TP = topicProgress();
-    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#read">📖 Theory to read</a><a href="#mem">🃏 Formula memory cards</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
+    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#read">📖 Theory to read</a><a href="#mem">🃏 Formula memory cards</a><a href="#base">🧮 Maths base for EEE</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
       IX.S.map(([k, n]) => { const ts = (g[k] || []).map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / Math.max(1, ts.length) * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null;
         return `<details class="sg" data-s="${k}"><summary style="--c:${SC[k]}"><h4><i></i>${esc(n)}</h4><span class="sgp"><span class="bar" style="--col:${SC[k]}"><i style="width:${cov}%"></i></span><small>${cov} % covered${acc != null ? ` · ${acc} % right` : ''}</small></span></summary>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('') + '</details>'; }).join('');
     $('#sidex').onclick = () => drawer(false);
@@ -952,7 +1072,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261105011622';
+  const SWV = 'ae-20261105012433';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -1101,6 +1221,7 @@
       const pem = h.match(/^pe(?:-([a-z0-9-]+))?$/); if (pem) return await viewPE(pem[1] || '', tok);
       const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
+      if (a === 'base') return viewBase(tok);
       const mem = h.match(/^mem(?:-([a-z0-9]+))?$/); if (mem) return await viewMem(mem[1] || '', tok);
       const rdm = h.match(/^read(?:-(\d+))?$/); if (rdm) return await viewRead(rdm[1] || '', tok);
       if (a === 'practice') return await viewPractice(tok);
@@ -1273,6 +1394,7 @@
     const myF = FA.filter(f => f.t === id);
 
     /* Learn: concept in 60 seconds, then the chapter in the book's own order */
+    if (TMAP[id]) sec('learn', 'base', '🧮', 'Before you start: maths & basics', 't-blue', baseHtml(id), '', 'Maths & basics');
     const peA = `<a class="simlink tsl" href="#pe"><i>⚡</i><span><b>Open the power electronics atlas →</b><small>every converter as a live circuit: waveforms, who conducts when, all formulas checked against the waveform, waveform ↔ formula, regenerative words, and how each past question asks</small></span></a>`;
     if (id === '961') sec('learn', 'peatlas', '⚡', 'Power electronics atlas', 't-pur', peA, '', 'Atlas');
     const nTh = UA ? UA.filter(x => x.t === id && x.lab && x.lab[0] === 'A').length : 0;
