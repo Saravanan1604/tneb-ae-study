@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261105010945"></script>
+<script src="theme.js?v=ae-20261105011622"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1267,6 +1267,39 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .stprint{margin:12px 0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
 .stprint>summary{cursor:pointer;font-weight:700;color:var(--navy)}
 
+/* formula memory cards (#mem): flip card, swipe deck, pins */
+.mdeck{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:2px 2px 8px;margin-top:10px}
+.mdeck button{flex:none;border:1.5px solid var(--line);background:var(--paper);color:var(--navy);border-radius:999px;padding:7px 13px;font-size:13px;font-weight:800;font-family:inherit}
+.mdeck button[aria-pressed="true"]{background:var(--pur);border-color:var(--pur);color:#fff}
+.mtools{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:4px 0 6px}
+.mtsel{display:inline-flex;gap:8px;align-items:center;font-size:14px;color:var(--ink-2);font-weight:600}
+.mtsel select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:10px;background:var(--paper);color:var(--ink);max-width:220px}
+.mcount{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:var(--ink-2);margin-top:8px}
+.mcount b{color:var(--navy)}
+.mprog{height:6px;background:var(--bg);border:1px solid var(--line);border-radius:999px;margin:6px 0 4px;overflow:hidden}
+.mprog i{display:block;height:100%;background:var(--pur);border-radius:999px;transition:width .2s}
+.mstage{perspective:1400px;margin:10px 0}
+.mcard{display:grid;cursor:pointer;transition:transform .5s cubic-bezier(.2,.7,.2,1);transform-style:preserve-3d;min-height:320px;outline:none;--c:var(--pur)}
+.mcard.flip{transform:rotateY(180deg)}
+.mface{grid-area:1/1;-webkit-backface-visibility:hidden;backface-visibility:hidden;border-radius:24px;padding:22px 18px;background:var(--paper);border:1.5px solid color-mix(in srgb,var(--c) 30%,var(--line));box-shadow:0 12px 32px rgba(60,40,140,.13);display:grid;align-content:center;gap:12px;min-width:0;overflow:hidden}
+.mf{text-align:center;background:linear-gradient(155deg,color-mix(in srgb,var(--c) 16%,var(--paper)) 0%,var(--paper) 70%)}
+.mb{transform:rotateY(180deg);align-content:start}
+.mk{justify-self:center;font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c);text-align:center}
+.mf h2{font-size:calc(25px * var(--tsz,1));color:var(--navy);margin:0;line-height:1.3}
+.msrc{margin:0;font-size:12.5px;color:var(--ink-2)}
+.mwhat{margin:0;font-size:calc(15px * var(--tsz,1));line-height:1.55;color:var(--ink)}
+.mtip{margin:8px 0 0;font-size:13px;font-weight:700;color:var(--c)}
+.mpic .im{padding:0}
+.mfx{font-size:calc(19px * var(--tsz,1));line-height:1.8;color:var(--navy);font-weight:700;overflow-wrap:anywhere;text-align:center}
+.mnote{font-size:calc(14.5px * var(--tsz,1));color:var(--ink-2);line-height:1.6;border-top:1px dashed var(--line);padding-top:8px}
+.mnote p{margin:0 0 6px}
+.mnav{display:grid;grid-template-columns:56px 1fr 56px;gap:8px;align-items:center}
+.mnav .btn{justify-content:center;font-size:16px}
+.macts{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:12px 0 24px}
+.mpin.on{background:#fef3c7;border-color:#f59e0b;color:#92400e}
+:root[data-theme="dark"] .mpin.on{background:#422006;border-color:#b45309;color:#fde68a}
+@media (prefers-reduced-motion:reduce){.mcard{transition:none}}
+
 /* theory to read (#read): concept questions set for reading, answer marked and reasoning open */
 .rdh .acts{align-items:center}
 .rdsum .lxk{margin:8px 0}
@@ -1699,7 +1732,7 @@ a.btn{gap:.35em}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261105010945"></script>
+<script src="app.js?v=ae-20261105011622"></script>
 
 </body>
 </html>

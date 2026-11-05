@@ -75,14 +75,15 @@
     scale: '<path d="M12 4v16.5M7.5 20.5h9M5 7.5h14M5 7.5 2.5 13a2.5 2.5 0 0 0 5 0zM19 7.5 16.5 13a2.5 2.5 0 0 0 5 0z"/>',
     plug: '<path d="M9 3.5V8M15 3.5V8M6.5 8h11v3a5.5 5.5 0 0 1-11 0zM12 16.5v4"/>',
     ask: '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 0 1 4.8 1c0 1.7-2.4 2.2-2.4 3.5M12 16.8v.1"/>',
-    ball: '<circle cx="12" cy="10.5" r="6.5"/><path d="M7 18.5h10l1 2H6zM9.5 8.5A3 3 0 0 1 12 7"/>'
+    ball: '<circle cx="12" cy="10.5" r="6.5"/><path d="M7 18.5h10l1 2H6zM9.5 8.5A3 3 0 0 1 12 7"/>',
+    pin: '<path d="M8.5 3.5h7M10 3.5v6l-3.5 4.5h11L14 9.5v-6M12 14v7"/>'
   };
   const EMI = { '📅': 'cal', '🗓': 'cal2', '📊': 'chart', '⏱': 'timer', '⏰': 'clock', '⚡': 'bolt', '📘': 'book', '📗': 'book', '📖': 'open', '📝': 'note', '📄': 'page',
     '📚': 'shelf', '📒': 'table', '⭐': 'star', '🏠': 'home', '💡': 'bulb', '📐': 'fx', '⚠': 'alert', '🎯': 'target', '✍': 'pen', '🔢': 'calc', '🔤': 'type', '🃏': 'cards',
     '⚙': 'sliders', '🧭': 'compass', '🖼': 'image', '🎓': 'cap', '🏛': 'bank', '🔎': 'search', '📈': 'up', '📉': 'down', '🗺': 'map', '💾': 'save', '⬇': 'dl', '⬆': 'ul',
     '🔖': 'mark', '📶': 'offline', '✅': 'check', '🔁': 'repeat', '🔥': 'flame', '🍩': 'ring', '🌱': 'leaf', '💯': 'flag', '🏅': 'medal', '🏆': 'trophy', '🥇': 'crown',
     '💜': 'heart', '☀': 'sun', '👁': 'eye', '🌙': 'moon', '🗝': 'key', '🔑': 'key', '✨': 'spark', '👯': 'twin', '🧠': 'brain', '📏': 'ruler', '🧮': 'abacus',
-    '🎨': 'palette', '🌳': 'tree', '💧': 'drop', '⚖': 'scale', '🔌': 'plug', '❓': 'ask', '🔮': 'ball' };
+    '🎨': 'palette', '🌳': 'tree', '💧': 'drop', '⚖': 'scale', '🔌': 'plug', '❓': 'ask', '🔮': 'ball', '📌': 'pin' };
   const icon = n => `<svg class="ic ic-${n}" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICP[n]}</svg>`;
   const EMRX = new RegExp(`(${Object.keys(EMI).join('|')})\\uFE0F?`, 'gu'), EMHAS = new RegExp(`(?:${Object.keys(EMI).join('|')})`, 'u');
   const NOICON = 'svg, option, select, textarea, script, style, title, [data-noicon]';
@@ -421,6 +422,89 @@
     paintCounts();
     if (tid && T(tid)) openAt(tid); else toTop();
   }
+  /* ---------- formula memory cards (#mem, #mem-<deck>): the name on the front, the formula as printed on the back ----------
+     Decks: pin (your pinned cards), all, s<subject>, t<topic>. Swipe (or ←/→) for the next card, tap to turn it over, 📌 to pin. */
+  const memDeckName = d => d === 'pin' ? 'Pinned' : d === 'all' ? 'All formulas' : d[0] === 's' ? ((IX.S.find(x => x[0] === d.slice(1)) || [0, 'Subject'])[1]) : T(d.slice(1)) ? short(T(d.slice(1))) : 'Formulas';
+  function memList(deck) {
+    const order = Object.fromEntries(IX.T.map((t, i) => [t.id, i])), kind = id => ({ k: 0, f: 1, s: 2 })[id[0]] ?? 3, num = id => parseFloat(id.split('.')[1]) || 0;
+    let L = FA.filter(f => T(f.t));
+    if (deck === 'pin') L = L.filter(f => P.pin[f.id]); else if (deck[0] === 's') L = L.filter(f => T(f.t).s === deck.slice(1)); else if (deck[0] === 't') L = L.filter(f => f.t === deck.slice(1));
+    return L.sort((a, b) => (order[a.t] - order[b.t]) || (kind(a.id) - kind(b.id)) || (num(a.id) - num(b.id)));
+  }
+  const memName = f => /—/.test(f.nm) ? f.nm.replace(/^Key formula explained — /, '') : f.nm.replace(/^Key formula explained$/, 'Key formula');
+  async function memBack(f) {
+    const kd = f.id[0], n = f.id.split('.')[1];
+    if (kd === 'f' || kd === 'k') try {
+      const D = await topic(f.t), e = kd === 'f' ? D.ch.formulas.find(x => String(x.n) === n) : D.ch.keys.find(x => String(x.n) === n);
+      const img = e && (kd === 'f' ? e.sp && fpic(e.sp, D, e.fl, f.nm) : e.img && fpic(e.img.sp, D, e.img.fl, f.nm));
+      const notes = !e ? '' : kd === 'f' ? (e.notes || []).map(t => `<p>${t}</p>`).join('') : (e.fields || []).slice(0, 2).map(([l, t]) => `<p><b>${esc(l.replace(/[,:;]\s*$/, ''))}:</b> ${t}</p>`).join('');
+      if (img) return `<div class="mpic">${img}</div>${notes ? `<div class="mnote">${notes}</div>` : ''}`;
+    } catch (er) {}
+    return `<div class="fx mfx">${f.h.join('<br>')}</div>${f.hint ? `<div class="mnote"><p>${f.hint}</p></div>` : ''}`;
+  }
+  async function viewMem(deck0, tok) {
+    setShell('more'); document.title = 'Formula memory cards · TNEB AE Study Site'; main.innerHTML = '<p class="loading">Loading the formula cards…</p>';
+    await loadF(); if (tok !== RT) return;
+    let st = { deck: 'all', pos: {}, sh: false, seed: 7 }; try { st = { ...st, ...JSON.parse(localStorage.getItem('ae-mem') || '{}') }; } catch (e) {}
+    if (deck0 && (deck0 === 'pin' || deck0 === 'all' || /^s[a-z]$/.test(deck0) || /^t\d+$/.test(deck0))) st.deck = deck0;
+    if (typeof st.pos !== 'object' || !st.pos) st.pos = {};
+    const keep = () => { try { localStorage.setItem('ae-mem', JSON.stringify(st)); } catch (e) {} };
+    const tops = IX.T.filter(t => FA.some(f => f.t === t.id));
+    let L = [], i = 0, tk = 0;
+    main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Formula memory cards</div>
+      <section class="hero mhero"><h1>🃏 Formula memory cards</h1><p>Front: the name — say the formula. Tap to turn: the formula as printed in your book. Swipe for the next; 📌 pin the hard ones.</p></section>
+      <div class="mdeck" role="group" aria-label="Deck"><button data-mdk="pin"></button><button data-mdk="all">All formulas</button>${IX.S.map(([k, n]) => `<button data-mdk="s${k}">${esc(n)}</button>`).join('')}</div>
+      <div class="mtools"><label class="mtsel"><span>Topic</span><select data-mt aria-label="One topic"><option value="">Any topic</option>${tops.map(t => `<option value="${t.id}">${esc(short(t))}</option>`).join('')}</select></label>
+        <label class="rdun"><input type="checkbox" data-msh> Shuffle</label><span class="tsz" role="group" aria-label="Text size"><button class="btn" data-tsz="-1" aria-label="Smaller text">A−</button><button class="btn" data-tsz="1" aria-label="Larger text">A+</button></span></div>
+      <div id="mbox"><div class="mcount"><b class="mdn"></b><span class="mpos"></span></div><div class="mprog"><i></i></div>
+        <div class="mstage"><article class="mcard" tabindex="0" aria-label="Formula card: tap to turn over"><div class="mface mf"></div><div class="mface mb"></div></article></div>
+        <div class="mnav"><button class="btn" data-swb="prev" data-n="Previous card" aria-label="Previous card">←</button><button class="btn go" data-mflip>Show the formula</button><button class="btn" data-swb="next" data-n="Next card" aria-label="Next card">→</button></div>
+        <div class="macts"><button class="btn mpin" data-mpin aria-pressed="false">📌 Pin</button><a class="btn mtop" href="#home">Open the topic</a></div></div>
+      <p class="pg mempty" hidden></p>`;
+    const box = $('#mbox', main), card = $('.mcard', main), empty = $('.mempty', main);
+    const build = () => {
+      L = memList(st.deck);
+      if (st.sh) { const h = id => { let x = st.seed >>> 0; for (const c of id) x = Math.imul(x ^ c.charCodeAt(0), 2654435761) >>> 0; return x; }; L.sort((a, b) => h(a.id) - h(b.id)); }
+      i = Math.min(Math.max(0, st.pos[st.deck] | 0), Math.max(0, L.length - 1));
+      $$('[data-mdk]', main).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mdk === st.deck)));
+      $('[data-mdk="pin"]', main).textContent = `📌 Pinned (${Object.keys(P.pin).filter(k => FBY[k]).length})`;
+      $('[data-mt]', main).value = st.deck[0] === 't' ? st.deck.slice(1) : ''; $('[data-msh]', main).checked = !!st.sh;
+    };
+    const paint = () => {
+      box.hidden = !L.length; empty.hidden = !!L.length;
+      if (!L.length) { empty.textContent = st.deck === 'pin' ? 'No pinned formulas yet — open any deck and tap 📌 Pin on a card you want to keep; it will wait for you here.' : 'No formulas in this deck.'; return; }
+      const f = L[i], t = T(f.t), my = ++tk;
+      card.classList.remove('flip'); card.style.setProperty('--c', SC[t.s]);
+      $('.mf', card).innerHTML = `<span class="mk">${esc(short(t))}</span><h2>${esc(memName(f))}</h2><p class="msrc">${esc(f.src)}</p><p class="mtip">Say it to yourself — then tap to check</p>`;
+      $('.mb', card).innerHTML = `<span class="mk">${esc(memName(f))}</span><p class="loading">…</p>`;
+      if (f.id[0] === 'k' && !/—/.test(f.nm)) topic(f.t).then(D => { if (my !== tk) return; const e = D.ch.keys.find(x => String(x.n) === f.id.split('.')[1]), w = e && (e.fields || []).find(x => /what it means/i.test(x[0]));
+        $('.mf h2', card).textContent = 'Key formula · ' + short(t); if (w) $('.mf .msrc', card).insertAdjacentHTML('beforebegin', `<p class="mwhat">${w[1]}</p>`); }).catch(() => {});
+      memBack(f).then(h => { if (my !== tk) return; $('.mb', card).innerHTML = `<span class="mk">${esc(memName(f))}</span>${h}`; lazy(card); });
+      $('.mdn', box).textContent = memDeckName(st.deck); $('.mpos', box).textContent = `${i + 1} / ${L.length}`;
+      $('.mprog i', box).style.width = ((i + 1) / L.length * 100) + '%';
+      $('[data-swb="prev"]', box).disabled = i === 0; $('[data-swb="next"]', box).disabled = i >= L.length - 1;
+      $('[data-mflip]', box).textContent = 'Show the formula';
+      const on = !!P.pin[f.id], pb = $('[data-mpin]', box); pb.classList.toggle('on', on); pb.setAttribute('aria-pressed', String(on)); pb.textContent = on ? '📌 Pinned' : '📌 Pin';
+      $('.mtop', box).href = `#t-${f.t}`; st.pos[st.deck] = i; keep();
+    };
+    const turn = () => { const on = card.classList.toggle('flip'); $('[data-mflip]', box).textContent = on ? 'Show the name' : 'Show the formula'; };
+    main.onclick = e => {
+      const d = e.target.closest('[data-mdk]'); if (d) { st.deck = d.dataset.mdk; keep(); build(); paint(); return; }
+      if (e.target.closest('[data-swb="next"]')) { if (i < L.length - 1) { i++; paint(); } return; }
+      if (e.target.closest('[data-swb="prev"]')) { if (i > 0) { i--; paint(); } return; }
+      if (e.target.closest('[data-mflip]') || (e.target.closest('.mcard') && !e.target.closest('a, button, .fpl, .sp'))) { turn(); return; }
+      if (e.target.closest('[data-mpin]')) { const f = L[i], on = !P.pin[f.id]; if (on) P.pin[f.id] = Math.round(Date.now() / 60000); else delete P.pin[f.id]; changed();
+        toast(on ? 'Pinned — find it in 📌 Pinned' : 'Unpinned'); if (st.deck === 'pin' && !on) { build(); paint(); } else { paint(); $('[data-mdk="pin"]', main).textContent = `📌 Pinned (${Object.keys(P.pin).filter(k => FBY[k]).length})`; } }
+    };
+    main.onchange = e => {
+      if (e.target.matches('[data-mt]')) { st.deck = e.target.value ? 't' + e.target.value : 'all'; keep(); build(); paint(); }
+      if (e.target.matches('[data-msh]')) { st.sh = e.target.checked; if (st.sh) st.seed = (Math.random() * 1e9) | 0; st.pos[st.deck] = 0; keep(); build(); paint(); }
+    };
+    card.onkeydown = e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); turn(); } };
+    build(); paint(); toTop();
+  }
+  addEventListener('keydown', e => { if (!$('#mbox', main) || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    const b = e.key === 'ArrowRight' ? $('[data-swb="next"]', main) : e.key === 'ArrowLeft' ? $('[data-swb="prev"]', main) : null; if (b && !b.disabled) { e.preventDefault(); b.click(); } });
   // the progress console tile
   function labTile() {
     const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
@@ -475,7 +559,7 @@
 
   /* ---------- progress store ---------- */
   const KEY = 'tneb-ae-progress-v1';
-  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {}, lp: {}, mt: {}, lab: { x: {}, d: {}, f: {} }, rd: {}, rdl: null });
+  const EMPTY = () => ({ v: 1, t: 0, q: {}, f: {}, seen: {}, mocks: [], star: {}, day: null, days: null, sr: {}, lp: {}, mt: {}, lab: { x: {}, d: {}, f: {} }, rd: {}, rdl: null, pin: {} });
   let P = EMPTY(), where = 'browser', ref = null, saving = false, again = false, timer = 0, SV = 0, STC = null;
   try { const s = localStorage.getItem(KEY); if (s) P = { ...EMPTY(), ...JSON.parse(s) }; } catch (e) {}
   const keepLocal = () => { try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} };
@@ -484,12 +568,13 @@
   const dayStart = () => Math.round(new Date().setHours(0, 0, 0, 0) / 60000);
   // before the day log existed only each question's last answer was kept: seed the log from those, once.
   // Never let an odd saved record stop the app: anything unreadable is simply started afresh.
-  const fixP = () => { try { fixP0(); } catch (e) { for (const k of ['star', 'sr', 'lp', 'mt', 'days', 'rd']) if (!P[k] || typeof P[k] !== 'object') P[k] = {}; if (!P.lab || typeof P.lab !== 'object' || !P.lab.x || !P.lab.d || !P.lab.f) P.lab = { x: {}, d: {}, f: {} }; } };
+  const fixP = () => { try { fixP0(); } catch (e) { for (const k of ['star', 'sr', 'lp', 'mt', 'days', 'rd', 'pin']) if (!P[k] || typeof P[k] !== 'object') P[k] = {}; if (!P.lab || typeof P.lab !== 'object' || !P.lab.x || !P.lab.d || !P.lab.f) P.lab = { x: {}, d: {}, f: {} }; } };
   const fixP0 = () => {
     P.star = P.star && typeof P.star === 'object' ? P.star : {};
     P.sr = P.sr && typeof P.sr === 'object' ? P.sr : {};
     P.lp = P.lp && typeof P.lp === 'object' ? P.lp : {}; P.mt = P.mt && typeof P.mt === 'object' ? P.mt : {};
     P.rd = P.rd && typeof P.rd === 'object' && !Array.isArray(P.rd) ? P.rd : {}; if (typeof P.rdl !== 'string') P.rdl = null;
+    P.pin = P.pin && typeof P.pin === 'object' && !Array.isArray(P.pin) ? P.pin : {};
     const LB = P.lab && typeof P.lab === 'object' ? P.lab : {}, ob = o => o && typeof o === 'object' && !Array.isArray(o) ? o : {};
     P.lab = { x: ob(LB.x), d: ob(LB.d), f: ob(LB.f) }; for (const k in P.lab.x) if (!P.lab.x[k] || typeof P.lab.x[k] !== 'object') delete P.lab.x[k];
     if (!P.days || typeof P.days !== 'object') { P.days = {}; for (const m of [P.q, P.f]) for (const id in m) { const e = m[id]; if (!e[3]) continue; const k = dayOf(e[3] * 60000), d = P.days[k] || (P.days[k] = [0, 0]); d[0]++; if (e[2]) d[1]++; } }
@@ -580,7 +665,7 @@
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const TP = topicProgress();
-    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#read">📖 Theory to read</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
+    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#read">📖 Theory to read</a><a href="#mem">🃏 Formula memory cards</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
       IX.S.map(([k, n]) => { const ts = (g[k] || []).map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / Math.max(1, ts.length) * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null;
         return `<details class="sg" data-s="${k}"><summary style="--c:${SC[k]}"><h4><i></i>${esc(n)}</h4><span class="sgp"><span class="bar" style="--col:${SC[k]}"><i style="width:${cov}%"></i></span><small>${cov} % covered${acc != null ? ` · ${acc} % right` : ''}</small></span></summary>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('') + '</details>'; }).join('');
     $('#sidex').onclick = () => drawer(false);
@@ -867,7 +952,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261105010945';
+  const SWV = 'ae-20261105011622';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -942,6 +1027,8 @@
     }
     const mb = M && $(`[data-m="${dir > 0 ? 'next' : 'prev'}"]`, main);
     if (mb) return mb.disabled ? null : { n: dir > 0 ? (M.i + 1 < M.qs.length ? 'Next question' : 'Save answer') : 'Previous question', go: () => { mb.click(); swAnim(main, dir); } };
+    const sbb = $(`[data-swb="${dir > 0 ? 'next' : 'prev'}"]`, main);
+    if (sbb) return sbb.disabled ? null : { n: sbb.dataset.n, go: () => { sbb.click(); swAnim($('.mstage', main) || main, dir); } };
     const sl = $(`[data-sw="${dir > 0 ? 'next' : 'prev'}"]`, main);
     if (sl) return { n: sl.dataset.n || sl.textContent.trim(), go: () => { location.hash = sl.getAttribute('href'); } };
     const ml = dir > 0 && $('[data-ml="next"]', main);
@@ -1014,6 +1101,7 @@
       const pem = h.match(/^pe(?:-([a-z0-9-]+))?$/); if (pem) return await viewPE(pem[1] || '', tok);
       const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
+      const mem = h.match(/^mem(?:-([a-z0-9]+))?$/); if (mem) return await viewMem(mem[1] || '', tok);
       const rdm = h.match(/^read(?:-(\d+))?$/); if (rdm) return await viewRead(rdm[1] || '', tok);
       if (a === 'practice') return await viewPractice(tok);
       if (a === 'qbook') return await viewQbook(tok);
@@ -1201,7 +1289,7 @@
             ${k.fields.map(([h, x, c]) => `<div class="kb" style="background:${c}"><h4>${h}</h4>${/^One-minute/.test(plain(h)) ? oneMin(x) : x}</div>`).join('')}</div>
             ${k.tables.map(tb => table(tb, 'qv')).join('')}${k.notes.map(n => /^⚠/.test(plain(n)) ? `<p class="trap">${n.replace(/^\s*⚠\s*(Trap:)?/, '<b>⚠ Trap:</b>')}</p>` : `<p class="knote">${n}</p>`).join('')}<span class="pg">${vn} · p ${k.pg}</span>`, '', 'Key formula ' + s.n);
         }
-        else if (s.kind === 'learn') sec('learn', sid, s.n, title, cls, `<p class="lead">All ${ch.formulas.length} formulas of this chapter, exactly as printed, each with its letters, a tip and the past papers that asked it.</p>` +
+        else if (s.kind === 'learn') sec('learn', sid, s.n, title, cls, `<p class="lead">All ${ch.formulas.length} formulas of this chapter, exactly as printed, each with its letters, a tip and the past papers that asked it.</p><p><a class="btn" href="#mem-t${id}">🃏 Learn these as swipe cards</a></p>` +
           ch.formulas.map(f => `<div class="lf" data-s="${esc(f.name + ' ' + plain(f.f.join(' ')) + ' ' + plain(f.notes.join(' ')))}"><div class="box l"><h3>${starBtn(`f${id}.${f.n}`, 'formula')}${f.n}. <b>${esc(f.name)}</b></h3>${fpic(f.sp, D, f.fl, f.name)}</div><div class="r" style="background:${f.nfill}">${f.notes.map(n => `<p>${lab(n)}</p>`).join('')}<p class="pg">${vn} · p ${f.pg}</p></div></div>`).join(''), `${ch.formulas.length} formulas`, 'Formulas');
         else if (s.kind === 'also') sec('learn', sid, s.n, title, cls, ch.also.map(r => `<div class="au" data-s="${esc(plain(r.t + ' ' + r.m))}"><div class="box t">${r.t}</div><span class="m">${r.m}</span></div>`).join(''), '', 'Also used');
         else if (s.kind === 'words') sec('learn', sid, s.n, title, cls, `<div class="kw">${ch.terms.map(w => `<div class="box" data-s="${esc(plain(w.term + ' ' + w.mean))}"><b>${w.term}</b><span>${w.mean}</span></div>`).join('')}</div>`, `${ch.terms.length} terms`, 'Key words');
