@@ -778,7 +778,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261101093542';
+  const SWV = 'ae-20261105000437';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -1940,14 +1940,52 @@
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › <a href="#ref">Look-up shelf</a> › ${esc(g.n)}</div>
       <section class="hero shelfh" style="--c:${shc(g.id)}"><h1><span class="shi">${g.ic}</span> ${esc(g.n)}</h1><p>${esc(g.d)}</p><p class="pg">${volOf(g)} · p ${g.p[0][0]}${g.p.length > 1 ? '–' + g.p[g.p.length - 1][0] : ''} · ${RH ? 'the book’s words, set for easy reading: one card per row, tables as cards on a phone, pictures cut out large (tap to zoom). “🖼 As printed” shows the page itself.' : 'exactly as printed — tap a page to zoom.'}</p>
       ${g.p.length > 3 ? `<nav class="pgchips" aria-label="Pages">${g.p.map(([p]) => `<a href="#ref-${g.id}-${p}">p ${p}</a>`).join('')}</nav>` : ''}</section>
-      <div class="pages refpages" style="--c:${shc(g.id)}">${g.p.map(e => readPage(g, e, RH && RH[e[0]])).join('')}</div>
+      ${RH && RH.tree ? `<div class="pages refpages" style="--c:${shc(g.id)}">${g.p.filter(e => e[0] < 7).map(e => readPage(g, e, RH[e[0]])).join('')}</div>${solveTree(RH.tree)}
+        <details class="stprint"><summary>The printed tree pages (p 7–22), as set for reading</summary><div class="pages refpages" style="--c:${shc(g.id)}">${g.p.filter(e => e[0] >= 7 && e[0] <= 22).map(e => readPage(g, e, RH[e[0]])).join('')}</div></details>
+        <div class="pages refpages" style="--c:${shc(g.id)}">${g.p.filter(e => e[0] > 22).map(e => readPage(g, e, RH[e[0]])).join('')}</div>`
+        : `<div class="pages refpages" style="--c:${shc(g.id)}">${g.p.map(e => readPage(g, e, RH && RH[e[0]])).join('')}</div>`}
       <div class="pn">${prev ? `<a href="#ref-${prev.id}"><small>← Previous shelf</small><b>${esc(prev.n)}</b></a>` : '<a href="#ref"><small>←</small><b>Look-up shelf</b></a>'}${nxt ? `<a href="#ref-${nxt.id}"><small>Next shelf →</small><b>${esc(nxt.n)}</b></a>` : ''}</div>`;
-    lazy();
+    lazy(); if (RH && RH.tree) wireTree();
     const el = page && document.getElementById('rp' + page);
     if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }));
       // text above the page can still reflow while web fonts load: settle once more unless the reader has scrolled
       let y0; setTimeout(() => { if (el.isConnected) { el.scrollIntoView({ block: 'start' }); y0 = scrollY; } }, 350);
       setTimeout(() => { if (el.isConnected && scrollY === y0) el.scrollIntoView({ block: 'start' }); }, 1200); } else toTop();
+  }
+  /* ---------- "How to solve any sum": the four trees as one outline (data: refh/flow.json "tree", from flow_tree.py) ----------
+     tree → branch → sub-topic; each sub-topic opens into a step flow: the book's clauses one under another, and inside a
+     clause every "→" drawn as an arrow between boxes. Words exactly as printed. */
+  const TREEC = ['#4f46e5', '#0e7490', '#c2410c', '#15803d', '#be185d', '#7c3aed', '#b45309', '#1d4ed8', '#0f766e', '#a21caf', '#9a3412', '#4d7c0f', '#b91c1c', '#0369a1'];
+  const TREET = { D: '#4f46e5', E: '#0e7490', F: '#b45309', G: '#be185d' };
+  function stepHtml(c) {
+    const lab = c.match(/^([^:=→<]{1,34}):\s+([\s\S]*)$/);   // "Lagrange: f′(c) = …" → a label, then the step
+    const body = lab ? lab[2] : c, parts = body.split(/\s*→\s*/).filter(x => x.trim() !== '');
+    return `<li class="stp">${lab ? `<span class="stl">${lab[1]}</span>` : ''}${parts.length > 1 ? `<span class="stch">${parts.map((x, k) => `<span class="stn${k === parts.length - 1 ? ' end' : ''}">${x}</span>`).join('<i class="sta" aria-label="leads to">→</i>')}</span>` : `<span class="stn solo">${body}</span>`}</li>`;
+  }
+  function solveTree(T) {
+    let bi = 0;
+    const leaf = (l, col) => `<details class="stl0" data-s="${esc(l.n + ' ' + plain(l.c.join(' ')) + ' ' + l.sb.join(' '))}"><summary><span class="stt">${l.nh}</span>${l.r ? '<span class="strc">recall</span>' : ''}${l.x ? `<span class="stx" title="past questions on this">×${l.x}</span>` : ''}</summary>
+        <div class="stfl" style="--b:${col}"><ol class="sts">${l.c.map(stepHtml).join('')}</ol>${l.sb.length ? `<p class="stsb"><b>Study Book:</b> ${l.sb.map(x => `<span>${esc(x)}</span>`).join('')}</p>` : ''}<p class="pg">Question Book p ${l.pg}${l.x ? ` · ${l.x} past question${l.x > 1 ? 's' : ''}` : ''}</p></div></details>`;
+    const branch = b => { const col = TREEC[bi++ % TREEC.length]; let g0 = null, inner = '';
+      b.l.forEach(l => { if (l.g && l.g !== g0) { g0 = l.g; inner += `<h4 class="stg">${esc(l.g)}</h4>`; } inner += leaf(l, col); });
+      return `<details class="stb" style="--b:${col}"><summary><span class="stbn">${esc(b.n)}</span>${b.q ? `<span class="stq">${esc(b.q)}</span>` : ''}<span class="stc">${b.l.length} sub-topics</span></summary>
+        ${b.sig ? `<p class="stsig">${b.sig.replace(/^signal:\s*/, '<b>Words in the question:</b> ')}</p>` : ''}<div class="stls">${inner}</div></details>`; };
+    return `<section class="stree" aria-label="The four trees"><div class="sttop"><h2>The four trees — find your branch</h2>
+      <p>Pick the tree, then the branch that matches the question, then the sub-topic: it opens into its steps, in order. Words exactly as printed in your Question Book (p 7–22).</p>
+      <div class="acts"><button class="btn" data-st="open">Expand all</button><button class="btn" data-st="close">Collapse all</button></div>${filterBox('Find a sub-topic: e.g. resonance, Laplace, rms')}</div>
+      ${T.map(t => { const k = t.t[0], col = TREET[k] || '#4f46e5';
+        return `<details class="stt0" open style="--t:${col}"><summary><span class="stk">${k}</span><span class="sttn">${esc(t.t.replace(/^[A-Z] · /, ''))}</span><span class="stc">${t.b.length} branches · ${t.b.reduce((a, b) => a + b.l.length, 0)} sub-topics</span></summary>
+          ${t.ask ? `<p class="stask">${t.ask}</p>` : ''}${t.b.map(branch).join('')}${t.note ? `<p class="stnote">${t.note}</p>` : ''}</details>`; }).join('')}</section>`;
+  }
+  function wireTree() {
+    const box = $('.stree', main); if (!box) return;
+    box.addEventListener('click', e => { const b = e.target.closest('[data-st]'); if (!b) return; const op = b.dataset.st === 'open';
+      $$('details', box).forEach(d => { d.open = op || d.classList.contains('stt0'); }); });
+    const inp = $('.fbox input', box); if (!inp) return;
+    inp.oninput = () => { const W = words(inp.value);
+      $$('.stl0', box).forEach(el => { const h = !W.length || hitAll(norm(el.dataset.s), W); el.hidden = !h; el.open = W.length > 0 && h; });
+      $$('.stb', box).forEach(b => { const any = $$('.stl0', b).some(el => !el.hidden); b.hidden = !any; b.open = W.length > 0 && any;
+        $$('.stg', b).forEach(g => { let n = g.nextElementSibling, v = false; while (n && !n.classList.contains('stg')) { if (!n.hidden) v = true; n = n.nextElementSibling; } g.hidden = !v; }); }); };
   }
   function filterBox(ph) { return `<label class="fbox"><span>🔎</span><input type="search" placeholder="${esc(ph)}" aria-label="${esc(ph)}"></label>`; }
   function wireFilter(sel) {

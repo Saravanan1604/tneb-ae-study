@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="theme.js?v=ae-20261101093542"></script>
+<script src="theme.js?v=ae-20261105000437"></script>
 <title>TNEB AE Study Site</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1219,6 +1219,54 @@ details.rv>div{padding:0 12px 12px;display:grid;gap:8px}
 .lxck li.no span::first-letter{color:var(--lxr)}
 .lxck li small{color:var(--lx-ink2)}
 
+/* the four solve-trees on "How to solve any sum" (#ref-flow): tree → branch → sub-topic, each a step flow */
+.stree{margin:14px 0}
+.sttop{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin-bottom:12px}
+.sttop h2{margin:0 0 4px;font-size:20px;color:var(--navy)}
+.sttop p{margin:0 0 10px;color:var(--ink-2);font-size:14.5px;line-height:1.5}
+.sttop .fbox{margin-top:8px}
+.stree summary{list-style:none;cursor:pointer}
+.stree summary::-webkit-details-marker{display:none}
+.stt0{border-radius:18px;margin:14px 0;background:color-mix(in srgb,var(--t) 6%,var(--paper));border:1.5px solid color-mix(in srgb,var(--t) 30%,var(--line));overflow:hidden}
+.stt0>summary{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--t);color:#fff;font-weight:800;font-size:18px}
+.stk{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:10px;background:rgba(255,255,255,.22);font-size:16px}
+.sttn{line-height:1.25}
+.stc{margin-left:auto;font-size:12px;font-weight:700;opacity:.9;white-space:nowrap}
+.stask{margin:10px 12px;padding:10px 12px;border-radius:12px;background:#1b2a4a;color:#fff;font-size:15px;line-height:1.5}
+.stb{margin:9px 10px;border-radius:14px;background:var(--paper);border:1px solid color-mix(in srgb,var(--b) 25%,var(--line));border-left:6px solid var(--b);box-shadow:0 1px 4px rgba(40,30,90,.07)}
+.stb>summary{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px 12px;font-size:17px;font-weight:800;color:var(--b)}
+.stb>summary .stc{color:var(--ink-2);opacity:1}
+.stq{font-size:12px;font-weight:800;color:#fff;background:var(--b);border-radius:999px;padding:2px 9px}
+.stsig{margin:0 12px 8px;font-size:13.5px;line-height:1.5;color:var(--ink-2)}
+.stsig b{color:var(--b)}
+.stls{padding:0 10px 10px}
+.stg{margin:14px 2px 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--b)}
+.stl0{border-radius:12px;margin:7px 0;background:color-mix(in srgb,var(--b) 7%,var(--paper));border:1px solid color-mix(in srgb,var(--b) 22%,var(--line))}
+.stl0>summary{display:flex;align-items:center;gap:8px;padding:11px 12px;font-size:16px;font-weight:700;color:var(--navy)}
+.stl0[open]>summary{border-bottom:1px dashed color-mix(in srgb,var(--b) 30%,transparent)}
+.stt{flex:1;line-height:1.35}
+.stx{flex:none;font-size:12px;font-weight:800;color:#fff;background:var(--b);border-radius:999px;padding:1px 8px}
+.strc{flex:none;font-size:11px;font-weight:800;color:#8a5a00;background:#fff1c2;border-radius:999px;padding:1px 8px}
+.stb>summary::before,.stl0>summary::before{content:'';flex:none;width:8px;height:8px;margin:0 4px 0 2px;border-right:2.5px solid currentColor;border-bottom:2.5px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+.stb[open]>summary::before,.stl0[open]>summary::before{transform:rotate(45deg)}
+.stl0>summary::before{color:var(--b)}
+.stfl{padding:12px 12px 12px 14px}
+.sts{list-style:none;margin:0;padding:0 0 0 18px;border-left:3px solid color-mix(in srgb,var(--b) 40%,transparent);display:grid;gap:12px;counter-reset:st}
+.stp{position:relative;font-size:16px;line-height:1.6;color:var(--ink);overflow-wrap:anywhere;counter-increment:st}
+.stp::before{content:counter(st);position:absolute;left:-31px;top:.1em;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--b);color:#fff;font-size:12px;font-weight:800;box-shadow:0 0 0 3px var(--paper)}
+.stl{display:inline-block;font-size:13px;font-weight:800;color:var(--b);margin-right:6px}
+.stch{display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px 6px}
+.stn{display:inline-block;padding:4px 10px;border-radius:10px;background:var(--paper);border:1px solid color-mix(in srgb,var(--b) 30%,var(--line))}
+.stn.end{background:color-mix(in srgb,var(--b) 14%,var(--paper));border-color:color-mix(in srgb,var(--b) 50%,transparent);font-weight:700}
+.stn.solo{border:0;background:none;padding:0}
+.sta{font-style:normal;font-weight:900;font-size:1.1em;color:var(--b)}
+.stsb{margin:12px 0 2px;font-size:13px;color:var(--ink-2);line-height:1.6}
+.stsb span{display:inline-block;margin:2px 4px 0 0;padding:1px 9px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--ink)}
+.stfl .pg{margin:6px 0 0}
+.stnote{margin:10px 12px 14px;padding:10px 12px;border-radius:12px;background:#fff7e6;border:1px solid #f0c36d;color:#1f2937;line-height:1.55}
+.stprint{margin:12px 0;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.stprint>summary{cursor:pointer;font-weight:700;color:var(--navy)}
+
 /* topic question lists show every question in book order: cards off screen are not laid out until they scroll near */
 #ulist > .box,#glist > .box,#qlist > .box{content-visibility:auto;contain-intrinsic-size:auto 480px}
 #qlist > .box{contain-intrinsic-size:auto 160px}
@@ -1482,7 +1530,7 @@ a.btn{gap:.35em}
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="lb" id="lb" hidden role="dialog" aria-label="Book picture, full size"><button class="btn" id="lbx">✕ Close</button><div class="lbi"></div></div>
 <div class="qz" id="qz" hidden role="dialog" aria-label="Practice"></div>
-<script src="app.js?v=ae-20261101093542"></script>
+<script src="app.js?v=ae-20261105000437"></script>
 
 </body>
 </html>
