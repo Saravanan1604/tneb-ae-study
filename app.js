@@ -333,6 +333,24 @@
       <div class="vcnav">${pv ? `<a class="btn" href="#cards-${pv.id}" data-sw="prev" data-n="${esc(pv.n)}">← ${esc(pv.n)}</a>` : '<a class="btn" href="#cards">← All cards</a>'}${nx ? `<a class="btn go" href="#cards-${nx.id}" data-sw="next" data-n="${esc(nx.n)}">${esc(nx.n)} →</a>` : '<a class="btn go" href="#cards">All cards</a>'}</div>`;
     window.VC.mount($('#vcbox'), id, { topicLink: vcTopic }); toTop();
   }
+  /* ---------- power electronics atlas (#pe, #pe-<tab>, #pe-<circuit>): drawn by sims/cards.js (window.PE) ---------- */
+  let PEU = null;
+  async function viewPE(rest, tok) {
+    setShell('cards'); main.innerHTML = '<p class="loading">Loading the power electronics atlas…</p>';
+    const [, U] = await Promise.all([loadCards(), PEU ? PEU : get('data/u/961.json').then(u => PEU = u).catch(() => null)]); if (tok !== RT) return;
+    const PE = window.PE, L = PE.list, c = L.find(x => x.id === rest), tn = T('961') ? esc(short(T('961'))) : 'Power Electronics';
+    const top = `<a href="#home">All topics</a> › <a href="#t-961">${tn}</a> › `;
+    if (c) {
+      const j = L.indexOf(c), pv = L[j - 1], nx = L[j + 1], nm = x => esc(plain(x.n)); document.title = `${plain(c.n)} · Power electronics atlas`;
+      main.innerHTML = `<div class="crumbs">${top}<a href="#pe">Atlas</a> › ${nm(c)}</div><div id="pebox"></div>
+        <div class="vcnav">${pv ? `<a class="btn" href="#pe-${pv.id}" data-sw="prev" data-n="${nm(pv)}">← ${nm(pv)}</a>` : '<a class="btn" href="#pe">← All circuits</a>'}${nx ? `<a class="btn go" href="#pe-${nx.id}" data-sw="next" data-n="${nm(nx)}">${nm(nx)} →</a>` : '<a class="btn go" href="#pe-compare">Inputs vs outputs →</a>'}</div>`;
+      PE.mount($('#pebox'), c.id, { asked: x => PE.askedFor(x, U) }); toTop(); return;
+    }
+    document.title = 'Power electronics atlas · TNEB AE Study Site';
+    main.innerHTML = `<div class="crumbs">${top}Power electronics atlas</div>
+      <section class="hero"><h1>⚡ Power electronics atlas</h1><p>${L.length} converters as live circuits — diagram, input and output waveforms, who conducts when, and every formula checked against its own waveform. Then: all formulas in one tree, waveform ↔ formula, the words that flip a sign, and how the past questions ask.</p></section><div id="pebox"></div>`;
+    PE.page($('#pebox'), rest || 'atlas', { U }); toTop();
+  }
   // the progress console tile
   function labTile() {
     const tt = labTotals(); if (!tt.started) return `<div class="dt lab"><span class="dl">⚡ Simulation lab</span><p class="pg">No experiments yet. <a href="#sims">Open the lab</a> — your experiments, time and lab questions will show here.</p></div>`;
@@ -491,7 +509,7 @@
   function sideHtml() {
     const g = {}; IX.T.forEach(t => (g[t.s] ||= []).push(t));
     const TP = topicProgress();
-    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
+    side.innerHTML = `<div class="sidetop"><b>AE Study</b><button class="sidex" id="sidex" aria-label="Close the menu">✕</button></div><div class="sideh"><a href="#home">🏠 All topics</a><a href="#progress">📊 My progress console</a><a href="#mock">⏱ Mock test</a><a href="#sims">⚡ Simulation Lab</a><a href="#ref">📚 Look-up shelf</a><a href="#cards">🖼 Visual cards</a><a href="#pe">⚡ Power electronics atlas</a><a href="#qbook">📘 Question Book (2,620)</a><a href="#practice">📝 Practice papers & drills</a><a href="#starred">⭐ My starred</a><a href="#today">📅 Today's 20</a></div>` +
       IX.S.map(([k, n]) => { const ts = (g[k] || []).map(t => TP[t.id]), cov = Math.round(ts.reduce((a, x) => a + x.cov, 0) / Math.max(1, ts.length) * 100), ac = ts.filter(x => x.acc != null), acc = ac.length ? Math.round(ac.reduce((a, x) => a + x.acc * x.a, 0) / ac.reduce((a, x) => a + x.a, 0) * 100) : null;
         return `<details class="sg" data-s="${k}"><summary style="--c:${SC[k]}"><h4><i></i>${esc(n)}</h4><span class="sgp"><span class="bar" style="--col:${SC[k]}"><i style="width:${cov}%"></i></span><small>${cov} % covered${acc != null ? ` · ${acc} % right` : ''}</small></span></summary>` + (g[k] || []).map(t => `<a href="#t-${t.id}" data-tid="${t.id}"><em></em><span>${esc(short(t))}</span></a>`).join('') + '</details>'; }).join('');
     $('#sidex').onclick = () => drawer(false);
@@ -778,7 +796,7 @@
   }
 
   /* ---------- offline: a service worker keeps every page you open; this saves everything at once ---------- */
-  const SWV = 'ae-20261105000437';
+  const SWV = 'ae-20261105005644';
   if (STANDALONE && 'serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   // the file list (data/files.json, written at every deploy): [path, bytes, hash, 'd' notes & questions | 'i' picture]
   const MB = n => n < 1e6 ? `${Math.max(1, Math.round(n / 1e3))} KB` : `${(n / 1e6).toFixed(n < 1e7 ? 1 : 0)} MB`;
@@ -831,7 +849,8 @@
   paintTheme();
 
   /* ---------- router ---------- */
-  let RT = 0, M = null, PENDQ = null, GOSEC = null;
+  let RT = 0, M = null, PENDQ = null, GOSEC = null, GOU = null;
+  addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[data-gou]'); if (a) GOU = a.dataset.gou; }, true);
   addEventListener('hashchange', () => { if (!lb.hidden) lbClose(); route(); });
 
   /* ---------- swipe left / right on touch screens: next or previous question, tab or page ----------
@@ -921,6 +940,7 @@
       const smm = h.match(/^sims-([a-z]+)$/); if (smm) return smm[1] === 'topics' ? await viewSims(tok) : await viewLab(tok, catOf(smm[1]) ? smm[1] : undefined);
       if (a === 'cards') return await viewCards(tok);
       const vcm = h.match(/^cards-([a-z0-9-]+)$/); if (vcm) return await viewCard(vcm[1], tok);
+      const pem = h.match(/^pe(?:-([a-z0-9-]+))?$/); if (pem) return await viewPE(pem[1] || '', tok);
       const tsm = h.match(/^sim-(\d+)(?:-(\d+))?(?:-([ecgux]))?$/); if (tsm && T(tsm[1])) return await viewTopicSim(tsm[1], +(tsm[2] || 0), tsm[3], tok);
       const lmm = h.match(/^lab-([a-z0-9-]+?)(?:-([ecgux]))?$/); if (lmm) { let id = lmm[1], tb = lmm[2]; if (!LXI[id] && LXI[h.slice(4)]) { id = h.slice(4); tb = undefined; } return await viewLabX(id, tb, tok); }
       if (a === 'practice') return await viewPractice(tok);
@@ -1093,7 +1113,10 @@
     const myF = FA.filter(f => f.t === id);
 
     /* Learn: concept in 60 seconds, then the chapter in the book's own order */
+    const peA = `<a class="simlink tsl" href="#pe"><i>⚡</i><span><b>Open the power electronics atlas →</b><small>every converter as a live circuit: waveforms, who conducts when, all formulas checked against the waveform, waveform ↔ formula, regenerative words, and how each past question asks</small></span></a>`;
+    if (id === '961') sec('learn', 'peatlas', '⚡', 'Power electronics atlas', 't-pur', peA, '', 'Atlas');
     sec('learn', 'c60', '⏱', 'Concept in 60 seconds', 't-yel', c60Html(D, ch, id, vn), '', 'Concept in 60 s');
+    if (id === '961') sec('sim', 'peatlas2', '⚡', 'Power electronics atlas', 't-pur', peA, '', 'Atlas');
     if (ch) {
       for (const s of ch.sections) {
         const cls = KINDCLS[s.kind] || 't-navy', sid = 's' + s.n, title = esc(s.title || KSHORT[s.kind] || '');
@@ -1359,6 +1382,8 @@
     if (GOSEC) { const el = document.getElementById(GOSEC); GOSEC = null; if (el) { requestAnimationFrame(() => el.scrollIntoView({ block: 'start' }));
       // the sections above can still grow (pictures, progress box): settle once more unless the reader has scrolled
       let y0; setTimeout(() => { if (el.isConnected) { el.scrollIntoView({ block: 'start' }); y0 = scrollY; } }, 400); setTimeout(() => { if (el.isConnected && scrollY === y0) el.scrollIntoView({ block: 'start' }); }, 1300); } }
+    if (GOU) { const el = main.querySelector(`[data-u="${GOU.replace(/[^\w.-]/g, '')}"]`); GOU = null;
+      if (el) { goCard(el); let y0; setTimeout(() => { if (el.isConnected) { el.scrollIntoView({ block: 'center' }); y0 = scrollY; } }, 450); setTimeout(() => { if (el.isConnected && scrollY === y0) el.scrollIntoView({ block: 'center' }); }, 1400); } }
     if (PENDQ) { const w = PENDQ; PENDQ = null; gsView = null; $('#q').value = w; $('#hsearch').classList.add('open'); q = w.toLowerCase().replace(/\s+/g, ' '); applySearch();
       const first = pane === 'prac' ? ($('#qbook') && nU ? $('#qbook') : $('.pane[data-pane="prac"] .sec:not(#mine)')) : null;
       if (first) requestAnimationFrame(() => first.scrollIntoView({ block: 'start' })); }
@@ -1922,7 +1947,7 @@
     const G = Object.fromEntries(R.g.map(g => [g.id, g])), sec = (t, ids, c) => `<section class="subj shelfsec" style="--c:${c}"><h2><i></i>${t}</h2><div class="tcards">${ids.map(id => G[id] ? shelfCard(G[id]) : (s => s ? `<a class="tc shelf" href="#ref-${s[0]}" style="--c:${shc(s[0])}"><h3><span class="shi">${s[1]}</span> ${esc(s[2])}</h3><p class="lnames">${esc(s[3])}</p></a>` : '')(SPECIAL.find(x => x[0] === id))).join('')}</div></section>`;
     main.innerHTML = `<div class="crumbs"><a href="#home">All topics</a> › Look-up shelf</div>
       <section class="hero"><h1>📚 Look-up shelf</h1><p>The look-up pages of your Complete Book (${R.g.reduce((a, g) => a + g.p.length, 0)} pages), set for easy reading on a phone — one card per row, every word as printed; the printed page is one tap away. The search box at the top also searches the text of every page here, every symbol and every A–Z formula.</p>
-      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#cards">🖼 Visual cards</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
+      <div class="acts"><a class="btn go" href="#ref-which">🧭 Which look-up do I open?</a><a class="btn" href="#cards">🖼 Visual cards</a><a class="btn" href="#pe">⚡ Power electronics atlas</a><a class="btn" href="#ref-sym">🔤 Symbols A–Z</a><a class="btn" href="#ref-az">📒 A–Z formula table</a></div></section>
       ${sec('🔤 Letters & formulas', ['which', 'sym', 'az', 'words', 'cards', 'keyvals'], '#2563eb')}
       ${sec('🔢 Numbers', ['magic', 'eeemagic', 'mathmagic', 'values', 'reck', 'lookalike', 'mental', 'units'], '#db2777')}
       ${sec('🖼 Pictures & shapes', ['visual', 'geometry', 'mensuration', 'aptitude', 'curves', 'colour', 'trees'], '#059669')}
