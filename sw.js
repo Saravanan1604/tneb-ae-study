@@ -3,7 +3,7 @@
    The cache name changes with every deploy. On an update, every saved file whose content is unchanged (same hash in
    data/files.json) is carried over to the new cache, so an offline save survives updates and only changed files are
    fetched again; pictures never mix old positions with new ones. */
-const V = 'ae-20261105012433';
+const V = 'ae-20261105053930';
 const SHELL = ['./', 'index.html', 'app.js', 'theme.js', 'manifest.json', 'icon-192.png', 'icon-512.png', 'data/index.json'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 const listOf = r => r ? r.clone().json().then(j => new Map(j.f.map(x => [x[0], x[2]]))).catch(() => null) : null;
